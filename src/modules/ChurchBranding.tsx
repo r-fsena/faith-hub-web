@@ -199,7 +199,7 @@ export default function ChurchBranding() {
 
   const getPwaUrl = () => {
     if (settings.custom_domain) return `https://${settings.custom_domain}`;
-    return `https://${settings.pwa_slug || 'app'}.faithhubs.com`;
+    return `https://app.faithhubs.com/${settings.pwa_slug || 'demonstracao'}`;
   };
 
   const getQrCodeApiUrl = () => {
@@ -723,16 +723,15 @@ export default function ChurchBranding() {
                 </label>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.90rem' }}>https://</span>
+                  <span style={{ fontWeight: 800, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>https://app.faithhubs.com/</span>
                   <input 
                     type="text" 
                     className="input-modern"
-                    style={{ maxWidth: '160px', fontWeight: 800, color: 'var(--accent-primary)', padding: '9px 12px' }}
+                    style={{ maxWidth: '220px', fontWeight: 800, color: 'var(--accent-primary)', padding: '9px 12px' }}
                     value={settings.pwa_slug} 
                     onChange={e => setSettings({ ...settings, pwa_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} 
-                    placeholder="sua-igreja"
+                    placeholder="demonstracao"
                   />
-                  <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.95rem' }}>.faithhubs.com</span>
 
                   <button 
                     type="button" 

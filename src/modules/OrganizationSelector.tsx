@@ -440,7 +440,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                             {org.name}
                           </h2>
                           <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                            app: <strong>{org.slug}.faithhubs.com</strong>
+                            app: <strong>app.faithhubs.com/{org.slug}</strong>
                           </span>
                         </div>
                       </div>
