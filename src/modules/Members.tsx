@@ -37,6 +37,9 @@ interface Member {
   baptismDate?: string;
   memberSince?: string;
   cellGroup?: string;
+  campus_id?: string;
+  campus_ids?: string[];
+  campusName?: string;
   cpf?: string;
 }
 
@@ -56,14 +59,21 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   
   // Invite State
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Membro', cellGroupId: '', campusId: '' });
+  const [inviteForm, setInviteForm] = useState({ 
+    name: '', 
+    email: '', 
+    role: 'Membro', 
+    cellGroupId: '', 
+    campusIds: ['campus_sede'] as string[]
+  });
   const [isInviting, setIsInviting] = useState(false);
   const [cellGroups, setCellGroups] = useState<{id: string, name: string}[]>([]);
-  const [campusesList, setCampusesList] = useState<{id: string, name: string}[]>([]);
+  const [campusesList, setCampusesList] = useState<{id: string, name: string, is_headquarters?: number}[]>([]);
   
   // Edit State
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
+  const [editCampusIds, setEditCampusIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetchMembers();
@@ -109,6 +119,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           joinedAt: m.created_at,
           baptismDate: m.baptism_date,
           cellGroup: m.cell_group_id,
+          campus_ids: Array.isArray(m.campus_ids) ? m.campus_ids : (m.campus_ids ? JSON.parse(m.campus_ids) : [m.campus_id || 'campus_sede']),
           campusName: m.campus_name
         })));
       }
@@ -125,37 +136,55 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const toggleDropdown = (e: React.MouseEvent, id: string) => {
+  const toggleDropdown = (e: React.MouseEvent, memberId: string) => {
     e.stopPropagation();
-    setActiveDropdownId(activeDropdownId === id ? null : id);
+    setActiveDropdownId(prev => prev === memberId ? null : memberId);
   };
 
-  // Filter Logic
-  const filteredMembers = members.filter(m => 
-    (filterRole === 'Todos' || m.role === filterRole) &&
-    (m.name?.toLowerCase().includes(searchTerm.toLowerCase()) || m.email?.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const getStatusBadge = (status: string) => {
-    switch(status) {
-      case 'Ativo': 
-      case 'ACTIVE': return <span className="status-badge excellent">Ativo</span>;
-      case 'Inativo': 
-      case 'INACTIVE': return <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Inativo</span>;
-      case 'Pendente': return <span className="status-badge pending">Pendente</span>;
-      default: return <span className="status-badge">{status}</span>;
-    }
-  };
-
-  // Actions Handlers
   const handleEditClick = (member: Member) => {
     setMemberToEdit(member);
+    const initialCampuses = member.campus_ids && member.campus_ids.length > 0 
+      ? member.campus_ids 
+      : (member.campus_id ? [member.campus_id] : ['campus_sede']);
+    setEditCampusIds(initialCampuses);
     setEditModalOpen(true);
+    setActiveDropdownId(null);
   };
 
-  const handleUpdateStatus = async (member: Member, newStatus: string) => {
+  const toggleInviteCampus = (cId: string) => {
+    setInviteForm(prev => {
+      if (cId === 'all') {
+        return { ...prev, campusIds: prev.campusIds.includes('all') ? ['campus_sede'] : ['all'] };
+      }
+      let updated = prev.campusIds.filter(id => id !== 'all');
+      if (updated.includes(cId)) {
+        updated = updated.filter(id => id !== cId);
+        if (updated.length === 0) updated = ['campus_sede'];
+      } else {
+        updated.push(cId);
+      }
+      return { ...prev, campusIds: updated };
+    });
+  };
+
+  const toggleEditCampus = (cId: string) => {
+    setEditCampusIds(prev => {
+      if (cId === 'all') {
+        return prev.includes('all') ? ['campus_sede'] : ['all'];
+      }
+      let updated = prev.filter(id => id !== 'all');
+      if (updated.includes(cId)) {
+        updated = updated.filter(id => id !== cId);
+        if (updated.length === 0) updated = ['campus_sede'];
+      } else {
+        updated.push(cId);
+      }
+      return updated;
+    });
+  };
+
+  const handleStatusChange = async (member: Member, action: 'enable' | 'disable') => {
     try {
-      const action = newStatus === 'Inativo' || newStatus === 'INACTIVE' ? 'disable' : 'enable';
       const response = await fetch(`${API_URL}/members/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -175,13 +204,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     if (!inviteForm.name || !inviteForm.email) return alert("Preencha os campos obrigatórios.");
     setIsInviting(true);
     try {
+      const selectedCampuses = inviteForm.campusIds.length > 0 ? inviteForm.campusIds : ['campus_sede'];
       const payload = {
         name: inviteForm.name,
         email: inviteForm.email,
         role: inviteForm.role,
         cellGroupId: inviteForm.cellGroupId || null,
         organization_id: selectedOrganization?.id || 'org_default',
-        campus_id: inviteForm.campusId || (selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede')
+        campus_id: selectedCampuses[0] || 'campus_sede',
+        campus_ids: selectedCampuses
       };
 
       const resp = await fetch(`${API_URL}/members/invite`, {
@@ -191,7 +222,13 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       });
       if (resp.ok) {
         setInviteModalOpen(false);
-        setInviteForm({ name: '', email: '', role: 'Membro', cellGroupId: '', campusId: '' });
+        setInviteForm({ 
+          name: '', 
+          email: '', 
+          role: 'Membro', 
+          cellGroupId: '', 
+          campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede'] 
+        });
         alert("Convite enviado com sucesso! O membro foi cadastrado no sistema.");
         fetchMembers();
       } else {
@@ -220,13 +257,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     e.preventDefault();
     if (!memberToEdit) return;
     const formData = new FormData(e.currentTarget);
+    const selectedCampuses = editCampusIds.length > 0 ? editCampusIds : ['campus_sede'];
     const payload = {
       name: formData.get('name'),
       cpf: formData.get('cpf'),
       baptismDate: formData.get('baptismDate') || null,
       role: formData.get('role'),
       cellGroupId: formData.get('cellGroup') || null,
-      campus_id: formData.get('campus_id') || null,
+      campus_id: selectedCampuses[0] || 'campus_sede',
+      campus_ids: selectedCampuses,
       phone: formData.get('phone') || null
     };
 
@@ -245,25 +284,52 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     } catch(e) { console.error(e) }
   };
 
+  const getStatusBadge = (status: string) => {
+    const s = status ? status.toUpperCase() : 'PENDENTE';
+    if (s === 'ATIVO' || s === 'ACTIVE') return <span className="status-badge good">Ativo</span>;
+    if (s === 'INATIVO' || s === 'INACTIVE') return <span className="status-badge bad">Inativo</span>;
+    return <span className="status-badge warn">Pendente</span>;
+  };
+
+  const filteredMembers = members.filter(m => {
+    const matchesSearch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (m.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = filterRole === 'Todos' || m.role === filterRole;
+    return matchesSearch && matchesRole;
+  });
+
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
       
       {/* Header */}
-      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', margin: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Gestão de Membros & Liderança</h1>
-          <p className="card-subtitle">Gerencie os acessos ao aplicativo móvel, batismos, cargos ministeriais e células.</p>
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.3px' }}>
+            Membros & Equipe Ministerial
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', margin: '4px 0 0 0' }}>
+            Gestão de membresia, líderes, credenciais e alocação em congregações.
+          </p>
         </div>
-        <button className="btn-primary" onClick={() => setInviteModalOpen(true)}>
-          <UserPlusIcon /> Convidar Membro
+        <button 
+          className="btn-primary" 
+          onClick={() => {
+            setInviteForm(prev => ({
+              ...prev,
+              campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede']
+            }));
+            setInviteModalOpen(true);
+          }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <UserPlusIcon /> Convidar Membro / Líder
         </button>
       </div>
 
-      {/* Filter / Search Bar */}
-      <div className="portal-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '280px' }}>
-          
-          <div className="search-pill" style={{ maxWidth: '380px' }}>
+      {/* Filter and Search Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '12px', flex: 1, maxWidth: '640px' }}>
+          <div className="search-pill" style={{ flex: 1 }}>
             <SearchIcon />
             <input 
               type="text" 
@@ -299,8 +365,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
               <tr>
                 <th>Membro</th>
                 <th>Cargo / Função</th>
-                <th>Vínculo de Célula</th>
-                <th>Status de Acesso</th>
+                <th>Unidades / Campi Autorizados</th>
+                <th>Célula</th>
+                <th>Status</th>
                 <th>Cadastro</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
@@ -308,100 +375,119 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     Carregando membros cadastrados...
                   </td>
                 </tr>
               ) : filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    Nenhum membro encontrado.
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    Nenhum membro encontrado nesta seleção.
                   </td>
                 </tr>
               ) : (
-                filteredMembers.map((member) => (
-                  <tr key={member.id}>
-                    <td>
-                      <div className="user-cell">
-                        <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
-                          {member.name ? member.name.charAt(0).toUpperCase() : 'M'}
+                filteredMembers.map((member) => {
+                  const isAllCampuses = member.campus_ids?.includes('all');
+                  return (
+                    <tr key={member.id}>
+                      <td>
+                        <div className="user-cell">
+                          <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
+                            {member.name ? member.name.charAt(0).toUpperCase() : 'M'}
+                          </div>
+                          <div>
+                            <div className="member-meta-title">{member.name}</div>
+                            <div className="member-meta-sub">{member.email}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="member-meta-title">{member.name}</div>
-                          <div className="member-meta-sub">{member.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--text-main)' }}>
-                        {member.role || 'Membro'}
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                        {cellGroups.find(c => c.id === member.cellGroup)?.name || 'Sem Célula'}
-                      </span>
-                    </td>
-                    <td>
-                      {getStatusBadge(member.status)}
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
-                        {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('pt-BR') : '-'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right', position: 'relative' }}>
-                      <button 
-                        className="action-circle-btn" 
-                        style={{ marginLeft: 'auto', width: 32, height: 32 }}
-                        onClick={(e) => toggleDropdown(e, member.id)}
-                      >
-                        <MoreVerticalIcon />
-                      </button>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--text-main)' }}>
+                          {member.role || 'Membro'}
+                        </span>
+                      </td>
+                      <td>
+                        {isAllCampuses ? (
+                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                            🌐 Todas as Unidades
+                          </span>
+                        ) : (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {(member.campus_ids && member.campus_ids.length > 0 ? member.campus_ids : [member.campus_id]).map(cId => {
+                              const foundCampus = campusesList.find(c => c.id === cId);
+                              const campusName = foundCampus ? foundCampus.name : (cId === 'campus_sede' ? 'Sede' : 'Local');
+                              return (
+                                <span key={cId} style={{ background: '#f1f5f9', color: 'var(--text-main)', border: '1px solid var(--panel-border)', padding: '2px 7px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 700 }}>
+                                  📍 {campusName}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          {cellGroups.find(c => c.id === member.cellGroup)?.name || 'Sem Célula'}
+                        </span>
+                      </td>
+                      <td>
+                        {getStatusBadge(member.status)}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
+                          {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('pt-BR') : '-'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right', position: 'relative' }}>
+                        <button 
+                          className="action-circle-btn" 
+                          style={{ marginLeft: 'auto', width: 32, height: 32 }}
+                          onClick={(e) => toggleDropdown(e, member.id)}
+                        >
+                          <MoreVerticalIcon />
+                        </button>
 
-                      {activeDropdownId === member.id && (
-                        <div style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '40px',
-                          background: '#ffffff',
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)',
-                          border: '1px solid var(--panel-border)',
-                          padding: '6px',
-                          zIndex: 50,
-                          minWidth: '180px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '2px'
-                        }}>
-                          <button 
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-main)', textAlign: 'left', fontWeight: 600 }}
-                            onClick={() => handleEditClick(member)}
-                          >
-                            <EditIcon /> Editar Cadastro
-                          </button>
-                          
-                          {(member.status === 'Ativo' || member.status === 'ACTIVE') ? (
+                        {activeDropdownId === member.id && (
+                          <div style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '40px',
+                            background: '#ffffff',
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)',
+                            border: '1px solid var(--panel-border)',
+                            padding: '6px',
+                            zIndex: 50,
+                            minWidth: '180px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
+                          }}>
                             <button 
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--danger)', textAlign: 'left', fontWeight: 600 }}
-                              onClick={() => handleUpdateStatus(member, 'INACTIVE')}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-main)', textAlign: 'left', fontWeight: 600 }}
+                              onClick={() => handleEditClick(member)}
                             >
-                              <BanIcon /> Desativar Acesso
+                              <EditIcon /> Editar Perfil & Unidades
                             </button>
-                          ) : (
                             <button 
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--success)', textAlign: 'left', fontWeight: 600 }}
-                              onClick={() => handleUpdateStatus(member, 'ACTIVE')}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'left', fontWeight: 600 }}
+                              onClick={() => handleSendResetPassword(member.email)}
                             >
-                              <CheckCircleIcon /> Reativar Acesso
+                              Redefinir Senha
                             </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                            <div style={{ borderTop: '1px solid var(--panel-border)', margin: '4px 0' }}></div>
+                            <button 
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: '#dc2626', textAlign: 'left', fontWeight: 600 }}
+                              onClick={() => handleStatusChange(member, member.status === 'ACTIVE' || member.status === 'Ativo' ? 'disable' : 'enable')}
+                            >
+                              <BanIcon /> {member.status === 'ACTIVE' || member.status === 'Ativo' ? 'Inativar Acesso' : 'Reativar Acesso'}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -409,20 +495,20 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       </div>
 
       {/* ========================================================
-          INVITE MODAL STUDIO (Horizontal 2-Column Format)
+          INVITE MODAL STUDIO (Com Múltipla Seleção de Unidades)
           ======================================================== */}
       {isInviteModalOpen && (
         <div className="modal-overlay animate-fade-in" onClick={() => setInviteModalOpen(false)}>
           <div className="modal-studio-container" style={{ maxWidth: 840 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
-                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
+                <div className="modal-studio-header-icon">
                   <UserPlusIcon />
                 </div>
                 <div>
-                  <h2 className="modal-studio-title">Convidar Novo Membro</h2>
+                  <h2 className="modal-studio-title">Convidar Membro ou Administrador</h2>
                   <p className="modal-studio-subtitle">
-                    A AWS enviará um e-mail com a senha temporária e acesso ao aplicativo mobile.
+                    Cadastre o usuário e selecione uma ou mais unidades que ele terá acesso.
                   </p>
                 </div>
               </div>
@@ -430,14 +516,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             </div>
 
             <div className="modal-studio-body">
-              <div className="modal-studio-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+              <div className="modal-studio-grid">
+                {/* Left Column: Identificação */}
                 <div className="modal-studio-column">
                   <div className="form-group-modern">
                     <label className="form-label-modern">Nome Completo *</label>
                     <input 
                       type="text" 
                       className="input-modern"
-                      placeholder="Ex: Maria dos Santos" 
+                      placeholder="Ex: Pr. João Victor" 
                       value={inviteForm.name} 
                       onChange={e => setInviteForm({...inviteForm, name: e.target.value})} 
                       required
@@ -445,28 +532,28 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                   </div>
 
                   <div className="form-group-modern">
-                    <label className="form-label-modern">E-mail Institucional / Pessoal *</label>
+                    <label className="form-label-modern">E-mail de Acesso *</label>
                     <input 
                       type="email" 
                       className="input-modern"
-                      placeholder="maria@exemplo.com" 
+                      placeholder="joao@igreja.com" 
                       value={inviteForm.email} 
                       onChange={e => setInviteForm({...inviteForm, email: e.target.value})} 
                       required
                     />
                   </div>
-                </div>
 
-                <div className="modal-studio-column">
                   <div className="form-group-modern">
-                    <label className="form-label-modern">Cargo / Função Ministerial</label>
+                    <label className="form-label-modern">Função / Cargo</label>
                     <select 
                       className="select-modern"
                       value={inviteForm.role} 
                       onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
                     >
-                      <option value="Membro">Membro comum</option>
-                      <option value="Líder de Célula">Líder de Célula</option>
+                      <option value="Membro">Membro Comum</option>
+                      <option value="Líder de Célula">Líder de Célula / GC</option>
+                      <option value="Pastor de Unidade">Pastor de Unidade / Filial</option>
+                      <option value="Pastor Regional">Pastor Regional / Multi-Campi</option>
                       <option value="Tesouraria">Tesouraria / Finanças</option>
                       <option value="ADMIN">Administrador Geral</option>
                     </select>
@@ -485,22 +572,98 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       ))}
                     </select>
                   </div>
+                </div>
 
-                  {campusesList.length > 0 && (
-                    <div className="form-group-modern">
-                      <label className="form-label-modern">Unidade / Campus</label>
-                      <select 
-                        className="select-modern"
-                        value={inviteForm.campusId || (selectedCampusId !== 'all' ? selectedCampusId : '')} 
-                        onChange={e => setInviteForm({...inviteForm, campusId: e.target.value})}
+                {/* Right Column: Seleção Múltipla de Unidades */}
+                <div className="modal-studio-column">
+                  <div className="form-group-modern">
+                    <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Unidades / Campi Autorizados *</span>
+                      <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                        {inviteForm.campusIds.includes('all') ? 'Todas as Unidades' : `${inviteForm.campusIds.length} selecionada(s)`}
+                      </span>
+                    </label>
+                    
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid var(--panel-border)',
+                      borderRadius: '10px',
+                      padding: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      maxHeight: '260px',
+                      overflowY: 'auto'
+                    }}>
+                      {/* Opção Todas as Unidades */}
+                      <div 
+                        onClick={() => toggleInviteCampus('all')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: inviteForm.campusIds.includes('all') ? 'var(--accent-primary-light)' : '#ffffff',
+                          border: inviteForm.campusIds.includes('all') ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                          cursor: 'pointer'
+                        }}
                       >
-                        <option value="">Campus Padrão / Sede</option>
-                        {campusesList.map(camp => (
-                          <option key={camp.id} value={camp.id}>{camp.name}</option>
-                        ))}
-                      </select>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1rem' }}>🌐</span>
+                          <div>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>Todas as Unidades</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Gestão Global / Pastor Regional</div>
+                          </div>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={inviteForm.campusIds.includes('all')} 
+                          onChange={() => {}} 
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      {/* Lista de Campi Cadastrados */}
+                      {campusesList.map(camp => {
+                        const isChecked = inviteForm.campusIds.includes('all') || inviteForm.campusIds.includes(camp.id);
+                        return (
+                          <div 
+                            key={camp.id}
+                            onClick={() => toggleInviteCampus(camp.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: isChecked ? 'var(--accent-primary-light)' : '#ffffff',
+                              border: isChecked ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1rem' }}>📍</span>
+                              <div>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                                  {camp.name} {Boolean(camp.is_headquarters) ? '⭐ (Sede)' : ''}
+                                </div>
+                              </div>
+                            </div>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked} 
+                              onChange={() => {}} 
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
+                    <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      Selecione uma ou mais congregações para liberar o acesso a este usuário.
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -516,20 +679,20 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       )}
 
       {/* ========================================================
-          EDIT MODAL STUDIO (Horizontal 2-Column Format)
+          EDIT MODAL STUDIO (Com Múltipla Seleção de Unidades)
           ======================================================== */}
       {isEditModalOpen && memberToEdit && (
         <div className="modal-overlay animate-fade-in" onClick={() => setEditModalOpen(false)}>
-          <form className="modal-studio-container" style={{ maxWidth: 920 }} onClick={(e) => e.stopPropagation()} onSubmit={submitEditProfile}>
+          <form className="modal-studio-container" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()} onSubmit={submitEditProfile}>
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
                   <EditIcon />
                 </div>
                 <div>
-                  <h2 className="modal-studio-title">Editar Perfil do Membro</h2>
+                  <h2 className="modal-studio-title">Editar Perfil & Unidades do Membro</h2>
                   <p className="modal-studio-subtitle">
-                    Atualize os dados ministeriais, telefone e vínculo de célula deste membro.
+                    Atualize os dados ministeriais, telefone e congregações vinculadas.
                   </p>
                 </div>
               </div>
@@ -561,10 +724,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <label className="form-label-modern">E-mail de Acesso (Cognito)</label>
                     <input type="email" className="input-modern" defaultValue={memberToEdit.email} disabled style={{ background: '#f1f5f9', cursor: 'not-allowed' }} />
                   </div>
-                </div>
 
-                {/* Right Column: Cargo & Vínculos */}
-                <div className="modal-studio-column">
                   <div className="form-group-modern">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <label className="form-label-modern" style={{ margin: 0 }}>Função / Cargo</label>
@@ -579,16 +739,16 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <select name="role" className="select-modern" defaultValue={memberToEdit.role}>
                       <option value="Membro">Membro comum</option>
                       <option value="Líder de Célula">Líder de Célula</option>
+                      <option value="Pastor de Unidade">Pastor de Unidade</option>
+                      <option value="Pastor Regional">Pastor Regional</option>
                       <option value="Tesouraria">Tesouraria/Finanças</option>
                       <option value="ADMIN">Administrador Geral</option>
                     </select>
                   </div>
+                </div>
 
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Data de Batismo</label>
-                    <input name="baptismDate" type="date" className="input-modern" defaultValue={memberToEdit.baptismDate ? memberToEdit.baptismDate.split('T')[0] : ''} />
-                  </div>
-
+                {/* Right Column: Vínculo de Célula & Múltiplas Unidades */}
+                <div className="modal-studio-column">
                   <div className="form-group-modern">
                     <label className="form-label-modern">Célula / Base Ministerial</label>
                     <select name="cellGroup" className="select-modern" defaultValue={memberToEdit.cellGroup || ''}>
@@ -599,17 +759,89 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     </select>
                   </div>
 
-                  {campusesList.length > 0 && (
-                    <div className="form-group-modern">
-                      <label className="form-label-modern">Unidade / Campus (Congregação)</label>
-                      <select name="campus_id" className="select-modern" defaultValue={(memberToEdit as any).campus_id || ''}>
-                        <option value="">Campus Principal / Sede</option>
-                        {campusesList.map(camp => (
-                          <option key={camp.id} value={camp.id}>{camp.name}</option>
-                        ))}
-                      </select>
+                  <div className="form-group-modern">
+                    <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Unidades / Campi Autorizados</span>
+                      <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                        {editCampusIds.includes('all') ? 'Todas as Unidades' : `${editCampusIds.length} selecionada(s)`}
+                      </span>
+                    </label>
+                    
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid var(--panel-border)',
+                      borderRadius: '10px',
+                      padding: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      maxHeight: '220px',
+                      overflowY: 'auto'
+                    }}>
+                      <div 
+                        onClick={() => toggleEditCampus('all')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: editCampusIds.includes('all') ? 'var(--accent-primary-light)' : '#ffffff',
+                          border: editCampusIds.includes('all') ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1rem' }}>🌐</span>
+                          <div>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>Todas as Unidades</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Gestão Global / Pastor Regional</div>
+                          </div>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={editCampusIds.includes('all')} 
+                          onChange={() => {}} 
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      {campusesList.map(camp => {
+                        const isChecked = editCampusIds.includes('all') || editCampusIds.includes(camp.id);
+                        return (
+                          <div 
+                            key={camp.id}
+                            onClick={() => toggleEditCampus(camp.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: isChecked ? 'var(--accent-primary-light)' : '#ffffff',
+                              border: isChecked ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1rem' }}>📍</span>
+                              <div>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                                  {camp.name} {Boolean(camp.is_headquarters) ? '⭐ (Sede)' : ''}
+                                </div>
+                              </div>
+                            </div>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked} 
+                              onChange={() => {}} 
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
                 </div>
 
               </div>
