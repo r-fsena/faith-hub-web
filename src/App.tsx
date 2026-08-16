@@ -371,6 +371,9 @@ function App() {
   const handleReturnToMasterHub = () => {
     setSelectedOrganization(null);
     localStorage.removeItem('faithhub_active_org');
+    document.documentElement.style.setProperty('--accent-primary', '#0f766e');
+    document.documentElement.style.setProperty('--accent-primary-gradient', 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)');
+    document.documentElement.style.setProperty('--accent-primary-light', '#f0fdfa');
   };
 
   const toggleSubmenu = (groupId: string) => {

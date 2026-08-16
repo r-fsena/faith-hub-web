@@ -69,6 +69,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   });
 
   useEffect(() => {
+    // Garante que o Portal Master use SEMPRE a identidade visual oficial da plataforma SaaS
+    document.documentElement.style.setProperty('--accent-primary', '#0f766e');
+    document.documentElement.style.setProperty('--accent-primary-gradient', 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)');
+    document.documentElement.style.setProperty('--accent-primary-light', '#f0fdfa');
     fetchOrganizations();
   }, []);
 
