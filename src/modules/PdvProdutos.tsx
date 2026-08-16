@@ -54,7 +54,12 @@ type Product = {
   status: 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 };
 
-export const PdvProdutos: React.FC = () => {
+interface PdvProdutosProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [groups, setGroups] = useState<ProductGroup[]>(DEFAULT_GROUPS);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL');
@@ -84,7 +89,7 @@ export const PdvProdutos: React.FC = () => {
   useEffect(() => {
     loadProducts();
     loadGroups();
-  }, []);
+  }, [selectedCampusId, selectedOrganization]);
 
   const sortGroupsWithInactiveAtBottom = (list: ProductGroup[]): ProductGroup[] => {
     const active = list.filter(g => g.active);
@@ -212,10 +217,12 @@ export const PdvProdutos: React.FC = () => {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/pdv/products`, { headers });
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/pdv/products?admin=true&organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.data || []);
+        setProducts(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (err) {
       console.error(err);
@@ -308,7 +315,9 @@ export const PdvProdutos: React.FC = () => {
       const payload = {
         ...formData,
         status: overrideStatus || formData.status,
-        price: Number(formData.price)
+        price: Number(formData.price),
+        organization_id: selectedOrganization?.id || 'org_default',
+        campus_id: selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede'
       };
 
       const res = await fetch(`${API_URL}/pdv/products`, {

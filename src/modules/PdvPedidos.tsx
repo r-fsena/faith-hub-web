@@ -22,7 +22,12 @@ type OrderData = {
   created_at: string;
 };
 
-export const PdvPedidos = () => {
+interface PdvPedidosProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
   const knownOrders = useRef<Set<string>>(new Set());
@@ -43,10 +48,12 @@ export const PdvPedidos = () => {
   const loadOrders = async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/pdv/orders`, { headers });
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/pdv/orders?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        const parsed: OrderData[] = data.map((o: any) => ({
+        const parsed: OrderData[] = (Array.isArray(data) ? data : []).map((o: any) => ({
           ...o,
           items_json: typeof o.items_json === 'string' ? JSON.parse(o.items_json) : o.items_json
         }));
@@ -80,7 +87,7 @@ export const PdvPedidos = () => {
       loadOrders();
     }, 10000); // Poll a cada 10 segundos
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedCampusId, selectedOrganization]);
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {

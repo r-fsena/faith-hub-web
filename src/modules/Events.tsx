@@ -32,7 +32,12 @@ type EventData = {
   lots?: any[];
 };
 
-export default function Events() {
+interface EventsProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export default function Events({ selectedCampusId = 'all', selectedOrganization }: EventsProps) {
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -70,7 +75,7 @@ export default function Events() {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [selectedCampusId, selectedOrganization]);
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
@@ -92,7 +97,9 @@ export default function Events() {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/events`, { headers });
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/events?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setEvents(data.data || []);
@@ -121,7 +128,12 @@ export default function Events() {
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
-      const payload = { ...formData, type: Number(formData.type) };
+      const payload = {
+        ...formData,
+        type: Number(formData.type),
+        organization_id: selectedOrganization?.id || 'org_default',
+        campus_id: selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede'
+      };
       
       const res = await fetch(`${API_URL}/events`, {
         method: 'POST',

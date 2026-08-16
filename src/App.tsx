@@ -1036,17 +1036,17 @@ function App() {
             )}
 
             {/* ==========================================
-                ACTIVE MODULE RENDERERS
+                ACTIVE MODULE RENDERERS (Multi-Campus Enabled)
                 ========================================== */}
             {activeTab === 'campuses' && <Campuses />}
-            {activeTab === 'membros' && <Members />}
+            {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'transmissoes' && <Broadcasts />}
-            {activeTab === 'celulas' && <CellGroups />}
+            {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'estudos' && <Studies />}
-            {activeTab === 'eventos' && <Events />}
+            {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'devocionais' && <Devotionals />}
-            {activeTab === 'pdv_produtos' && <PdvProdutos />}
-            {activeTab === 'pdv_pedidos' && <PdvPedidos />}
+            {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+            {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
             {activeTab === 'church_branding' && <ChurchBranding />}
 

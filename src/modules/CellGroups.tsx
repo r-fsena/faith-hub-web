@@ -30,7 +30,12 @@ type CellGroup = {
   pending_users?: {id: string, name: string, email: string, phone: string}[];
 };
 
-export default function CellGroups() {
+interface CellGroupsProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export default function CellGroups({ selectedCampusId = 'all', selectedOrganization }: CellGroupsProps) {
   const [groups, setGroups] = useState<CellGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -54,24 +59,30 @@ export default function CellGroups() {
 
   useEffect(() => {
     loadGroups();
-  }, []);
+  }, [selectedCampusId, selectedOrganization]);
 
   const getAuthHeaders = async () => {
-    const session = await fetchAuthSession();
-    return {
-      'Authorization': `Bearer ${session.tokens?.idToken?.toString()}`,
-      'Content-Type': 'application/json'
-    };
+    try {
+      const session = await fetchAuthSession();
+      return {
+        'Authorization': `Bearer ${session.tokens?.idToken?.toString()}`,
+        'Content-Type': 'application/json'
+      };
+    } catch {
+      return { 'Content-Type': 'application/json' };
+    }
   };
 
   const loadGroups = async () => {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/cell-groups`, { headers });
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/cell-groups?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setGroups(data);
+        setGroups(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error("Erro ao puxar células", err);
@@ -85,10 +96,16 @@ export default function CellGroups() {
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
+      const payload = {
+        ...formData,
+        organization_id: selectedOrganization?.id || 'org_default',
+        campus_id: selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede'
+      };
+
       const res = await fetch(`${API_URL}/cell-groups`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       if (res.ok) {

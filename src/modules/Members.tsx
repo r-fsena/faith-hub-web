@@ -40,7 +40,12 @@ interface Member {
   cpf?: string;
 }
 
-export default function Members() {
+interface MembersProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export default function Members({ selectedCampusId = 'all', selectedOrganization }: MembersProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [filterRole, setFilterRole] = useState('Todos');
@@ -51,9 +56,10 @@ export default function Members() {
   
   // Invite State
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Membro', cellGroupId: '' });
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Membro', cellGroupId: '', campusId: '' });
   const [isInviting, setIsInviting] = useState(false);
   const [cellGroups, setCellGroups] = useState<{id: string, name: string}[]>([]);
+  const [campusesList, setCampusesList] = useState<{id: string, name: string}[]>([]);
   
   // Edit State
   const [isEditModalOpen, setEditModalOpen] = useState(false);
@@ -62,11 +68,25 @@ export default function Members() {
   useEffect(() => {
     fetchMembers();
     fetchCellGroups();
-  }, []);
+    fetchCampuses();
+  }, [selectedCampusId, selectedOrganization]);
+
+  const fetchCampuses = async () => {
+    try {
+      const orgId = selectedOrganization?.id || 'org_default';
+      const response = await fetch(`${API_URL}/campuses?organization_id=${orgId}`);
+      if (response.ok) {
+        const json = await response.json();
+        setCampusesList(json.data || []);
+      }
+    } catch (e) {}
+  };
 
   const fetchCellGroups = async () => {
     try {
-      const response = await fetch(`${API_URL}/cell-groups`);
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const response = await fetch(`${API_URL}/cell-groups?organization_id=${orgId}${campusParam}`);
       if (response.ok) {
         const json = await response.json();
         setCellGroups(json);
@@ -79,14 +99,17 @@ export default function Members() {
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/members`);
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const response = await fetch(`${API_URL}/members?organization_id=${orgId}${campusParam}`);
       if (response.ok) {
         const json = await response.json();
         setMembers((json.data || []).map((m: any) => ({
           ...m,
           joinedAt: m.created_at,
           baptismDate: m.baptism_date,
-          cellGroup: m.cell_group_id
+          cellGroup: m.cell_group_id,
+          campusName: m.campus_name
         })));
       }
     } catch (e) {
@@ -152,14 +175,23 @@ export default function Members() {
     if (!inviteForm.name || !inviteForm.email) return alert("Preencha os campos obrigatórios.");
     setIsInviting(true);
     try {
+      const payload = {
+        name: inviteForm.name,
+        email: inviteForm.email,
+        role: inviteForm.role,
+        cellGroupId: inviteForm.cellGroupId || null,
+        organization_id: selectedOrganization?.id || 'org_default',
+        campus_id: inviteForm.campusId || (selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede')
+      };
+
       const resp = await fetch(`${API_URL}/members/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inviteForm)
+        body: JSON.stringify(payload)
       });
       if (resp.ok) {
         setInviteModalOpen(false);
-        setInviteForm({ name: '', email: '', role: 'Membro', cellGroupId: '' });
+        setInviteForm({ name: '', email: '', role: 'Membro', cellGroupId: '', campusId: '' });
         alert("Convite enviado com sucesso! O membro foi cadastrado no sistema.");
         fetchMembers();
       } else {
@@ -452,6 +484,22 @@ export default function Members() {
                       ))}
                     </select>
                   </div>
+
+                  {campusesList.length > 0 && (
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Unidade / Campus</label>
+                      <select 
+                        className="select-modern"
+                        value={inviteForm.campusId || (selectedCampusId !== 'all' ? selectedCampusId : '')} 
+                        onChange={e => setInviteForm({...inviteForm, campusId: e.target.value})}
+                      >
+                        <option value="">Campus Padrão / Sede</option>
+                        {campusesList.map(camp => (
+                          <option key={camp.id} value={camp.id}>{camp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
