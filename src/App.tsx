@@ -330,24 +330,24 @@ function App() {
             <img 
               src={churchSettings.logo_icon_url} 
               alt="Logo da Igreja" 
-              style={{ width: '42px', height: '42px', borderRadius: '12px', objectFit: 'cover', boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)' }}
+              style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover' }}
             />
           ) : (
-            <div className="brand-logo-icon">
+            <div className="sidebar-logo">
               <SparklesIcon />
             </div>
           )}
-          <div className="brand-meta">
-            <span className="brand-title">{churchSettings.church_name || 'Faith-Hub'}</span>
-            <span className="brand-subtitle">Portal Administrativo</span>
+          <div className="sidebar-brand">
+            <span className="sidebar-brand-title">{churchSettings.church_name || 'Faith-Hub'}</span>
+            <span className="sidebar-brand-badge">ADMIN</span>
           </div>
         </div>
 
         {/* Navigation Categories */}
-        <div className="nav-wrapper">
+        <div className="sidebar-nav">
           {navigationGroups.map((group, gIdx) => (
-            <div key={gIdx} className="nav-group-section">
-              <div className="nav-category-label">{group.category}</div>
+            <div key={gIdx}>
+              <div className="nav-category">{group.category}</div>
               
               {group.items.map((item) => {
                 const IconComponent = item.icon;
@@ -356,29 +356,26 @@ function App() {
 
                 if (item.hasSubmenu && item.subItems) {
                   return (
-                    <div key={item.id} className="nav-tree-item">
+                    <div key={item.id}>
                       <button
-                        className={`nav-button has-tree ${isItemActive ? 'group-active' : ''}`}
+                        className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
                         onClick={() => toggleSubmenu(item.id)}
                       >
-                        <div className="nav-btn-left">
+                        <div className="nav-item-left">
                           <IconComponent />
                           <span>{item.label}</span>
                         </div>
-                        <span className="tree-chevron">
-                          {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                        </span>
+                        {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
                       </button>
 
                       {isGroupOpen && (
-                        <div className="submenu-tree-list">
+                        <div className="submenu-tree">
                           {item.subItems.map((sub) => (
                             <button
                               key={sub.id}
-                              className={`submenu-btn ${activeTab === sub.id ? 'active' : ''}`}
+                              className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
                               onClick={() => setActiveTab(sub.id)}
                             >
-                              <span className="submenu-dot"></span>
                               <span>{sub.label}</span>
                             </button>
                           ))}
@@ -391,10 +388,10 @@ function App() {
                 return (
                   <button
                     key={item.id}
-                    className={`nav-button ${activeTab === item.id ? 'active' : ''}`}
+                    className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
                     onClick={() => setActiveTab(item.id)}
                   >
-                    <div className="nav-btn-left">
+                    <div className="nav-item-left">
                       <IconComponent />
                       <span>{item.label}</span>
                     </div>
@@ -407,19 +404,20 @@ function App() {
 
         {/* Sidebar Footer User Area */}
         <div className="sidebar-footer">
-          <div className="user-profile-badge">
-            <div className="user-avatar-circle">
-              {formattedUserName.charAt(0)}
+          <div className="user-mini-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="user-avatar-circle">
+                {formattedUserName.charAt(0)}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{formattedUserName}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Administrador</span>
+              </div>
             </div>
-            <div className="user-info-text">
-              <span className="user-name">{formattedUserName}</span>
-              <span className="user-role">Administrador</span>
-            </div>
+            <button onClick={handleSignOut} title="Encerrar Sessão" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <LogOutIcon />
+            </button>
           </div>
-
-          <button className="logout-btn" onClick={handleSignOut} title="Encerrar Sessão">
-            <LogOutIcon />
-          </button>
         </div>
       </aside>
 
@@ -430,36 +428,40 @@ function App() {
         {/* Top Header Bar */}
         <header className="topbar">
           <div className="topbar-left">
-            <div className="page-title-heading">
-              {activeTab === 'dashboard' && 'Visão Geral & Dashboard'}
-              {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
-              {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
-              {activeTab === 'devocionais' && 'Devocionais Diários'}
-              {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
-              {activeTab === 'eventos' && 'Eventos, Cursos & Inscrições'}
-              {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
-              {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
-              {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
-              {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
-              {activeTab === 'pagarme_financeiro' && 'Configurações de Pagamento (Pagar.me / Pix)'}
-              {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
-            </div>
-            <div className="search-pill-container">
-              <SearchIcon />
-              <input type="text" placeholder="Buscar membros, cultos, células, devocionais ou pedidos..." />
-              <span className="search-shortcut">⌘K</span>
+            <div>
+              <div className="greeting-text">
+                {activeTab === 'dashboard' && 'Visão Geral & Dashboard'}
+                {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
+                {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
+                {activeTab === 'devocionais' && 'Devocionais Diários'}
+                {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
+                {activeTab === 'eventos' && 'Eventos, Cursos & Inscrições'}
+                {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
+                {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
+                {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
+                {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
+                {activeTab === 'pagarme_financeiro' && 'Gateway de Pagamento (Pagar.me / Pix)'}
+                {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
+              </div>
             </div>
           </div>
 
-          <div className="topbar-right">
-            <button className="action-circle-btn" title="Notificações">
-              <span className="badge-dot"></span>
+          <div className="topbar-center">
+            <div className="search-pill">
+              <SearchIcon />
+              <input type="text" placeholder="Buscar no sistema..." />
+              <span style={{ fontSize: '0.70rem', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>⌘K</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
               <BellIcon />
             </button>
-            <button className="action-circle-btn" title="Configurações Rápidas" onClick={() => setActiveTab('configuracoes')}>
+            <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => setActiveTab('configuracoes')}>
               <SettingsIcon />
             </button>
-            <div className="user-avatar-circle" style={{ cursor: 'pointer', width: '38px', height: '38px' }}>
+            <div className="user-avatar-circle" style={{ cursor: 'pointer' }}>
               {formattedUserName.charAt(0)}
             </div>
           </div>
