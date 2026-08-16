@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import './Members.css';
 
@@ -62,7 +62,7 @@ export const PdvPedidos = () => {
 
         if (hasNew) {
            const audio = new Audio(beepSound);
-           audio.play().catch(e => console.log('Áudio bloqueado pelo navegador'));
+           audio.play().catch(() => console.log('Áudio bloqueado pelo navegador'));
         }
 
         setOrders(parsed);

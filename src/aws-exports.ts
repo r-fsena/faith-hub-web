@@ -1,10 +1,10 @@
-const awsmobile = {
+const awsmobile: Record<string, any> = {
   "aws_project_region": "us-east-2",
   "aws_cognito_region": "us-east-2",
   "aws_user_pools_id": "us-east-2_pLrj1NgHI",
   "aws_user_pools_web_client_id": "3ik571j3u4o4sb13bo7n4o9822",
   "oauth": {
-      "domain": "faith-hub-auth.auth.us-east-2.amazoncognito.com", // Assuming alias usually set
+      "domain": "faith-hub-auth.auth.us-east-2.amazoncognito.com",
       "scope": [
           "email",
           "openid",
@@ -31,7 +31,6 @@ const awsmobile = {
   ]
 };
 
-// Override domain config to use the standard AWS identifier if custom isn't set, although we pulled the auto-generated one from app.
 awsmobile.oauth.domain = "us-east-2plrj1nghi.auth.us-east-2.amazoncognito.com";
 
 export default awsmobile;

@@ -154,7 +154,7 @@ export default function ChurchBranding() {
       try {
         const session = await fetchAuthSession();
         const token = session.tokens?.idToken?.toString();
-        const headers = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
         await fetch(`${API_URL}/church-settings`, {
           method: 'POST',
           headers,
