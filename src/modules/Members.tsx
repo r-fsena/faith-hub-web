@@ -160,14 +160,15 @@ export default function Members() {
       if (resp.ok) {
         setInviteModalOpen(false);
         setInviteForm({ name: '', email: '', role: 'Membro', cellGroupId: '' });
+        alert("Convite enviado com sucesso! O membro foi cadastrado no sistema.");
         fetchMembers();
       } else {
-        const err = await resp.json();
-        alert("Erro ao convidar: " + err.error);
+        const err = await resp.json().catch(() => ({ error: 'Erro desconhecido ao processar convite' }));
+        alert("Erro ao convidar: " + (err.error || err.message || 'Falha no processamento'));
       }
-    } catch(e) {
-      console.error(e);
-      alert("Erro ao disparar api.");
+    } catch(e: any) {
+      console.error("Erro no convite:", e);
+      alert("Erro ao comunicar com a API: " + (e?.message || 'Verifique a conexão'));
     }
     setIsInviting(false);
   };
