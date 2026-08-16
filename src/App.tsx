@@ -14,7 +14,7 @@ import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
 import './index.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
 // Professional SVG Icons
 const CreditCardIcon = () => (
