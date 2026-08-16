@@ -12,11 +12,15 @@ import { PdvProdutos } from './modules/PdvProdutos';
 import { PdvPedidos } from './modules/PdvPedidos';
 import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
+import Campuses, { type Campus } from './modules/Campuses';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
 // Professional SVG Icons
+const BuildingIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M16 18h.01"/></svg>
+);
 const CreditCardIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
 );
@@ -119,6 +123,7 @@ const navigationGroups = [
   {
     category: 'Whitelabel & Sistema',
     items: [
+      { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon },
       { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon },
       { id: 'pagarme_financeiro', label: 'Gateway de Pagamento', icon: CreditCardIcon },
       { id: 'configuracoes', label: 'Configurações AWS', icon: SettingsIcon },
@@ -136,6 +141,11 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [user, setUser] = useState<any>(null);
+
+  // Multi-Campus / Multi-Unit State
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [selectedCampusId, setSelectedCampusId] = useState<string>('all');
+  const [isCampusDropdownOpen, setIsCampusDropdownOpen] = useState<boolean>(false);
 
   // Dynamic Church Branding State
   const [churchSettings, setChurchSettings] = useState<any>({
@@ -210,19 +220,45 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Fetch Campuses
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadCampuses();
+    }
+  }, [isAuthenticated]);
+
+  const loadCampuses = async () => {
+    try {
+      const res = await fetch(`${API_URL}/campuses`);
+      if (res.ok) {
+        const json = await res.json();
+        setCampuses(json.data || []);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar lista de unidades:", e);
+    }
+  };
+
+  useEffect(() => {
+    const handleCampusesUpdated = () => loadCampuses();
+    window.addEventListener('campuses-updated', handleCampusesUpdated);
+    return () => window.removeEventListener('campuses-updated', handleCampusesUpdated);
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadDashboardStats();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, selectedCampusId]);
 
   const loadDashboardStats = async () => {
     try {
+      const campusParam = selectedCampusId !== 'all' ? `?campus_id=${selectedCampusId}` : '';
       const [membersRes, cellsRes, ordersRes, eventsRes, broadcastRes] = await Promise.allSettled([
-        fetch(`${API_URL}/members`),
-        fetch(`${API_URL}/cell-groups`),
-        fetch(`${API_URL}/pdv/orders`),
-        fetch(`${API_URL}/events`),
+        fetch(`${API_URL}/members${campusParam}`),
+        fetch(`${API_URL}/cell-groups${campusParam}`),
+        fetch(`${API_URL}/pdv/orders${campusParam}`),
+        fetch(`${API_URL}/events${campusParam}`),
         fetch(`${API_URL}/broadcasts/active`)
       ]);
 
@@ -318,6 +354,10 @@ function App() {
   const userName = user?.signInDetails?.loginId?.split('@')[0] || 'Pastor & Equipe';
   const formattedUserName = userName.charAt(0).toUpperCase() + userName.slice(1);
 
+  const selectedCampusName = selectedCampusId === 'all' 
+    ? 'Todas as Unidades' 
+    : campuses.find(c => c.id === selectedCampusId)?.name || 'Unidade Selecionada';
+
   return (
     <div className="app-container">
       {/* ========================================================
@@ -341,6 +381,118 @@ function App() {
             <span className="sidebar-brand-title">{churchSettings.church_name || 'Faith-Hub'}</span>
             <span className="sidebar-brand-badge">ADMIN</span>
           </div>
+        </div>
+
+        {/* Multi-Campus Switcher Pill */}
+        <div style={{ padding: '0 16px 12px 16px', position: 'relative' }}>
+          <button
+            onClick={() => setIsCampusDropdownOpen(!isCampusDropdownOpen)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#f8fafc',
+              border: '1px solid var(--panel-border)',
+              borderRadius: '10px',
+              padding: '8px 12px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+              <span style={{ color: 'var(--accent-primary)', display: 'flex' }}><BuildingIcon /></span>
+              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {selectedCampusName}
+              </span>
+            </div>
+            <ChevronDownIcon />
+          </button>
+
+          {/* Dropdown Menu */}
+          {isCampusDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% - 6px)',
+              left: '16px',
+              right: '16px',
+              background: '#ffffff',
+              border: '1px solid var(--panel-border)',
+              borderRadius: '10px',
+              boxShadow: '0 10px 25px rgba(15, 23, 42, 0.15)',
+              zIndex: 60,
+              padding: '6px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '3px'
+            }}>
+              <button
+                onClick={() => { setSelectedCampusId('all'); setIsCampusDropdownOpen(false); }}
+                style={{
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.80rem',
+                  fontWeight: selectedCampusId === 'all' ? 800 : 500,
+                  background: selectedCampusId === 'all' ? 'var(--accent-primary-light)' : 'transparent',
+                  color: selectedCampusId === 'all' ? 'var(--accent-primary)' : 'var(--text-main)',
+                  cursor: 'pointer'
+                }}
+              >
+                🌐 Todas as Unidades (Geral)
+              </button>
+
+              {campuses.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => { setSelectedCampusId(c.id); setIsCampusDropdownOpen(false); }}
+                  style={{
+                    textAlign: 'left',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.80rem',
+                    fontWeight: selectedCampusId === c.id ? 800 : 500,
+                    background: selectedCampusId === c.id ? 'var(--accent-primary-light)' : 'transparent',
+                    color: selectedCampusId === c.id ? 'var(--accent-primary)' : 'var(--text-main)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span>📍 {c.name}</span>
+                  {Boolean(c.is_headquarters) && (
+                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                      SEDE
+                    </span>
+                  )}
+                </button>
+              ))}
+
+              <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
+
+              <button
+                onClick={() => { setActiveTab('campuses'); setIsCampusDropdownOpen(false); }}
+                style={{
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: 'var(--accent-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                ➕ Gerenciar Unidades & Filiais
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Navigation Categories */}
@@ -439,6 +591,7 @@ function App() {
                 {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
                 {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
                 {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
+                {activeTab === 'campuses' && 'Gestão de Unidades, Filiais & Campi'}
                 {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
                 {activeTab === 'pagarme_financeiro' && 'Gateway de Pagamento (Pagar.me / Pix)'}
                 {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
@@ -570,6 +723,20 @@ function App() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '12px' }}>
                     <div 
                       className="project-card-item" 
+                      onClick={() => setActiveTab('campuses')}
+                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                    >
+                      <div className="project-icon-box" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                        <BuildingIcon />
+                      </div>
+                      <div className="project-details">
+                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Unidades & Filiais</span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre congregações e pastores locais</div>
+                      </div>
+                    </div>
+
+                    <div 
+                      className="project-card-item" 
                       onClick={() => setActiveTab('church_branding')}
                       style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
                     >
@@ -607,20 +774,6 @@ function App() {
                       <div className="project-details">
                         <span className="project-title" style={{ fontSize: '0.88rem' }}>Cardápio da Cantina</span>
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre lanches, cafés e itens da loja</div>
-                      </div>
-                    </div>
-
-                    <div 
-                      className="project-card-item" 
-                      onClick={() => setActiveTab('celulas')}
-                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
-                    >
-                      <div className="project-icon-box" style={{ background: '#ecfdf5', color: '#059669' }}>
-                        <HeartIcon />
-                      </div>
-                      <div className="project-details">
-                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Redes e Células</span>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Crie os grupos familiares e líderes</div>
                       </div>
                     </div>
                   </div>
@@ -765,7 +918,7 @@ function App() {
                       <div className="activity-text">
                         Sistema conectado à nuvem AWS em <strong>us-east-2</strong> com banco RDS MySQL.
                       </div>
-                      <div className="activity-time">Pronto para uso</div>
+                      <div className="activity-time">Multi-Campus Ativo</div>
                     </div>
                   </div>
                 </div>
@@ -777,6 +930,7 @@ function App() {
           {/* ==========================================
               ACTIVE MODULE RENDERERS
               ========================================== */}
+          {activeTab === 'campuses' && <Campuses />}
           {activeTab === 'membros' && <Members />}
           {activeTab === 'transmissoes' && <Broadcasts />}
           {activeTab === 'celulas' && <CellGroups />}
