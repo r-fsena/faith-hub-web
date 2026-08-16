@@ -14,6 +14,8 @@ import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
 import './index.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 // Professional SVG Icons
 const CreditCardIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
@@ -63,11 +65,8 @@ const ArrowRightIcon = () => (
 const SparklesIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
 );
-const MoreHorizontalIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-);
 
-// Navigation Structure with StaffSphere Tree Submenus
+// Navigation Structure
 const navigationGroups = [
   {
     category: 'Geral',
@@ -140,14 +139,32 @@ function App() {
 
   // Dynamic Church Branding State
   const [churchSettings, setChurchSettings] = useState<any>({
-    church_name: 'Faith-Hub',
+    church_name: 'Minha Igreja',
     logo_icon_url: '',
     primary_color: '#0f766e'
   });
 
-  // Calendar State for Acadex Widget
-  const [selectedCalDay, setSelectedCalDay] = useState(14);
-  const [chartPeriod, setChartPeriod] = useState('6m');
+  // Calendar State
+  const [selectedCalDay, setSelectedCalDay] = useState(new Date().getDate());
+
+  // Dashboard Live Stats State (Zero Mock)
+  const [dashboardStats, setDashboardStats] = useState<{
+    membersCount: number;
+    cellsCount: number;
+    ordersTotal: number;
+    eventsCount: number;
+    recentMembers: any[];
+    upcomingEvents: any[];
+    activeBroadcast: any;
+  }>({
+    membersCount: 0,
+    cellsCount: 0,
+    ordersTotal: 0,
+    eventsCount: 0,
+    recentMembers: [],
+    upcomingEvents: [],
+    activeBroadcast: null
+  });
 
   useEffect(() => {
     // Carregar Branding Salvo
@@ -193,6 +210,73 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadDashboardStats();
+    }
+  }, [isAuthenticated, activeTab]);
+
+  const loadDashboardStats = async () => {
+    try {
+      const [membersRes, cellsRes, ordersRes, eventsRes, broadcastRes] = await Promise.allSettled([
+        fetch(`${API_URL}/members`),
+        fetch(`${API_URL}/cell-groups`),
+        fetch(`${API_URL}/pdv/orders`),
+        fetch(`${API_URL}/events`),
+        fetch(`${API_URL}/broadcasts/active`)
+      ]);
+
+      let membersCount = 0;
+      let recentMembers: any[] = [];
+      if (membersRes.status === 'fulfilled' && membersRes.value.ok) {
+        const data = await membersRes.value.json();
+        const list = data.data || [];
+        membersCount = list.length;
+        recentMembers = list.slice(0, 5);
+      }
+
+      let cellsCount = 0;
+      if (cellsRes.status === 'fulfilled' && cellsRes.value.ok) {
+        const list = await cellsRes.value.json();
+        cellsCount = Array.isArray(list) ? list.length : 0;
+      }
+
+      let ordersTotal = 0;
+      if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
+        const list = await ordersRes.value.json();
+        if (Array.isArray(list)) {
+          ordersTotal = list.reduce((acc: number, item: any) => acc + Number(item.total_amount || 0), 0);
+        }
+      }
+
+      let eventsCount = 0;
+      let upcomingEvents: any[] = [];
+      if (eventsRes.status === 'fulfilled' && eventsRes.value.ok) {
+        const data = await eventsRes.value.json();
+        const list = data.data || [];
+        eventsCount = list.length;
+        upcomingEvents = list.slice(0, 4);
+      }
+
+      let activeBroadcast: any = null;
+      if (broadcastRes.status === 'fulfilled' && broadcastRes.value.ok) {
+        activeBroadcast = await broadcastRes.value.json();
+      }
+
+      setDashboardStats({
+        membersCount,
+        cellsCount,
+        ordersTotal,
+        eventsCount,
+        recentMembers,
+        upcomingEvents,
+        activeBroadcast
+      });
+    } catch (err) {
+      console.error("Erro ao carregar métricas do dashboard:", err);
+    }
+  };
+
   const checkAuth = async () => {
     try {
       const currentUser = await getCurrentUser();
@@ -237,7 +321,7 @@ function App() {
   return (
     <div className="app-container">
       {/* ========================================================
-          LEFT SIDEBAR (StaffSphere + Acadex fusion)
+          LEFT SIDEBAR
           ======================================================== */}
       <aside className="sidebar">
         {/* Brand Header */}
@@ -249,52 +333,53 @@ function App() {
               style={{ width: '42px', height: '42px', borderRadius: '12px', objectFit: 'cover', boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)' }}
             />
           ) : (
-            <div className="sidebar-logo">
-              {churchSettings.church_name ? churchSettings.church_name.substring(0, 2).toUpperCase() : 'FH'}
+            <div className="brand-logo-icon">
+              <SparklesIcon />
             </div>
           )}
-          <div className="sidebar-brand">
-            <div className="sidebar-brand-title">
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
-                {churchSettings.church_name || 'Faith-Hub'}
-              </span>
-              <span className="sidebar-brand-badge">PWA</span>
-            </div>
+          <div className="brand-meta">
+            <span className="brand-title">{churchSettings.church_name || 'Faith-Hub'}</span>
+            <span className="brand-subtitle">Portal Administrativo</span>
           </div>
         </div>
 
-        {/* Navigation List */}
-        <nav className="sidebar-nav">
+        {/* Navigation Categories */}
+        <div className="nav-wrapper">
           {navigationGroups.map((group, gIdx) => (
-            <div key={gIdx}>
-              <div className="nav-category">{group.category}</div>
-              {group.items.map((item: any) => {
-                if (item.hasSubmenu) {
-                  const isOpen = openSubmenus[item.id] ?? false;
-                  const isAnySubActive = item.subItems.some((sub: any) => sub.id === activeTab);
-                  
+            <div key={gIdx} className="nav-group-section">
+              <div className="nav-category-label">{group.category}</div>
+              
+              {group.items.map((item) => {
+                const IconComponent = item.icon;
+                const isGroupOpen = openSubmenus[item.id];
+                const isItemActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab));
+
+                if (item.hasSubmenu && item.subItems) {
                   return (
-                    <div key={item.id}>
-                      <button 
-                        className={`nav-item-btn ${isAnySubActive ? 'has-active-child' : ''}`}
+                    <div key={item.id} className="nav-tree-item">
+                      <button
+                        className={`nav-button has-tree ${isItemActive ? 'group-active' : ''}`}
                         onClick={() => toggleSubmenu(item.id)}
                       >
-                        <div className="nav-item-left">
-                          <item.icon />
+                        <div className="nav-btn-left">
+                          <IconComponent />
                           <span>{item.label}</span>
                         </div>
-                        {isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                        <span className="tree-chevron">
+                          {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                        </span>
                       </button>
-                      
-                      {isOpen && (
-                        <div className="submenu-tree">
-                          {item.subItems.map((subItem: any) => (
+
+                      {isGroupOpen && (
+                        <div className="submenu-tree-list">
+                          {item.subItems.map((sub) => (
                             <button
-                              key={subItem.id}
-                              className={`submenu-item-btn ${activeTab === subItem.id ? 'active' : ''}`}
-                              onClick={() => setActiveTab(subItem.id)}
+                              key={sub.id}
+                              className={`submenu-btn ${activeTab === sub.id ? 'active' : ''}`}
+                              onClick={() => setActiveTab(sub.id)}
                             >
-                              {subItem.label}
+                              <span className="submenu-dot"></span>
+                              <span>{sub.label}</span>
                             </button>
                           ))}
                         </div>
@@ -304,13 +389,13 @@ function App() {
                 }
 
                 return (
-                  <button 
+                  <button
                     key={item.id}
-                    className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
+                    className={`nav-button ${activeTab === item.id ? 'active' : ''}`}
                     onClick={() => setActiveTab(item.id)}
                   >
-                    <div className="nav-item-left">
-                      <item.icon />
+                    <div className="nav-btn-left">
+                      <IconComponent />
                       <span>{item.label}</span>
                     </div>
                   </button>
@@ -318,42 +403,23 @@ function App() {
               })}
             </div>
           ))}
-        </nav>
+        </div>
 
-        {/* Bottom AI Help Card (StaffSphere style) & Profile */}
+        {/* Sidebar Footer User Area */}
         <div className="sidebar-footer">
-          <div className="ai-help-card">
-            <div className="ai-help-title">
-              <SparklesIcon /> Faith-AI Assist
+          <div className="user-profile-badge">
+            <div className="user-avatar-circle">
+              {formattedUserName.charAt(0)}
             </div>
-            <div className="ai-help-desc">
-              Gere devocionais, relatórios de células e insights ministeriais com IA.
+            <div className="user-info-text">
+              <span className="user-name">{formattedUserName}</span>
+              <span className="user-role">Administrador</span>
             </div>
-            <button className="ai-help-btn" onClick={() => setActiveTab('devocionais')}>
-              Abrir Assistente ✨
-            </button>
           </div>
 
-          <div className="user-mini-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div className="user-avatar-circle">
-                {formattedUserName.charAt(0)}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {formattedUserName}
-                </span>
-                <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>Administrador</span>
-              </div>
-            </div>
-            <button 
-              onClick={handleSignOut}
-              title="Sair da Conta"
-              style={{ color: '#ef4444', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <LogOutIcon />
-            </button>
-          </div>
+          <button className="logout-btn" onClick={handleSignOut} title="Encerrar Sessão">
+            <LogOutIcon />
+          </button>
         </div>
       </aside>
 
@@ -361,21 +427,24 @@ function App() {
           MAIN CONTENT AREA
           ======================================================== */}
       <main className="main-content">
-        {/* Topbar */}
+        {/* Top Header Bar */}
         <header className="topbar">
           <div className="topbar-left">
-            <div>
-              <div className="greeting-text">
-                👋 Olá, {formattedUserName}!
-              </div>
-              <div className="greeting-sub">
-                {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full' }).format(new Date())}
-              </div>
+            <div className="page-title-heading">
+              {activeTab === 'dashboard' && 'Visão Geral & Dashboard'}
+              {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
+              {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
+              {activeTab === 'devocionais' && 'Devocionais Diários'}
+              {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
+              {activeTab === 'eventos' && 'Eventos, Cursos & Inscrições'}
+              {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
+              {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
+              {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
+              {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
+              {activeTab === 'pagarme_financeiro' && 'Configurações de Pagamento (Pagar.me / Pix)'}
+              {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
             </div>
-          </div>
-
-          <div className="topbar-center">
-            <div className="search-pill">
+            <div className="search-pill-container">
               <SearchIcon />
               <input type="text" placeholder="Buscar membros, cultos, células, devocionais ou pedidos..." />
               <span className="search-shortcut">⌘K</span>
@@ -404,44 +473,44 @@ function App() {
                   DASHBOARD MAIN COLUMN (Left 2/3)
                   ========================================== */}
               <div className="dashboard-main-column">
-                {/* 1. TOP 4 KPI CARDS (StaffSphere + Acadex hybrid) */}
+                {/* 1. TOP 4 KPI CARDS (Live RDS Data) */}
                 <div className="kpi-grid">
                   {/* KPI 1: Membros */}
                   <div className="kpi-card" onClick={() => setActiveTab('membros')}>
                     <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Membros Ativos</span>
+                      <span className="kpi-title-tag">Membros Cadastrados</span>
                       <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
                         <UsersIcon />
                       </div>
                     </div>
                     <div className="kpi-value-row">
-                      <span className="kpi-value">5.120</span>
+                      <span className="kpi-value">{dashboardStats.membersCount}</span>
                       <span className="kpi-pill-badge positive">
-                        +12.5% ↗
+                        {dashboardStats.membersCount > 0 ? 'Ativo' : 'Inicial'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Cadastros verificados</span>
+                      <span className="kpi-subtext">Cadastros no sistema</span>
                       <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                     </div>
                   </div>
 
-                  {/* KPI 2: Frequência em Células */}
+                  {/* KPI 2: Células */}
                   <div className="kpi-card" onClick={() => setActiveTab('celulas')}>
                     <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Frequência em Células</span>
+                      <span className="kpi-title-tag">Células & Redes</span>
                       <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
                         <HeartIcon />
                       </div>
                     </div>
                     <div className="kpi-value-row">
-                      <span className="kpi-value">84%</span>
+                      <span className="kpi-value">{dashboardStats.cellsCount}</span>
                       <span className="kpi-pill-badge positive">
-                        +4.2% ↗
+                        {dashboardStats.cellsCount > 0 ? 'Ativo' : 'Inicial'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">342 Células ativas</span>
+                      <span className="kpi-subtext">Grupos conectados</span>
                       <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                     </div>
                   </div>
@@ -449,171 +518,118 @@ function App() {
                   {/* KPI 3: Monitor de PDV */}
                   <div className="kpi-card" onClick={() => setActiveTab('pdv_pedidos')}>
                     <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Pedidos PDV</span>
+                      <span className="kpi-title-tag">Vendas na Cantina / PDV</span>
                       <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
                         <CartIcon />
                       </div>
                     </div>
                     <div className="kpi-value-row">
-                      <span className="kpi-value">R$ 18.4K</span>
+                      <span className="kpi-value">R$ {dashboardStats.ordersTotal.toFixed(2).replace('.', ',')}</span>
                       <span className="kpi-pill-badge positive">
-                        +18.1% ↗
+                        Total
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Cantina & Livraria no App</span>
+                      <span className="kpi-subtext">Pedidos via App & Caixa</span>
                       <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                     </div>
                   </div>
 
-                  {/* KPI 4: Cultos & Mídias */}
-                  <div className="kpi-card" onClick={() => setActiveTab('transmissoes')}>
+                  {/* KPI 4: Eventos */}
+                  <div className="kpi-card" onClick={() => setActiveTab('eventos')}>
                     <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Audiência Cultos</span>
+                      <span className="kpi-title-tag">Eventos & Cursos</span>
                       <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-orange-bg)', color: 'var(--pastel-orange-text)' }}>
                         <VideoIcon />
                       </div>
                     </div>
                     <div className="kpi-value-row">
-                      <span className="kpi-value">12.8K</span>
+                      <span className="kpi-value">{dashboardStats.eventsCount}</span>
                       <span className="kpi-pill-badge positive">
-                        +9.4% ↗
+                        {dashboardStats.eventsCount > 0 ? 'Publicados' : 'Inicial'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Visualizações mensais</span>
+                      <span className="kpi-subtext">Inscrições e passaportes</span>
                       <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. CHARTS DUAL ROW (Performance Curve + Membership Donut) */}
-                <div className="charts-dual-grid">
-                  {/* Chart 1: Curva de Frequência e Presença */}
-                  <div className="portal-card">
-                    <div className="card-header-row">
-                      <div>
-                        <div className="card-title">Frequência & Crescimento</div>
-                        <div className="card-subtitle">Presença média nos Cultos e Células</div>
-                      </div>
-                      <select 
-                        className="select-pill"
-                        value={chartPeriod}
-                        onChange={(e) => setChartPeriod(e.target.value)}
-                      >
-                        <option value="6m">Últimos 6 Meses</option>
-                        <option value="1y">Ano Atual (2026)</option>
-                        <option value="all">Histórico Completo</option>
-                      </select>
-                    </div>
-
-                    {/* High-Fidelity SVG Chart with Gradient */}
-                    <div style={{ position: 'relative', width: '100%', height: '200px' }}>
-                      <svg viewBox="0 0 500 180" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                        <defs>
-                          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#0f766e" stopOpacity="0.28" />
-                            <stop offset="100%" stopColor="#0f766e" stopOpacity="0.0" />
-                          </linearGradient>
-                          <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#0f766e" />
-                            <stop offset="100%" stopColor="#14b8a6" />
-                          </linearGradient>
-                        </defs>
-
-                        {/* Grid lines */}
-                        <line x1="0" y1="30" x2="500" y2="30" stroke="#f1f5f9" strokeDasharray="4 4" />
-                        <line x1="0" y1="80" x2="500" y2="80" stroke="#f1f5f9" strokeDasharray="4 4" />
-                        <line x1="0" y1="130" x2="500" y2="130" stroke="#f1f5f9" strokeDasharray="4 4" />
-
-                        {/* Area Fill */}
-                        <path 
-                          d="M 20 120 C 90 90, 140 110, 200 65 C 270 20, 340 75, 400 40 C 440 25, 470 35, 480 30 L 480 160 L 20 160 Z" 
-                          fill="url(#areaGradient)" 
-                        />
-
-                        {/* Line Curve */}
-                        <path 
-                          d="M 20 120 C 90 90, 140 110, 200 65 C 270 20, 340 75, 400 40 C 440 25, 470 35, 480 30" 
-                          fill="none" 
-                          stroke="url(#lineGradient)" 
-                          strokeWidth="3.5" 
-                          strokeLinecap="round" 
-                        />
-
-                        {/* Data Points */}
-                        <circle cx="20" cy="120" r="4.5" fill="#0f766e" stroke="#ffffff" strokeWidth="2.5" />
-                        <circle cx="200" cy="65" r="4.5" fill="#0f766e" stroke="#ffffff" strokeWidth="2.5" />
-                        <circle cx="400" cy="40" r="4.5" fill="#0f766e" stroke="#ffffff" strokeWidth="2.5" />
-                        <circle cx="480" cy="30" r="5.5" fill="#14b8a6" stroke="#ffffff" strokeWidth="3" />
-
-                        {/* Target highlight tag */}
-                        <rect x="360" y="8" width="80" height="22" rx="6" fill="#0f766e" />
-                        <text x="400" y="23" textAnchor="middle" fill="#ffffff" fontSize="10.5" fontWeight="700">Recorde 94%</text>
-
-                        {/* X-axis labels */}
-                        <text x="20" y="175" fill="#94a3b8" fontSize="11" fontWeight="600">Mar</text>
-                        <text x="110" y="175" fill="#94a3b8" fontSize="11" fontWeight="600">Abr</text>
-                        <text x="200" y="175" fill="#94a3b8" fontSize="11" fontWeight="600">Mai</text>
-                        <text x="290" y="175" fill="#94a3b8" fontSize="11" fontWeight="600">Jun</text>
-                        <text x="390" y="175" fill="#94a3b8" fontSize="11" fontWeight="600">Jul</text>
-                        <text x="475" y="175" fill="#0f766e" fontSize="11" fontWeight="800">Ago</text>
-                      </svg>
+                {/* 2. ACTIONS & SETUP CHECKLIST */}
+                <div className="portal-card">
+                  <div className="card-header-row">
+                    <div>
+                      <div className="card-title">Configurações & Próximos Passos</div>
+                      <div className="card-subtitle">Inicie a implantação do ecossistema da sua igreja</div>
                     </div>
                   </div>
 
-                  {/* Chart 2: Donut de Distribuição dos Ministérios */}
-                  <div className="portal-card">
-                    <div className="card-header-row">
-                      <div>
-                        <div className="card-title">Membresia por Rede</div>
-                        <div className="card-subtitle">Segmentação comunitária</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '12px' }}>
+                    <div 
+                      className="project-card-item" 
+                      onClick={() => setActiveTab('church_branding')}
+                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                    >
+                      <div className="project-icon-box" style={{ background: '#f0fdfa', color: '#0f766e' }}>
+                        <PaletteIcon />
                       </div>
-                      <span className="notice-badge">Ativo</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', height: '140px', margin: '10px 0' }}>
-                      <svg width="130" height="130" viewBox="0 0 100 100">
-                        {/* Donut Segments */}
-                        <circle cx="50" cy="50" r="38" fill="transparent" stroke="#0f766e" strokeWidth="16" strokeDasharray="80 240" strokeDashoffset="0" />
-                        <circle cx="50" cy="50" r="38" fill="transparent" stroke="#0284c7" strokeWidth="16" strokeDasharray="60 240" strokeDashoffset="-80" />
-                        <circle cx="50" cy="50" r="38" fill="transparent" stroke="#f59e0b" strokeWidth="16" strokeDasharray="50 240" strokeDashoffset="-140" />
-                        <circle cx="50" cy="50" r="38" fill="transparent" stroke="#ec4899" strokeWidth="16" strokeDasharray="50 240" strokeDashoffset="-190" />
-                      </svg>
-                      <div style={{ position: 'absolute', textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>5.100</div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total</div>
+                      <div className="project-details">
+                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Identidade & Cores</span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Configure o nome, logotipo e tema do PWA</div>
                       </div>
                     </div>
 
-                    {/* Legend */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0f766e' }}></span>
-                        <span>Jovens (35%)</span>
+                    <div 
+                      className="project-card-item" 
+                      onClick={() => setActiveTab('pagarme_financeiro')}
+                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                    >
+                      <div className="project-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                        <CreditCardIcon />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284c7' }}></span>
-                        <span>Casais (25%)</span>
+                      <div className="project-details">
+                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Gateway de Pagamento</span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Ative a chave Pagar.me e chave Pix</div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></span>
-                        <span>Crianças (20%)</span>
+                    </div>
+
+                    <div 
+                      className="project-card-item" 
+                      onClick={() => setActiveTab('pdv_produtos')}
+                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                    >
+                      <div className="project-icon-box" style={{ background: '#fdf2f8', color: '#db2777' }}>
+                        <CartIcon />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ec4899' }}></span>
-                        <span>Líderes (20%)</span>
+                      <div className="project-details">
+                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Cardápio da Cantina</span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre lanches, cafés e itens da loja</div>
+                      </div>
+                    </div>
+
+                    <div 
+                      className="project-card-item" 
+                      onClick={() => setActiveTab('celulas')}
+                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                    >
+                      <div className="project-icon-box" style={{ background: '#ecfdf5', color: '#059669' }}>
+                        <HeartIcon />
+                      </div>
+                      <div className="project-details">
+                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Redes e Células</span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Crie os grupos familiares e líderes</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* 3. MEMBERS & LEADERSHIP TABLE (StaffSphere style) */}
+                {/* 3. MEMBERS TABLE */}
                 <div className="portal-card">
                   <div className="card-header-row">
                     <div>
-                      <div className="card-title">Membros & Liderança Recente</div>
-                      <div className="card-subtitle">Acompanhamento de engajamento e status ministerial</div>
+                      <div className="card-title">Membros Cadastrados Recentemente</div>
+                      <div className="card-subtitle">Acompanhamento da membresia e liderança</div>
                     </div>
                     <button className="link-btn" onClick={() => setActiveTab('membros')}>
                       Ver Todos <ArrowRightIcon />
@@ -624,364 +640,134 @@ function App() {
                     <table className="custom-table">
                       <thead>
                         <tr>
-                          <th>Membro / Líder</th>
-                          <th>Ministério</th>
-                          <th>Engajamento</th>
-                          <th>Presença</th>
-                          <th style={{ textAlign: 'right' }}>Ações</th>
+                          <th>Membro</th>
+                          <th>Cargo / Função</th>
+                          <th>Status</th>
+                          <th>Cadastro</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr>
-                          <td>
-                            <div className="user-cell">
-                              <div className="member-avatar" style={{ background: 'linear-gradient(135deg, #0ea5e9, #0284c7)' }}>JA</div>
-                              <div>
-                                <div className="member-meta-title">Jordi Anna</div>
-                                <div className="member-meta-sub">jordianna@faithhub.org</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Líder de Louvor</td>
-                          <td><span className="status-badge excellent">Excelente</span></td>
-                          <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>98%</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button style={{ color: 'var(--text-muted)' }}><MoreHorizontalIcon /></button>
-                          </td>
-                        </tr>
-
-                        <tr>
-                          <td>
-                            <div className="user-cell">
-                              <div className="member-avatar" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>EM</div>
-                              <div>
-                                <div className="member-meta-title">Elkan Murphy</div>
-                                <div className="member-meta-sub">elkan.murphy@gmail.com</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Supervisão Células</td>
-                          <td><span className="status-badge excellent">Excelente</span></td>
-                          <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>92%</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button style={{ color: 'var(--text-muted)' }}><MoreHorizontalIcon /></button>
-                          </td>
-                        </tr>
-
-                        <tr>
-                          <td>
-                            <div className="user-cell">
-                              <div className="member-avatar" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>HM</div>
-                              <div>
-                                <div className="member-meta-title">Harry Martin</div>
-                                <div className="member-meta-sub">harry.m@faithhub.org</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Comunicação & Mídia</td>
-                          <td><span className="status-badge good">Ativo</span></td>
-                          <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>85%</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button style={{ color: 'var(--text-muted)' }}><MoreHorizontalIcon /></button>
-                          </td>
-                        </tr>
-
-                        <tr>
-                          <td>
-                            <div className="user-cell">
-                              <div className="member-avatar" style={{ background: 'linear-gradient(135deg, #ec4899, #db2777)' }}>KB</div>
-                              <div>
-                                <div className="member-meta-title">Kylan Barros</div>
-                                <div className="member-meta-sub">kylan.barros@faithhub.org</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Novo Convertido</td>
-                          <td><span className="status-badge pending">Acolhimento</span></td>
-                          <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>60%</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button style={{ color: 'var(--text-muted)' }}><MoreHorizontalIcon /></button>
-                          </td>
-                        </tr>
+                        {dashboardStats.recentMembers.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                              Nenhum membro cadastrado ainda. Clique em "Ver Todos" para convidar pessoas.
+                            </td>
+                          </tr>
+                        ) : (
+                          dashboardStats.recentMembers.map((m: any) => (
+                            <tr key={m.id}>
+                              <td>
+                                <div className="user-cell">
+                                  <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
+                                    {m.name ? m.name.charAt(0).toUpperCase() : 'M'}
+                                  </div>
+                                  <div>
+                                    <div className="member-meta-title">{m.name}</div>
+                                    <div className="member-meta-sub">{m.email}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{m.role || 'Membro'}</td>
+                              <td><span className="status-badge good">Ativo</span></td>
+                              <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>{m.created_at ? new Date(m.created_at).toLocaleDateString('pt-BR') : 'Hoje'}</td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                {/* 4. ACTIONS & ONGOING PROJECTS (StaffSphere style) */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div>
-                      <div className="card-title">Projetos & Ações em Andamento</div>
-                      <div className="card-subtitle">Iniciativas estratégicas do ecossistema</div>
-                    </div>
-                    <button className="link-btn" onClick={() => setActiveTab('eventos')}>
-                      Gerenciar <ArrowRightIcon />
-                    </button>
-                  </div>
-
-                  <div className="project-card-item">
-                    <div className="project-icon-box" style={{ background: '#fdf2f8', color: '#db2777' }}>
-                      <VideoIcon />
-                    </div>
-                    <div className="project-details">
-                      <div className="project-header-row">
-                        <span className="project-title">Implantação do Sistema de Transmissão 4K</span>
-                        <span className="status-badge good">75% Concluído</span>
-                      </div>
-                      <div className="project-meta-row">
-                        <span>📅 Prazo: 28 de Agosto</span>
-                        <span>• Responsável: Mídia & TI</span>
-                      </div>
-                      <div className="progress-track">
-                        <div className="progress-fill" style={{ width: '75%', background: 'linear-gradient(90deg, #ec4899, #f43f5e)' }}></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="project-card-item">
-                    <div className="project-icon-box" style={{ background: '#ecfdf5', color: '#059669' }}>
-                      <UsersIcon />
-                    </div>
-                    <div className="project-details">
-                      <div className="project-header-row">
-                        <span className="project-title">Campanha de Multiplicação de Células Jovens</span>
-                        <span className="status-badge excellent">90% da Meta</span>
-                      </div>
-                      <div className="project-meta-row">
-                        <span>📅 Prazo: 15 de Setembro</span>
-                        <span>• 45 Novas Células</span>
-                      </div>
-                      <div className="progress-track">
-                        <div className="progress-fill" style={{ width: '90%', background: 'linear-gradient(90deg, #10b981, #059669)' }}></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="project-card-item">
-                    <div className="project-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
-                      <CartIcon />
-                    </div>
-                    <div className="project-details">
-                      <div className="project-header-row">
-                        <span className="project-title">Expansão do PDV Mobile nos Cultos de Domingo</span>
-                        <span className="status-badge pending">40% Estruturado</span>
-                      </div>
-                      <div className="project-meta-row">
-                        <span>📅 Prazo: 05 de Setembro</span>
-                        <span>• Cantina & Livraria</span>
-                      </div>
-                      <div className="progress-track">
-                        <div className="progress-fill" style={{ width: '40%', background: 'linear-gradient(90deg, #3b82f6, #0284c7)' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5. NOTICE BOARD (Acadex style) */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div>
-                      <div className="card-title">Mural de Avisos & Comunicados</div>
-                      <div className="card-subtitle">Publicações oficiais para toda a liderança</div>
-                    </div>
-                    <button className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem' }}>
-                      + Novo Aviso
-                    </button>
-                  </div>
-
-                  <div className="notice-card">
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-main)', marginBottom: '3px' }}>
-                        Inscrições Abertas para a Escola de Líderes 2026.2
-                      </div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        Publicado pela Coordenação Geral • 12 de Agosto de 2026
-                      </div>
-                    </div>
-                    <span className="status-badge good">Destaque</span>
-                  </div>
-
-                  <div className="notice-card">
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-main)', marginBottom: '3px' }}>
-                        Alinhamento Geral de Voluntários para a Conferência Anual
-                      </div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        Publicado pelo Ministério Pastoral • 08 de Agosto de 2026
-                      </div>
-                    </div>
-                    <span className="status-badge pending">Importante</span>
-                  </div>
-                </div>
               </div>
 
               {/* ==========================================
-                  DASHBOARD RIGHT COLUMN (Acadex style - 1/3)
+                  DASHBOARD RIGHT COLUMN (1/3)
                   ========================================== */}
-              <div className="dashboard-sidebar-column">
-                {/* 1. MINI CALENDAR WIDGET */}
-                <div className="calendar-widget">
-                  <div className="calendar-header">
-                    <div className="calendar-month-title">Agosto 2026</div>
-                    <div className="calendar-nav-btns">
-                      <button className="cal-nav-btn">‹</button>
-                      <button className="cal-nav-btn">›</button>
-                    </div>
+              <div className="dashboard-right-column">
+                {/* 1. CALENDAR WIDGET */}
+                <div className="portal-card">
+                  <div className="card-header-row">
+                    <div className="card-title">Calendário Ministerial</div>
+                    <span className="notice-badge">Hoje</span>
                   </div>
 
                   <div className="calendar-grid">
-                    <span className="cal-weekday">Dom</span>
-                    <span className="cal-weekday">Seg</span>
-                    <span className="cal-weekday">Ter</span>
-                    <span className="cal-weekday">Qua</span>
-                    <span className="cal-weekday">Qui</span>
-                    <span className="cal-weekday">Sex</span>
-                    <span className="cal-weekday">Sáb</span>
+                    <div className="cal-day-header">D</div>
+                    <div className="cal-day-header">S</div>
+                    <div className="cal-day-header">T</div>
+                    <div className="cal-day-header">Q</div>
+                    <div className="cal-day-header">Q</div>
+                    <div className="cal-day-header">S</div>
+                    <div className="cal-day-header">S</div>
 
-                    {/* Calendar Days */}
-                    <div className="cal-day-cell other-month">27</div>
-                    <div className="cal-day-cell other-month">28</div>
-                    <div className="cal-day-cell other-month">29</div>
-                    <div className="cal-day-cell other-month">30</div>
-                    <div className="cal-day-cell other-month">31</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(1)}>1</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(2)}>2</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(3)}>3</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(4)}>4</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(5)}>5</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(6)}>6</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(7)}>7</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(8)}>8</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(9)}>9</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(10)}>10</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(11)}>11</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(12)}>12</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(13)}>13</div>
-                    <div className={`cal-day-cell ${selectedCalDay === 14 ? 'active-today' : ''}`} onClick={() => setSelectedCalDay(14)}>14</div>
-                    <div className="cal-day-cell has-event" onClick={() => setSelectedCalDay(15)}>15</div>
-                    <div className="cal-day-cell has-event" onClick={() => setSelectedCalDay(16)}>16</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(17)}>17</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(18)}>18</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(19)}>19</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(20)}>20</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(21)}>21</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(22)}>22</div>
-                    <div className="cal-day-cell has-event" onClick={() => setSelectedCalDay(23)}>23</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(24)}>24</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(25)}>25</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(26)}>26</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(27)}>27</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(28)}>28</div>
-                    <div className="cal-day-cell" onClick={() => setSelectedCalDay(29)}>29</div>
-                    <div className="cal-day-cell has-event" onClick={() => setSelectedCalDay(30)}>30</div>
+                    {Array.from({ length: 30 }, (_, i) => i + 1).map(day => (
+                      <div 
+                        key={day} 
+                        className={`cal-day-cell ${selectedCalDay === day ? 'active-today' : ''}`}
+                        onClick={() => setSelectedCalDay(day)}
+                      >
+                        {day}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* 2. TODAY'S SCHEDULE & TIMELINE (Acadex style) */}
+                {/* 2. AGENDA & PROGRAMAÇÕES REAIS */}
                 <div className="portal-card">
                   <div className="card-header-row">
                     <div>
-                      <div className="card-title">Agenda & Cultos</div>
-                      <div className="card-subtitle">Programação de Hoje ({selectedCalDay} de Agosto)</div>
+                      <div className="card-title">Próximos Eventos</div>
+                      <div className="card-subtitle">Programações da igreja</div>
                     </div>
                     <button className="link-btn" onClick={() => setActiveTab('eventos')}>
                       + Add
                     </button>
                   </div>
 
-                  <div className="schedule-item">
-                    <div className="schedule-time-box">
-                      <span>09:00 AM</span>
-                      <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>11:00 AM</span>
+                  {dashboardStats.upcomingEvents.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                      Nenhum evento agendado para os próximos dias. Cadastre em "Eventos & Trilhas".
                     </div>
-                    <div className="schedule-content">
-                      <div className="schedule-title">Culto de Celebração Matinal</div>
-                      <span className="schedule-tag" style={{ background: '#ecfdf5', color: '#059669' }}>Toda a Igreja • Presencial & Live</span>
-                    </div>
-                  </div>
-
-                  <div className="schedule-item">
-                    <div className="schedule-time-box">
-                      <span>15:00 PM</span>
-                      <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>17:00 PM</span>
-                    </div>
-                    <div className="schedule-content">
-                      <div className="schedule-title">Reunião Mensal de Liderança</div>
-                      <span className="schedule-tag" style={{ background: '#eff6ff', color: '#2563eb' }}>Pastores & Supervisores</span>
-                    </div>
-                  </div>
-
-                  <div className="schedule-item">
-                    <div className="schedule-time-box">
-                      <span>19:30 PM</span>
-                      <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>21:30 PM</span>
-                    </div>
-                    <div className="schedule-content">
-                      <div className="schedule-title">Culto dos Jovens (The One)</div>
-                      <span className="schedule-tag" style={{ background: '#fdf2f8', color: '#db2777' }}>Rede Jovem & Convidados</span>
-                    </div>
-                  </div>
+                  ) : (
+                    dashboardStats.upcomingEvents.map(ev => (
+                      <div key={ev.id} className="schedule-item">
+                        <div className="schedule-time-box">
+                          <span>{ev.start_date ? new Date(ev.start_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Em breve'}</span>
+                        </div>
+                        <div className="schedule-content">
+                          <div className="schedule-title">{ev.title}</div>
+                          <span className="schedule-tag" style={{ background: '#ecfdf5', color: '#059669' }}>
+                            {ev.location || 'Templo Principal'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
-                {/* 3. RECENT ACTIVITY FEED (Acadex style) */}
+                {/* 3. ATIVIDADES RECENTES */}
                 <div className="portal-card">
                   <div className="card-header-row">
                     <div>
-                      <div className="card-title">Atividades Recentes</div>
-                      <div className="card-subtitle">Log de eventos do ecossistema</div>
+                      <div className="card-title">Atividades do Sistema</div>
+                      <div className="card-subtitle">Status em tempo real</div>
                     </div>
-                    <span className="notice-badge">Tempo Real</span>
+                    <span className="notice-badge">Online</span>
                   </div>
 
                   <div className="activity-item">
                     <div className="activity-icon-dot" style={{ background: '#10b981' }}>
-                      <UsersIcon />
+                      <SparklesIcon />
                     </div>
                     <div>
                       <div className="activity-text">
-                        <strong>Mateus Silveira</strong> concluiu o cadastro de membro e foi alocado na Célula Betel.
+                        Sistema conectado à nuvem AWS em <strong>us-east-2</strong> com banco RDS MySQL.
                       </div>
-                      <div className="activity-time">Há 8 minutos</div>
-                    </div>
-                  </div>
-
-                  <div className="activity-item">
-                    <div className="activity-icon-dot" style={{ background: '#0284c7' }}>
-                      <CartIcon />
-                    </div>
-                    <div>
-                      <div className="activity-text">
-                        Pedido <strong>#PDV-1094</strong> (Bíblia de Estudos + Café) aprovado via App.
-                      </div>
-                      <div className="activity-time">Há 25 minutos</div>
-                    </div>
-                  </div>
-
-                  <div className="activity-item">
-                    <div className="activity-icon-dot" style={{ background: '#7c3aed' }}>
-                      <HeartIcon />
-                    </div>
-                    <div>
-                      <div className="activity-text">
-                        Novo devocional <strong>"Caminhando pela Fé"</strong> publicado para amanhã.
-                      </div>
-                      <div className="activity-time">Há 1 hora</div>
-                    </div>
-                  </div>
-
-                  <div className="activity-item">
-                    <div className="activity-icon-dot" style={{ background: '#f59e0b' }}>
-                      <VideoIcon />
-                    </div>
-                    <div>
-                      <div className="activity-text">
-                        Live do Culto de Domingo agendada com sucesso no YouTube.
-                      </div>
-                      <div className="activity-time">Há 3 horas</div>
+                      <div className="activity-time">Pronto para uso</div>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           )}
@@ -1000,7 +786,7 @@ function App() {
           {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
           {activeTab === 'church_branding' && <ChurchBranding />}
 
-          {/* In Construction View */}
+          {/* Settings View */}
           {activeTab === 'configuracoes' && (
             <div className="portal-card animate-fade-in" style={{ padding: '64px', textAlign: 'center', marginTop: '16px' }}>
               <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '24px', borderRadius: '50%', marginBottom: '20px', color: 'var(--accent-primary)' }}>

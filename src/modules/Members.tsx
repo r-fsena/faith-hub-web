@@ -24,6 +24,8 @@ const SendIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
 );
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 interface Member {
   id: string;
   name: string;
@@ -64,7 +66,7 @@ export default function Members() {
 
   const fetchCellGroups = async () => {
     try {
-      const response = await fetch('http://localhost:3000/cell-groups');
+      const response = await fetch(`${API_URL}/cell-groups`);
       if (response.ok) {
         const json = await response.json();
         setCellGroups(json);
@@ -77,10 +79,10 @@ export default function Members() {
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/members');
+      const response = await fetch(`${API_URL}/members`);
       if (response.ok) {
         const json = await response.json();
-        setMembers(json.data.map((m: any) => ({
+        setMembers((json.data || []).map((m: any) => ({
           ...m,
           joinedAt: m.created_at,
           baptismDate: m.baptism_date,
@@ -131,7 +133,7 @@ export default function Members() {
   const handleUpdateStatus = async (member: Member, newStatus: string) => {
     try {
       const action = newStatus === 'Inativo' || newStatus === 'INACTIVE' ? 'disable' : 'enable';
-      const response = await fetch('http://localhost:3000/members/status', {
+      const response = await fetch(`${API_URL}/members/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: member.email, action })
@@ -150,7 +152,7 @@ export default function Members() {
     if (!inviteForm.name || !inviteForm.email) return alert("Preencha os campos obrigatórios.");
     setIsInviting(true);
     try {
-      const resp = await fetch('http://localhost:3000/members/invite', {
+      const resp = await fetch(`${API_URL}/members/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(inviteForm)
@@ -172,7 +174,7 @@ export default function Members() {
 
   const handleSendResetPassword = async (email: string) => {
      try {
-       await fetch('http://localhost:3000/members/reset-password', {
+       await fetch(`${API_URL}/members/reset-password`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ email })
@@ -195,7 +197,7 @@ export default function Members() {
     };
 
     try {
-       const resp = await fetch(`http://localhost:3000/members/${memberToEdit.id}`, {
+       const resp = await fetch(`${API_URL}/members/${memberToEdit.id}`, {
          method: 'PUT',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify(payload)

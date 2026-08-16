@@ -45,8 +45,8 @@ export const Devotionals = () => {
   const defaultForm = () => ({
     id: '', available_date: new Date().toISOString().split('T')[0],
     title: '', source_type: 'LOCAL', source_name: '', suggested_song_title: '', suggested_song_youtube_id: '',
-    central_text: '', context_text: '', prayer_indication: '', pastoral_author_name: 'Pr. Rafael Sena', 
-    pastoral_author_role: 'Pastor Presidente', pastoral_author_avatar: 'https://i.pravatar.cc/150?img=11', pastoral_comment: ''
+    central_text: '', context_text: '', prayer_indication: '', pastoral_author_name: '', 
+    pastoral_author_role: '', pastoral_author_avatar: '', pastoral_comment: ''
   });
 
   const [formData, setFormData] = useState<DevotionalData>(defaultForm());
