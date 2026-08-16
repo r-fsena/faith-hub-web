@@ -27,6 +27,10 @@ const PlusIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 );
 
+const UserPlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+);
+
 const SearchIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 );
@@ -57,6 +61,16 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Master Users State
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [savingUser, setSavingUser] = useState(false);
+  const [userFormData, setUserFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'MASTER_ADMIN'
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -126,6 +140,43 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       alert('Erro: ' + e.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateMasterUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userFormData.name || !userFormData.email) {
+      return alert('Preencha o nome e o e-mail do usuário master.');
+    }
+
+    setSavingUser(true);
+    try {
+      const res = await fetch(`${API_URL}/members/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: userFormData.name,
+          email: userFormData.email,
+          phone: userFormData.phone,
+          role: 'MASTER_ADMIN',
+          organization_id: 'org_master',
+          campus_id: 'campus_sede',
+          invitedBy: userName
+        })
+      });
+
+      if (res.ok) {
+        setIsUserModalOpen(false);
+        setUserFormData({ name: '', email: '', phone: '', role: 'MASTER_ADMIN' });
+        alert(`Usuário Master criado com sucesso!\nUm e-mail de acesso e ativação de senha provisória foi enviado para ${userFormData.email}.`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('Erro ao criar usuário master: ' + (err.error || err.message || 'Falha na requisição'));
+      }
+    } catch (e: any) {
+      alert('Erro: ' + e.message);
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -236,26 +287,50 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             </p>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            style={{
-              background: '#ffffff',
-              color: '#0f766e',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '10px',
-              fontWeight: 800,
-              fontSize: '0.92rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-              transition: 'transform 0.15s ease'
-            }}
-          >
-            <PlusIcon /> Nova Organização / Rede
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setIsUserModalOpen(true)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                padding: '12px 20px',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                transition: 'all 0.15s ease',
+                backdropFilter: 'blur(8px)'
+              }}
+            >
+              <UserPlusIcon /> Novo Usuário Master
+            </button>
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              style={{
+                background: '#ffffff',
+                color: '#0f766e',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                transition: 'transform 0.15s ease'
+              }}
+            >
+              <PlusIcon /> Nova Organização / Rede
+            </button>
+          </div>
         </div>
 
         {/* Search Pill Bar */}
@@ -576,6 +651,125 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   style={{ padding: '10px 22px', borderRadius: '8px', fontWeight: 700 }}
                 >
                   {saving ? 'Salvando...' : 'Criar e Ativar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal Criar Novo Usuário Master */}
+      {isUserModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '20px'
+        }}>
+          <div className="portal-card animate-fade-in" style={{
+            width: '100%',
+            maxWidth: '500px',
+            margin: 0,
+            padding: '28px'
+          }}>
+            <div className="card-header-row" style={{ marginBottom: '20px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldIcon />
+                  <h3 className="card-title" style={{ fontSize: '1.25rem', margin: 0 }}>Criar Usuário Master</h3>
+                </div>
+                <span className="card-subtitle" style={{ marginTop: '4px', display: 'block' }}>
+                  Acesso administrativo global para gerenciar todas as redes e congregações
+                </span>
+              </div>
+              <button onClick={() => setIsUserModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer' }}>×</button>
+            </div>
+
+            <form onSubmit={handleCreateMasterUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Nome Completo *</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Rafael Sena"
+                  value={userFormData.name}
+                  onChange={e => setUserFormData(prev => ({ ...prev, name: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--panel-border)'
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>E-mail de Acesso *</label>
+                <input
+                  type="email"
+                  placeholder="admin@faithhub.com"
+                  value={userFormData.email}
+                  onChange={e => setUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--panel-border)'
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>WhatsApp / Telefone (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="(11) 99999-9999"
+                  value={userFormData.phone}
+                  onChange={e => setUserFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--panel-border)'
+                  }}
+                />
+              </div>
+
+              <div style={{
+                background: '#f0fdfa',
+                border: '1px solid #99f6e4',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '0.80rem',
+                color: '#0f766e',
+                lineHeight: 1.4
+              }}>
+                ℹ️ <strong>Permissão Global:</strong> O usuário receberá um e-mail do sistema com as credenciais iniciais e terá permissão de visualizar e alternar entre quaisquer organizações cadastradas.
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '14px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserModalOpen(false)}
+                  style={{ padding: '10px 18px', borderRadius: '8px', background: '#f1f5f9', color: 'var(--text-main)', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingUser}
+                  className="btn-primary"
+                  style={{ padding: '10px 22px', borderRadius: '8px', fontWeight: 700 }}
+                >
+                  {savingUser ? 'Enviando Convite...' : 'Criar e Convidar'}
                 </button>
               </div>
             </form>
