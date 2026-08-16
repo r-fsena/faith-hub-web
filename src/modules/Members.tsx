@@ -226,6 +226,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       baptismDate: formData.get('baptismDate') || null,
       role: formData.get('role'),
       cellGroupId: formData.get('cellGroup') || null,
+      campus_id: formData.get('campus_id') || null,
       phone: formData.get('phone') || null
     };
 
@@ -597,6 +598,18 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       ))}
                     </select>
                   </div>
+
+                  {campusesList.length > 0 && (
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Unidade / Campus (Congregação)</label>
+                      <select name="campus_id" className="select-modern" defaultValue={(memberToEdit as any).campus_id || ''}>
+                        <option value="">Campus Principal / Sede</option>
+                        {campusesList.map(camp => (
+                          <option key={camp.id} value={camp.id}>{camp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
               </div>
