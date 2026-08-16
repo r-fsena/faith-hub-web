@@ -110,7 +110,8 @@ export default function ChurchBranding() {
     loadSettings();
   }, []);
 
-  const loadSettings = () => {
+  const loadSettings = async () => {
+    // 1. Carrega do cache local imediato para não piscar a tela
     const saved = localStorage.getItem('faithhub_church_branding');
     if (saved) {
       try {
@@ -120,6 +121,47 @@ export default function ChurchBranding() {
       } catch (e) {
         console.error("Erro ao carregar branding local", e);
       }
+    }
+
+    // 2. Busca as informações persistidas diretamente no banco de dados na nuvem
+    try {
+      const res = await fetch(`${API_URL}/church-settings`);
+      if (res.ok) {
+        const backendData = await res.json();
+        if (backendData && backendData.church_name) {
+          const merged: ChurchBrandingSettings = {
+            ...DEFAULT_SETTINGS,
+            church_name: backendData.church_name,
+            tagline: backendData.slogan || '',
+            cnpj: backendData.cnpj || '',
+            address: `${backendData.address_street || ''} ${backendData.address_number || ''}`.trim(),
+            city: backendData.address_city || '',
+            state: backendData.address_state || '',
+            whatsapp: backendData.whatsapp || '',
+            email: backendData.email || '',
+            instagram: backendData.instagram_url || '',
+            youtube: backendData.youtube_url || '',
+            website: backendData.website_url || '',
+            logo_icon_url: backendData.logo_icon_url || '',
+            logo_header_url: backendData.logo_header_url || '',
+            banner_url: backendData.banner_url || '',
+            primary_color: backendData.primary_color || DEFAULT_SETTINGS.primary_color,
+            secondary_color: backendData.secondary_color || DEFAULT_SETTINGS.secondary_color,
+            pwa_short_name: backendData.pwa_short_name || DEFAULT_SETTINGS.pwa_short_name,
+            pwa_slug: backendData.pwa_slug || DEFAULT_SETTINGS.pwa_slug,
+            pwa_theme_color: backendData.pwa_theme_color || backendData.primary_color || DEFAULT_SETTINGS.pwa_theme_color,
+            pwa_splash_bg: backendData.pwa_splash_bg || DEFAULT_SETTINGS.pwa_splash_bg,
+            pwa_description: backendData.pwa_description || DEFAULT_SETTINGS.pwa_description,
+            theme_mode: backendData.theme_mode || 'LIGHT',
+            custom_domain: backendData.custom_domain || ''
+          };
+          setSettings(merged);
+          localStorage.setItem('faithhub_church_branding', JSON.stringify(merged));
+          applyDynamicTheme(merged.primary_color);
+        }
+      }
+    } catch (err) {
+      console.log("Usando dados em cache", err);
     }
   };
 
