@@ -713,22 +713,8 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button 
-                onClick={handleReturnToMasterHub}
-                style={{ 
-                  background: '#f1f5f9', 
-                  padding: '7px 14px', 
-                  borderRadius: '8px', 
-                  fontSize: '0.80rem', 
-                  fontWeight: 700, 
-                  color: 'var(--text-main)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-                title="Voltar para a seleção de redes"
-              >
-                <GridIcon /> Redes
+              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
+                <BellIcon />
               </button>
               <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => setActiveTab('configuracoes')}>
                 <SettingsIcon />
