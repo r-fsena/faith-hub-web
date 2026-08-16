@@ -13,6 +13,7 @@ import { PdvPedidos } from './modules/PdvPedidos';
 import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
 import Campuses, { type Campus } from './modules/Campuses';
+import OrganizationSelector, { type Organization } from './modules/OrganizationSelector';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -20,6 +21,9 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.
 // Professional SVG Icons
 const BuildingIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M16 18h.01"/></svg>
+);
+const GridIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
 );
 const CreditCardIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
@@ -142,6 +146,15 @@ function App() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [user, setUser] = useState<any>(null);
 
+  // Multi-Organization / SaaS Master State
+  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(() => {
+    const saved = localStorage.getItem('faithhub_active_org');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return null;
+  });
+
   // Multi-Campus / Multi-Unit State
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [selectedCampusId, setSelectedCampusId] = useState<string>('all');
@@ -220,16 +233,17 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch Campuses
+  // Fetch Campuses when Organization is selected
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && selectedOrganization) {
       loadCampuses();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedOrganization]);
 
   const loadCampuses = async () => {
     try {
-      const res = await fetch(`${API_URL}/campuses`);
+      const orgParam = selectedOrganization ? `?organization_id=${selectedOrganization.id}` : '';
+      const res = await fetch(`${API_URL}/campuses${orgParam}`);
       if (res.ok) {
         const json = await res.json();
         setCampuses(json.data || []);
@@ -243,17 +257,21 @@ function App() {
     const handleCampusesUpdated = () => loadCampuses();
     window.addEventListener('campuses-updated', handleCampusesUpdated);
     return () => window.removeEventListener('campuses-updated', handleCampusesUpdated);
-  }, []);
+  }, [selectedOrganization]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && selectedOrganization) {
       loadDashboardStats();
     }
-  }, [isAuthenticated, activeTab, selectedCampusId]);
+  }, [isAuthenticated, activeTab, selectedCampusId, selectedOrganization]);
 
   const loadDashboardStats = async () => {
     try {
-      const campusParam = selectedCampusId !== 'all' ? `?campus_id=${selectedCampusId}` : '';
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId !== 'all' 
+        ? `?organization_id=${orgId}&campus_id=${selectedCampusId}` 
+        : `?organization_id=${orgId}`;
+
       const [membersRes, cellsRes, ordersRes, eventsRes, broadcastRes] = await Promise.allSettled([
         fetch(`${API_URL}/members${campusParam}`),
         fetch(`${API_URL}/cell-groups${campusParam}`),
@@ -327,10 +345,32 @@ function App() {
 
   const handleSignOut = async () => {
     try {
+      localStorage.removeItem('faithhub_active_org');
       await signOut();
     } catch (error) {
       console.error('Error signing out: ', error);
     }
+  };
+
+  const handleSelectOrg = (org: Organization) => {
+    setSelectedOrganization(org);
+    localStorage.setItem('faithhub_active_org', JSON.stringify(org));
+    setChurchSettings((prev: any) => ({
+      ...prev,
+      church_name: org.name,
+      primary_color: org.primary_color || '#0f766e'
+    }));
+    if (org.primary_color) {
+      document.documentElement.style.setProperty('--accent-primary', org.primary_color);
+      document.documentElement.style.setProperty('--accent-primary-gradient', `linear-gradient(135deg, ${org.primary_color} 0%, #14b8a6 100%)`);
+    }
+    setSelectedCampusId('all');
+    setActiveTab('dashboard');
+  };
+
+  const handleReturnToMasterHub = () => {
+    setSelectedOrganization(null);
+    localStorage.removeItem('faithhub_active_org');
   };
 
   const toggleSubmenu = (groupId: string) => {
@@ -354,611 +394,691 @@ function App() {
   const userName = user?.signInDetails?.loginId?.split('@')[0] || 'Pastor & Equipe';
   const formattedUserName = userName.charAt(0).toUpperCase() + userName.slice(1);
 
+  // SE NÃO SELECIONOU UMA ORGANIZAÇÃO/REDE, EXIBE A TELA DO HUB MASTER!
+  if (!selectedOrganization) {
+    return (
+      <OrganizationSelector
+        onSelectOrg={handleSelectOrg}
+        onSignOut={handleSignOut}
+        userName={formattedUserName}
+      />
+    );
+  }
+
   const selectedCampusName = selectedCampusId === 'all' 
     ? 'Todas as Unidades' 
     : campuses.find(c => c.id === selectedCampusId)?.name || 'Unidade Selecionada';
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      
       {/* ========================================================
-          LEFT SIDEBAR
+          MASTER ADMIN IMPERSONATION BANNER (TOP BAR)
           ======================================================== */}
-      <aside className="sidebar">
-        {/* Brand Header */}
-        <div className="sidebar-header" onClick={() => setActiveTab('church_branding')} style={{ cursor: 'pointer' }} title="Clique para personalizar a identidade da igreja">
-          {churchSettings.logo_icon_url ? (
-            <img 
-              src={churchSettings.logo_icon_url} 
-              alt="Logo da Igreja" 
-              style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover' }}
-            />
-          ) : (
-            <div className="sidebar-logo">
-              <SparklesIcon />
-            </div>
-          )}
-          <div className="sidebar-brand">
-            <span className="sidebar-brand-title">{churchSettings.church_name || 'Faith-Hub'}</span>
-            <span className="sidebar-brand-badge">ADMIN</span>
-          </div>
+      <div style={{
+        background: '#0f172a',
+        color: '#f8fafc',
+        padding: '8px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: '0.80rem',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{
+            background: 'rgba(16, 185, 129, 0.2)',
+            color: '#34d399',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontWeight: 800,
+            fontSize: '0.68rem',
+            border: '1px solid rgba(52, 211, 153, 0.3)'
+          }}>
+            MODO MASTER
+          </span>
+          <span>
+            Gerenciando a Rede: <strong style={{ color: '#ffffff' }}>{selectedOrganization.name}</strong> ({selectedOrganization.plan || 'PRO'})
+          </span>
         </div>
 
-        {/* Multi-Campus Switcher Pill */}
-        <div style={{ padding: '0 16px 12px 16px', position: 'relative' }}>
-          <button
-            onClick={() => setIsCampusDropdownOpen(!isCampusDropdownOpen)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: '#f8fafc',
-              border: '1px solid var(--panel-border)',
-              borderRadius: '10px',
-              padding: '8px 12px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              color: 'var(--text-main)',
-              cursor: 'pointer',
-              transition: 'all var(--transition-fast)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-              <span style={{ color: 'var(--accent-primary)', display: 'flex' }}><BuildingIcon /></span>
-              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {selectedCampusName}
-              </span>
+        <button
+          onClick={handleReturnToMasterHub}
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            padding: '4px 12px',
+            borderRadius: '6px',
+            fontWeight: 700,
+            fontSize: '0.75rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          <GridIcon /> Trocar de Rede (Hub Master)
+        </button>
+      </div>
+
+      {/* Main Admin Area */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 37px)' }}>
+        {/* ========================================================
+            LEFT SIDEBAR
+            ======================================================== */}
+        <aside className="sidebar">
+          {/* Brand Header */}
+          <div className="sidebar-header" onClick={() => setActiveTab('church_branding')} style={{ cursor: 'pointer' }} title="Clique para personalizar a identidade da igreja">
+            {churchSettings.logo_icon_url ? (
+              <img 
+                src={churchSettings.logo_icon_url} 
+                alt="Logo da Igreja" 
+                style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="sidebar-logo" style={{ background: selectedOrganization.primary_color || 'var(--accent-primary-gradient)' }}>
+                {selectedOrganization.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="sidebar-brand">
+              <span className="sidebar-brand-title">{selectedOrganization.name}</span>
+              <span className="sidebar-brand-badge">ADMIN</span>
             </div>
-            <ChevronDownIcon />
-          </button>
+          </div>
 
-          {/* Dropdown Menu */}
-          {isCampusDropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              top: 'calc(100% - 6px)',
-              left: '16px',
-              right: '16px',
-              background: '#ffffff',
-              border: '1px solid var(--panel-border)',
-              borderRadius: '10px',
-              boxShadow: '0 10px 25px rgba(15, 23, 42, 0.15)',
-              zIndex: 60,
-              padding: '6px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '3px'
-            }}>
-              <button
-                onClick={() => { setSelectedCampusId('all'); setIsCampusDropdownOpen(false); }}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  fontSize: '0.80rem',
-                  fontWeight: selectedCampusId === 'all' ? 800 : 500,
-                  background: selectedCampusId === 'all' ? 'var(--accent-primary-light)' : 'transparent',
-                  color: selectedCampusId === 'all' ? 'var(--accent-primary)' : 'var(--text-main)',
-                  cursor: 'pointer'
-                }}
-              >
-                🌐 Todas as Unidades (Geral)
-              </button>
+          {/* Multi-Campus Switcher Pill */}
+          <div style={{ padding: '0 16px 12px 16px', position: 'relative' }}>
+            <button
+              onClick={() => setIsCampusDropdownOpen(!isCampusDropdownOpen)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#f8fafc',
+                border: '1px solid var(--panel-border)',
+                borderRadius: '10px',
+                padding: '8px 12px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                transition: 'all var(--transition-fast)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                <span style={{ color: 'var(--accent-primary)', display: 'flex' }}><BuildingIcon /></span>
+                <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                  {selectedCampusName}
+                </span>
+              </div>
+              <ChevronDownIcon />
+            </button>
 
-              {campuses.map(c => (
+            {/* Dropdown Menu */}
+            {isCampusDropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% - 6px)',
+                left: '16px',
+                right: '16px',
+                background: '#ffffff',
+                border: '1px solid var(--panel-border)',
+                borderRadius: '10px',
+                boxShadow: '0 10px 25px rgba(15, 23, 42, 0.15)',
+                zIndex: 60,
+                padding: '6px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '3px'
+              }}>
                 <button
-                  key={c.id}
-                  onClick={() => { setSelectedCampusId(c.id); setIsCampusDropdownOpen(false); }}
+                  onClick={() => { setSelectedCampusId('all'); setIsCampusDropdownOpen(false); }}
                   style={{
                     textAlign: 'left',
                     padding: '8px 10px',
                     borderRadius: '6px',
                     fontSize: '0.80rem',
-                    fontWeight: selectedCampusId === c.id ? 800 : 500,
-                    background: selectedCampusId === c.id ? 'var(--accent-primary-light)' : 'transparent',
-                    color: selectedCampusId === c.id ? 'var(--accent-primary)' : 'var(--text-main)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    fontWeight: selectedCampusId === 'all' ? 800 : 500,
+                    background: selectedCampusId === 'all' ? 'var(--accent-primary-light)' : 'transparent',
+                    color: selectedCampusId === 'all' ? 'var(--accent-primary)' : 'var(--text-main)',
                     cursor: 'pointer'
                   }}
                 >
-                  <span>📍 {c.name}</span>
-                  {Boolean(c.is_headquarters) && (
-                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                      SEDE
-                    </span>
-                  )}
+                  🌐 Todas as Unidades (Geral)
                 </button>
-              ))}
 
-              <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
+                {campuses.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setSelectedCampusId(c.id); setIsCampusDropdownOpen(false); }}
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.80rem',
+                      fontWeight: selectedCampusId === c.id ? 800 : 500,
+                      background: selectedCampusId === c.id ? 'var(--accent-primary-light)' : 'transparent',
+                      color: selectedCampusId === c.id ? 'var(--accent-primary)' : 'var(--text-main)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>📍 {c.name}</span>
+                    {Boolean(c.is_headquarters) && (
+                      <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                        SEDE
+                      </span>
+                    )}
+                  </button>
+                ))}
 
-              <button
-                onClick={() => { setActiveTab('campuses'); setIsCampusDropdownOpen(false); }}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  color: 'var(--accent-primary)',
+                <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
+
+                <button
+                  onClick={() => { setActiveTab('campuses'); setIsCampusDropdownOpen(false); }}
+                  style={{
+                    textAlign: 'left',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ➕ Gerenciar Unidades & Filiais
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Categories */}
+          <div className="sidebar-nav">
+            {navigationGroups.map((group, gIdx) => (
+              <div key={gIdx}>
+                <div className="nav-category">{group.category}</div>
+                
+                {group.items.map((item) => {
+                  const IconComponent = item.icon;
+                  const isGroupOpen = openSubmenus[item.id];
+                  const isItemActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab));
+
+                  if (item.hasSubmenu && item.subItems) {
+                    return (
+                      <div key={item.id}>
+                        <button
+                          className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
+                          onClick={() => toggleSubmenu(item.id)}
+                        >
+                          <div className="nav-item-left">
+                            <IconComponent />
+                            <span>{item.label}</span>
+                          </div>
+                          {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                        </button>
+
+                        {isGroupOpen && (
+                          <div className="submenu-tree">
+                            {item.subItems.map((sub) => (
+                              <button
+                                key={sub.id}
+                                className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(sub.id)}
+                              >
+                                <span>{sub.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={item.id}
+                      className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
+                      onClick={() => setActiveTab(item.id)}
+                    >
+                      <div className="nav-item-left">
+                        <IconComponent />
+                        <span>{item.label}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Sidebar Footer User Area */}
+          <div className="sidebar-footer">
+            <div className="user-mini-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="user-avatar-circle">
+                  {formattedUserName.charAt(0)}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{formattedUserName}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Administrador Master</span>
+                </div>
+              </div>
+              <button onClick={handleReturnToMasterHub} title="Trocar de Igreja / Rede" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <GridIcon />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* ========================================================
+            MAIN CONTENT AREA
+            ======================================================== */}
+        <main className="main-content">
+          {/* Top Header Bar */}
+          <header className="topbar">
+            <div className="topbar-left">
+              <div>
+                <div className="greeting-text">
+                  {activeTab === 'dashboard' && `Dashboard (${selectedOrganization.name})`}
+                  {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
+                  {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
+                  {activeTab === 'devocionais' && 'Devocionais Diários'}
+                  {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
+                  {activeTab === 'eventos' && 'Eventos, Cursos & Inscrições'}
+                  {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
+                  {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
+                  {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
+                  {activeTab === 'campuses' && 'Gestão de Unidades, Filiais & Campi'}
+                  {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
+                  {activeTab === 'pagarme_financeiro' && 'Gateway de Pagamento (Pagar.me / Pix)'}
+                  {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
+                </div>
+              </div>
+            </div>
+
+            <div className="topbar-center">
+              <div className="search-pill">
+                <SearchIcon />
+                <input type="text" placeholder="Buscar no sistema..." />
+                <span style={{ fontSize: '0.70rem', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>⌘K</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button 
+                onClick={handleReturnToMasterHub}
+                style={{ 
+                  background: '#f1f5f9', 
+                  padding: '7px 14px', 
+                  borderRadius: '8px', 
+                  fontSize: '0.80rem', 
+                  fontWeight: 700, 
+                  color: 'var(--text-main)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer'
+                  gap: '6px'
                 }}
+                title="Voltar para a seleção de redes"
               >
-                ➕ Gerenciar Unidades & Filiais
+                <GridIcon /> Redes
               </button>
-            </div>
-          )}
-        </div>
-
-        {/* Navigation Categories */}
-        <div className="sidebar-nav">
-          {navigationGroups.map((group, gIdx) => (
-            <div key={gIdx}>
-              <div className="nav-category">{group.category}</div>
-              
-              {group.items.map((item) => {
-                const IconComponent = item.icon;
-                const isGroupOpen = openSubmenus[item.id];
-                const isItemActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab));
-
-                if (item.hasSubmenu && item.subItems) {
-                  return (
-                    <div key={item.id}>
-                      <button
-                        className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
-                        onClick={() => toggleSubmenu(item.id)}
-                      >
-                        <div className="nav-item-left">
-                          <IconComponent />
-                          <span>{item.label}</span>
-                        </div>
-                        {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                      </button>
-
-                      {isGroupOpen && (
-                        <div className="submenu-tree">
-                          {item.subItems.map((sub) => (
-                            <button
-                              key={sub.id}
-                              className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
-                              onClick={() => setActiveTab(sub.id)}
-                            >
-                              <span>{sub.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    key={item.id}
-                    className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
-                    onClick={() => setActiveTab(item.id)}
-                  >
-                    <div className="nav-item-left">
-                      <IconComponent />
-                      <span>{item.label}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-
-        {/* Sidebar Footer User Area */}
-        <div className="sidebar-footer">
-          <div className="user-mini-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div className="user-avatar-circle">
+              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => setActiveTab('configuracoes')}>
+                <SettingsIcon />
+              </button>
+              <div className="user-avatar-circle" style={{ cursor: 'pointer' }}>
                 {formattedUserName.charAt(0)}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{formattedUserName}</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Administrador</span>
-              </div>
             </div>
-            <button onClick={handleSignOut} title="Encerrar Sessão" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
-              <LogOutIcon />
-            </button>
-          </div>
-        </div>
-      </aside>
+          </header>
 
-      {/* ========================================================
-          MAIN CONTENT AREA
-          ======================================================== */}
-      <main className="main-content">
-        {/* Top Header Bar */}
-        <header className="topbar">
-          <div className="topbar-left">
-            <div>
-              <div className="greeting-text">
-                {activeTab === 'dashboard' && 'Visão Geral & Dashboard'}
-                {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
-                {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
-                {activeTab === 'devocionais' && 'Devocionais Diários'}
-                {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
-                {activeTab === 'eventos' && 'Eventos, Cursos & Inscrições'}
-                {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
-                {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
-                {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
-                {activeTab === 'campuses' && 'Gestão de Unidades, Filiais & Campi'}
-                {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
-                {activeTab === 'pagarme_financeiro' && 'Gateway de Pagamento (Pagar.me / Pix)'}
-                {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
-              </div>
-            </div>
-          </div>
-
-          <div className="topbar-center">
-            <div className="search-pill">
-              <SearchIcon />
-              <input type="text" placeholder="Buscar no sistema..." />
-              <span style={{ fontSize: '0.70rem', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>⌘K</span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
-              <BellIcon />
-            </button>
-            <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => setActiveTab('configuracoes')}>
-              <SettingsIcon />
-            </button>
-            <div className="user-avatar-circle" style={{ cursor: 'pointer' }}>
-              {formattedUserName.charAt(0)}
-            </div>
-          </div>
-        </header>
-
-        {/* Page Container */}
-        <div className="page-container">
-          {activeTab === 'dashboard' && (
-            <div className="animate-fade-in dashboard-grid-layout">
-              {/* ==========================================
-                  DASHBOARD MAIN COLUMN (Left 2/3)
-                  ========================================== */}
-              <div className="dashboard-main-column">
-                {/* 1. TOP 4 KPI CARDS (Live RDS Data) */}
-                <div className="kpi-grid">
-                  {/* KPI 1: Membros */}
-                  <div className="kpi-card" onClick={() => setActiveTab('membros')}>
-                    <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Membros Cadastrados</span>
-                      <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
-                        <UsersIcon />
+          {/* Page Container */}
+          <div className="page-container">
+            {activeTab === 'dashboard' && (
+              <div className="animate-fade-in dashboard-grid-layout">
+                {/* ==========================================
+                    DASHBOARD MAIN COLUMN (Left 2/3)
+                    ========================================== */}
+                <div className="dashboard-main-column">
+                  {/* 1. TOP 4 KPI CARDS (Live RDS Data) */}
+                  <div className="kpi-grid">
+                    {/* KPI 1: Membros */}
+                    <div className="kpi-card" onClick={() => setActiveTab('membros')}>
+                      <div className="kpi-top-row">
+                        <span className="kpi-title-tag">Membros Cadastrados</span>
+                        <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
+                          <UsersIcon />
+                        </div>
                       </div>
-                    </div>
-                    <div className="kpi-value-row">
-                      <span className="kpi-value">{dashboardStats.membersCount}</span>
-                      <span className="kpi-pill-badge positive">
-                        {dashboardStats.membersCount > 0 ? 'Ativo' : 'Inicial'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Cadastros no sistema</span>
-                      <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
-                    </div>
-                  </div>
-
-                  {/* KPI 2: Células */}
-                  <div className="kpi-card" onClick={() => setActiveTab('celulas')}>
-                    <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Células & Redes</span>
-                      <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
-                        <HeartIcon />
+                      <div className="kpi-value-row">
+                        <span className="kpi-value">{dashboardStats.membersCount}</span>
+                        <span className="kpi-pill-badge positive">
+                          {dashboardStats.membersCount > 0 ? 'Ativo' : 'Inicial'}
+                        </span>
                       </div>
-                    </div>
-                    <div className="kpi-value-row">
-                      <span className="kpi-value">{dashboardStats.cellsCount}</span>
-                      <span className="kpi-pill-badge positive">
-                        {dashboardStats.cellsCount > 0 ? 'Ativo' : 'Inicial'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Grupos conectados</span>
-                      <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
-                    </div>
-                  </div>
-
-                  {/* KPI 3: Monitor de PDV */}
-                  <div className="kpi-card" onClick={() => setActiveTab('pdv_pedidos')}>
-                    <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Vendas na Cantina / PDV</span>
-                      <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
-                        <CartIcon />
-                      </div>
-                    </div>
-                    <div className="kpi-value-row">
-                      <span className="kpi-value">R$ {dashboardStats.ordersTotal.toFixed(2).replace('.', ',')}</span>
-                      <span className="kpi-pill-badge positive">
-                        Total
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Pedidos via App & Caixa</span>
-                      <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
-                    </div>
-                  </div>
-
-                  {/* KPI 4: Eventos */}
-                  <div className="kpi-card" onClick={() => setActiveTab('eventos')}>
-                    <div className="kpi-top-row">
-                      <span className="kpi-title-tag">Eventos & Cursos</span>
-                      <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-orange-bg)', color: 'var(--pastel-orange-text)' }}>
-                        <VideoIcon />
-                      </div>
-                    </div>
-                    <div className="kpi-value-row">
-                      <span className="kpi-value">{dashboardStats.eventsCount}</span>
-                      <span className="kpi-pill-badge positive">
-                        {dashboardStats.eventsCount > 0 ? 'Publicados' : 'Inicial'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="kpi-subtext">Inscrições e passaportes</span>
-                      <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. ACTIONS & SETUP CHECKLIST */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div>
-                      <div className="card-title">Configurações & Próximos Passos</div>
-                      <div className="card-subtitle">Inicie a implantação do ecossistema da sua igreja</div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '12px' }}>
-                    <div 
-                      className="project-card-item" 
-                      onClick={() => setActiveTab('campuses')}
-                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
-                    >
-                      <div className="project-icon-box" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                        <BuildingIcon />
-                      </div>
-                      <div className="project-details">
-                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Unidades & Filiais</span>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre congregações e pastores locais</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span className="kpi-subtext">Cadastros no sistema</span>
+                        <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                       </div>
                     </div>
 
-                    <div 
-                      className="project-card-item" 
-                      onClick={() => setActiveTab('church_branding')}
-                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
-                    >
-                      <div className="project-icon-box" style={{ background: '#f0fdfa', color: '#0f766e' }}>
-                        <PaletteIcon />
+                    {/* KPI 2: Células */}
+                    <div className="kpi-card" onClick={() => setActiveTab('celulas')}>
+                      <div className="kpi-top-row">
+                        <span className="kpi-title-tag">Células & Redes</span>
+                        <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
+                          <HeartIcon />
+                        </div>
                       </div>
-                      <div className="project-details">
-                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Identidade & Cores</span>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Configure o nome, logotipo e tema do PWA</div>
+                      <div className="kpi-value-row">
+                        <span className="kpi-value">{dashboardStats.cellsCount}</span>
+                        <span className="kpi-pill-badge positive">
+                          {dashboardStats.cellsCount > 0 ? 'Ativo' : 'Inicial'}
+                        </span>
                       </div>
-                    </div>
-
-                    <div 
-                      className="project-card-item" 
-                      onClick={() => setActiveTab('pagarme_financeiro')}
-                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
-                    >
-                      <div className="project-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
-                        <CreditCardIcon />
-                      </div>
-                      <div className="project-details">
-                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Gateway de Pagamento</span>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Ative a chave Pagar.me e chave Pix</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span className="kpi-subtext">Grupos conectados</span>
+                        <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                       </div>
                     </div>
 
-                    <div 
-                      className="project-card-item" 
-                      onClick={() => setActiveTab('pdv_produtos')}
-                      style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
-                    >
-                      <div className="project-icon-box" style={{ background: '#fdf2f8', color: '#db2777' }}>
-                        <CartIcon />
+                    {/* KPI 3: Monitor de PDV */}
+                    <div className="kpi-card" onClick={() => setActiveTab('pdv_pedidos')}>
+                      <div className="kpi-top-row">
+                        <span className="kpi-title-tag">Vendas na Cantina / PDV</span>
+                        <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
+                          <CartIcon />
+                        </div>
                       </div>
-                      <div className="project-details">
-                        <span className="project-title" style={{ fontSize: '0.88rem' }}>Cardápio da Cantina</span>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre lanches, cafés e itens da loja</div>
+                      <div className="kpi-value-row">
+                        <span className="kpi-value">R$ {dashboardStats.ordersTotal.toFixed(2).replace('.', ',')}</span>
+                        <span className="kpi-pill-badge positive">
+                          Total
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span className="kpi-subtext">Pedidos via App & Caixa</span>
+                        <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
+                      </div>
+                    </div>
+
+                    {/* KPI 4: Eventos */}
+                    <div className="kpi-card" onClick={() => setActiveTab('eventos')}>
+                      <div className="kpi-top-row">
+                        <span className="kpi-title-tag">Eventos & Cursos</span>
+                        <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-orange-bg)', color: 'var(--pastel-orange-text)' }}>
+                          <VideoIcon />
+                        </div>
+                      </div>
+                      <div className="kpi-value-row">
+                        <span className="kpi-value">{dashboardStats.eventsCount}</span>
+                        <span className="kpi-pill-badge positive">
+                          {dashboardStats.eventsCount > 0 ? 'Publicados' : 'Inicial'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span className="kpi-subtext">Inscrições e passaportes</span>
+                        <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* 3. MEMBERS TABLE */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div>
-                      <div className="card-title">Membros Cadastrados Recentemente</div>
-                      <div className="card-subtitle">Acompanhamento da membresia e liderança</div>
+                  {/* 2. ACTIONS & SETUP CHECKLIST */}
+                  <div className="portal-card">
+                    <div className="card-header-row">
+                      <div>
+                        <div className="card-title">Configurações & Próximos Passos</div>
+                        <div className="card-subtitle">Inicie a implantação do ecossistema da sua igreja</div>
+                      </div>
                     </div>
-                    <button className="link-btn" onClick={() => setActiveTab('membros')}>
-                      Ver Todos <ArrowRightIcon />
-                    </button>
-                  </div>
 
-                  <div className="members-table-container">
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>Membro</th>
-                          <th>Cargo / Função</th>
-                          <th>Status</th>
-                          <th>Cadastro</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dashboardStats.recentMembers.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                              Nenhum membro cadastrado ainda. Clique em "Ver Todos" para convidar pessoas.
-                            </td>
-                          </tr>
-                        ) : (
-                          dashboardStats.recentMembers.map((m: any) => (
-                            <tr key={m.id}>
-                              <td>
-                                <div className="user-cell">
-                                  <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
-                                    {m.name ? m.name.charAt(0).toUpperCase() : 'M'}
-                                  </div>
-                                  <div>
-                                    <div className="member-meta-title">{m.name}</div>
-                                    <div className="member-meta-sub">{m.email}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{m.role || 'Membro'}</td>
-                              <td><span className="status-badge good">Ativo</span></td>
-                              <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>{m.created_at ? new Date(m.created_at).toLocaleDateString('pt-BR') : 'Hoje'}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* ==========================================
-                  DASHBOARD RIGHT COLUMN (1/3)
-                  ========================================== */}
-              <div className="dashboard-right-column">
-                {/* 1. CALENDAR WIDGET */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div className="card-title">Calendário Ministerial</div>
-                    <span className="notice-badge">Hoje</span>
-                  </div>
-
-                  <div className="calendar-grid">
-                    <div className="cal-day-header">D</div>
-                    <div className="cal-day-header">S</div>
-                    <div className="cal-day-header">T</div>
-                    <div className="cal-day-header">Q</div>
-                    <div className="cal-day-header">Q</div>
-                    <div className="cal-day-header">S</div>
-                    <div className="cal-day-header">S</div>
-
-                    {Array.from({ length: 30 }, (_, i) => i + 1).map(day => (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '12px' }}>
                       <div 
-                        key={day} 
-                        className={`cal-day-cell ${selectedCalDay === day ? 'active-today' : ''}`}
-                        onClick={() => setSelectedCalDay(day)}
+                        className="project-card-item" 
+                        onClick={() => setActiveTab('campuses')}
+                        style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
                       >
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 2. AGENDA & PROGRAMAÇÕES REAIS */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div>
-                      <div className="card-title">Próximos Eventos</div>
-                      <div className="card-subtitle">Programações da igreja</div>
-                    </div>
-                    <button className="link-btn" onClick={() => setActiveTab('eventos')}>
-                      + Add
-                    </button>
-                  </div>
-
-                  {dashboardStats.upcomingEvents.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                      Nenhum evento agendado para os próximos dias. Cadastre em "Eventos & Trilhas".
-                    </div>
-                  ) : (
-                    dashboardStats.upcomingEvents.map(ev => (
-                      <div key={ev.id} className="schedule-item">
-                        <div className="schedule-time-box">
-                          <span>{ev.start_date ? new Date(ev.start_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Em breve'}</span>
+                        <div className="project-icon-box" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                          <BuildingIcon />
                         </div>
-                        <div className="schedule-content">
-                          <div className="schedule-title">{ev.title}</div>
-                          <span className="schedule-tag" style={{ background: '#ecfdf5', color: '#059669' }}>
-                            {ev.location || 'Templo Principal'}
-                          </span>
+                        <div className="project-details">
+                          <span className="project-title" style={{ fontSize: '0.88rem' }}>Unidades & Filiais</span>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre congregações e pastores locais</div>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
 
-                {/* 3. ATIVIDADES RECENTES */}
-                <div className="portal-card">
-                  <div className="card-header-row">
-                    <div>
-                      <div className="card-title">Atividades do Sistema</div>
-                      <div className="card-subtitle">Status em tempo real</div>
-                    </div>
-                    <span className="notice-badge">Online</span>
-                  </div>
-
-                  <div className="activity-item">
-                    <div className="activity-icon-dot" style={{ background: '#10b981' }}>
-                      <SparklesIcon />
-                    </div>
-                    <div>
-                      <div className="activity-text">
-                        Sistema conectado à nuvem AWS em <strong>us-east-2</strong> com banco RDS MySQL.
+                      <div 
+                        className="project-card-item" 
+                        onClick={() => setActiveTab('church_branding')}
+                        style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                      >
+                        <div className="project-icon-box" style={{ background: '#f0fdfa', color: '#0f766e' }}>
+                          <PaletteIcon />
+                        </div>
+                        <div className="project-details">
+                          <span className="project-title" style={{ fontSize: '0.88rem' }}>Identidade & Cores</span>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Configure o nome, logotipo e tema do PWA</div>
+                        </div>
                       </div>
-                      <div className="activity-time">Multi-Campus Ativo</div>
+
+                      <div 
+                        className="project-card-item" 
+                        onClick={() => setActiveTab('pagarme_financeiro')}
+                        style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                      >
+                        <div className="project-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                          <CreditCardIcon />
+                        </div>
+                        <div className="project-details">
+                          <span className="project-title" style={{ fontSize: '0.88rem' }}>Gateway de Pagamento</span>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Ative a chave Pagar.me e chave Pix</div>
+                        </div>
+                      </div>
+
+                      <div 
+                        className="project-card-item" 
+                        onClick={() => setActiveTab('pdv_produtos')}
+                        style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
+                      >
+                        <div className="project-icon-box" style={{ background: '#fdf2f8', color: '#db2777' }}>
+                          <CartIcon />
+                        </div>
+                        <div className="project-details">
+                          <span className="project-title" style={{ fontSize: '0.88rem' }}>Cardápio da Cantina</span>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre lanches, cafés e itens da loja</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* 3. MEMBERS TABLE */}
+                  <div className="portal-card">
+                    <div className="card-header-row">
+                      <div>
+                        <div className="card-title">Membros Cadastrados Recentemente</div>
+                        <div className="card-subtitle">Acompanhamento da membresia e liderança</div>
+                      </div>
+                      <button className="link-btn" onClick={() => setActiveTab('membros')}>
+                        Ver Todos <ArrowRightIcon />
+                      </button>
+                    </div>
+
+                    <div className="members-table-container">
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>Membro</th>
+                            <th>Cargo / Função</th>
+                            <th>Status</th>
+                            <th>Cadastro</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dashboardStats.recentMembers.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                                Nenhum membro cadastrado ainda nesta rede/unidade.
+                              </td>
+                            </tr>
+                          ) : (
+                            dashboardStats.recentMembers.map((m: any) => (
+                              <tr key={m.id}>
+                                <td>
+                                  <div className="user-cell">
+                                    <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
+                                      {m.name ? m.name.charAt(0).toUpperCase() : 'M'}
+                                    </div>
+                                    <div>
+                                      <div className="member-meta-title">{m.name}</div>
+                                      <div className="member-meta-sub">{m.email}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{m.role || 'Membro'}</td>
+                                <td><span className="status-badge good">Ativo</span></td>
+                                <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>{m.created_at ? new Date(m.created_at).toLocaleDateString('pt-BR') : 'Hoje'}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
                 </div>
 
-              </div>
-            </div>
-          )}
+                {/* ==========================================
+                    DASHBOARD RIGHT COLUMN (1/3)
+                    ========================================== */}
+                <div className="dashboard-right-column">
+                  {/* 1. CALENDAR WIDGET */}
+                  <div className="portal-card">
+                    <div className="card-header-row">
+                      <div className="card-title">Calendário Ministerial</div>
+                      <span className="notice-badge">Hoje</span>
+                    </div>
 
-          {/* ==========================================
-              ACTIVE MODULE RENDERERS
-              ========================================== */}
-          {activeTab === 'campuses' && <Campuses />}
-          {activeTab === 'membros' && <Members />}
-          {activeTab === 'transmissoes' && <Broadcasts />}
-          {activeTab === 'celulas' && <CellGroups />}
-          {activeTab === 'estudos' && <Studies />}
-          {activeTab === 'eventos' && <Events />}
-          {activeTab === 'devocionais' && <Devotionals />}
-          {activeTab === 'pdv_produtos' && <PdvProdutos />}
-          {activeTab === 'pdv_pedidos' && <PdvPedidos />}
-          {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
-          {activeTab === 'church_branding' && <ChurchBranding />}
+                    <div className="calendar-grid">
+                      <div className="cal-day-header">D</div>
+                      <div className="cal-day-header">S</div>
+                      <div className="cal-day-header">T</div>
+                      <div className="cal-day-header">Q</div>
+                      <div className="cal-day-header">Q</div>
+                      <div className="cal-day-header">S</div>
+                      <div className="cal-day-header">S</div>
 
-          {/* Settings View */}
-          {activeTab === 'configuracoes' && (
-            <div className="portal-card animate-fade-in" style={{ padding: '64px', textAlign: 'center', marginTop: '16px' }}>
-              <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '24px', borderRadius: '50%', marginBottom: '20px', color: 'var(--accent-primary)' }}>
-                <SettingsIcon />
+                      {Array.from({ length: 30 }, (_, i) => i + 1).map(day => (
+                        <div 
+                          key={day} 
+                          className={`cal-day-cell ${selectedCalDay === day ? 'active-today' : ''}`}
+                          onClick={() => setSelectedCalDay(day)}
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. AGENDA & PROGRAMAÇÕES REAIS */}
+                  <div className="portal-card">
+                    <div className="card-header-row">
+                      <div>
+                        <div className="card-title">Próximos Eventos</div>
+                        <div className="card-subtitle">Programações da igreja</div>
+                      </div>
+                      <button className="link-btn" onClick={() => setActiveTab('eventos')}>
+                        + Add
+                      </button>
+                    </div>
+
+                    {dashboardStats.upcomingEvents.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        Nenhum evento agendado para os próximos dias. Cadastre em "Eventos & Trilhas".
+                      </div>
+                    ) : (
+                      dashboardStats.upcomingEvents.map(ev => (
+                        <div key={ev.id} className="schedule-item">
+                          <div className="schedule-time-box">
+                            <span>{ev.start_date ? new Date(ev.start_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Em breve'}</span>
+                          </div>
+                          <div className="schedule-content">
+                            <div className="schedule-title">{ev.title}</div>
+                            <span className="schedule-tag" style={{ background: '#ecfdf5', color: '#059669' }}>
+                              {ev.location || 'Templo Principal'}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* 3. ATIVIDADES RECENTES */}
+                  <div className="portal-card">
+                    <div className="card-header-row">
+                      <div>
+                        <div className="card-title">Status da Rede</div>
+                        <div className="card-subtitle">{selectedOrganization.name}</div>
+                      </div>
+                      <span className="notice-badge">Online</span>
+                    </div>
+
+                    <div className="activity-item">
+                      <div className="activity-icon-dot" style={{ background: '#10b981' }}>
+                        <SparklesIcon />
+                      </div>
+                      <div>
+                        <div className="activity-text">
+                          Rede ativa no plano <strong>{selectedOrganization.plan || 'PRO'}</strong> com <strong>{campuses.length}</strong> unidade(s).
+                        </div>
+                        <div className="activity-time">Pronto para uso</div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
               </div>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-main)' }}>Configurações do Sistema</h2>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '28px', maxWidth: '460px', margin: '0 auto 28px auto', lineHeight: '1.6', fontSize: '0.92rem' }}>
-                Gerencie integrações com AWS Cognito, parâmetros da igreja, credenciais de streaming e notificações push do aplicativo Faith-Hub.
-              </p>
-              <button className="btn-primary" onClick={() => setActiveTab('dashboard')}>
-                Retornar ao Dashboard Central
-              </button>
-            </div>
-          )}
-        </div>
-      </main>
+            )}
+
+            {/* ==========================================
+                ACTIVE MODULE RENDERERS
+                ========================================== */}
+            {activeTab === 'campuses' && <Campuses />}
+            {activeTab === 'membros' && <Members />}
+            {activeTab === 'transmissoes' && <Broadcasts />}
+            {activeTab === 'celulas' && <CellGroups />}
+            {activeTab === 'estudos' && <Studies />}
+            {activeTab === 'eventos' && <Events />}
+            {activeTab === 'devocionais' && <Devotionals />}
+            {activeTab === 'pdv_produtos' && <PdvProdutos />}
+            {activeTab === 'pdv_pedidos' && <PdvPedidos />}
+            {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
+            {activeTab === 'church_branding' && <ChurchBranding />}
+
+            {/* Settings View */}
+            {activeTab === 'configuracoes' && (
+              <div className="portal-card animate-fade-in" style={{ padding: '64px', textAlign: 'center', marginTop: '16px' }}>
+                <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '24px', borderRadius: '50%', marginBottom: '20px', color: 'var(--accent-primary)' }}>
+                  <SettingsIcon />
+                </div>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-main)' }}>Configurações do Sistema</h2>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '28px', maxWidth: '460px', margin: '0 auto 28px auto', lineHeight: '1.6', fontSize: '0.92rem' }}>
+                  Gerencie integrações com AWS Cognito, parâmetros da igreja, credenciais de streaming e notificações push do aplicativo Faith-Hub.
+                </p>
+                <button className="btn-primary" onClick={() => setActiveTab('dashboard')}>
+                  Retornar ao Dashboard Central
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
