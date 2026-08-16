@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import './Broadcasts.css'; // reaproveitamos a UI dos cards e modais
+import './Broadcasts.css';
 
+const FileTextIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+);
 const VideoIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
-);
-const FileTextIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
 );
 const TrashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 );
-const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const PlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -20,8 +22,8 @@ type Study = {
   id: string;
   title: string;
   description: string;
-  content_type: 'VIDEO' | 'PDF' | 'TEXT';
-  link: string;
+  content_type: 'TEXT' | 'PDF' | 'VIDEO';
+  link: string | null;
   date_published: string;
   status: string;
   target_group_id: string | null;
@@ -29,9 +31,14 @@ type Study = {
   content_text?: string;
 };
 
+type Group = {
+  id: string;
+  name: string;
+};
+
 export default function Studies() {
   const [studies, setStudies] = useState<Study[]>([]);
-  const [groups, setGroups] = useState<{id: string, name: string}[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,7 +47,7 @@ export default function Studies() {
     id: string;
     title: string;
     description: string;
-    content_type: 'VIDEO' | 'PDF' | 'TEXT';
+    content_type: 'TEXT' | 'PDF' | 'VIDEO';
     link: string;
     date_published: string;
     status: string;
@@ -63,24 +70,19 @@ export default function Studies() {
     loadGroups();
   }, []);
 
-  const getAuthHeaders = async () => {
-    const session = await fetchAuthSession();
-    return {
-      'Authorization': `Bearer ${session.tokens?.idToken?.toString()}`,
-      'Content-Type': 'application/json'
-    };
-  };
-
-  const loadGroups = async () => {
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/cell-groups`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setGroups(data);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      if (token) {
+        return {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
       }
-    } catch (err) {
-      console.error(err);
+      return { 'Content-Type': 'application/json' };
+    } catch {
+      return { 'Content-Type': 'application/json' };
     }
   };
 
@@ -91,21 +93,25 @@ export default function Studies() {
       const res = await fetch(`${API_URL}/studies`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setStudies(data);
-      } else {
-        setStudies([
-          { id: '1', title: 'Os Frutos do Espírito', description: 'Parte 1 - O Amor e a Alegria.', content_type: 'VIDEO', link: 'https://youtube.com', date_published: '2026-03-22', status: 'ACTIVE', target_group_id: null },
-          { id: '2', title: 'Vencendo a Ansiedade', description: 'Como lidar com o mal do século pela ótica cristã.', content_type: 'PDF', link: 'https://drive.google.com/doc', date_published: '2026-03-15', status: 'INACTIVE', target_group_id: null }
-        ]);
+        setStudies(data.data || []);
       }
     } catch (err) {
       console.error(err);
-      setStudies([
-        { id: '1', title: 'Os Frutos do Espírito', description: 'Parte 1 - O Amor e a Alegria. Guia principal para o mês abordando os primeiros frutos essenciais.', content_type: 'VIDEO', link: 'https://youtube.com', date_published: '2026-03-22', status: 'ACTIVE', target_group_id: null },
-        { id: '2', title: 'Vencendo a Ansiedade', description: 'Como lidar com o mal do século pela ótica cristã.', content_type: 'PDF', link: 'https://drive.google.com/doc', date_published: '2026-03-15', status: 'INACTIVE', target_group_id: null }
-      ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGroups = async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/cell-groups`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setGroups(data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -114,29 +120,16 @@ export default function Studies() {
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
-      const bodyPayload = { ...formData, target_group_id: formData.target_group_id || null };
-      
       const res = await fetch(`${API_URL}/studies`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(bodyPayload)
+        body: JSON.stringify(formData)
       });
-      
       if (res.ok) {
         setShowModal(false);
         loadStudies();
       } else {
-        alert("Criando através do Mock visual (Backend desconectado temporariamente)");
-        const newStudy: Study = {
-          ...formData,
-          id: formData.id || String(Date.now()),
-          content_type: formData.content_type as any,
-          target_group_id: formData.target_group_id || null,
-          target_group_name: groups.find(g => g.id === formData.target_group_id)?.name
-        };
-        if (formData.id) setStudies(studies.map(s => s.id === formData.id ? newStudy : s));
-        else setStudies([newStudy, ...studies]);
-        setShowModal(false);
+        alert("Erro ao salvar estudo.");
       }
     } catch (err) {
       console.error(err);
@@ -153,9 +146,6 @@ export default function Studies() {
       const res = await fetch(`${API_URL}/studies/${id}`, { method: 'DELETE', headers });
       if (res.ok) {
          loadStudies();
-      } else {
-         alert("Deletando mock...");
-         setStudies(studies.filter(s => s.id !== id));
       }
     } catch (err) {
       console.error(err);
@@ -184,27 +174,28 @@ export default function Studies() {
 
   const getTypeStyle = (type: string) => {
     switch(type) {
-      case 'VIDEO': return { bg: 'rgba(255, 59, 48, 0.1)', color: '#FF3B30', label: 'VÍDEO' };
-      case 'PDF': return { bg: 'rgba(52, 199, 89, 0.1)', color: '#34C759', label: 'ARQUIVO PDF' };
-      default: return { bg: 'rgba(91, 195, 187, 0.1)', color: '#5bc3bb', label: 'TEXTO' };
+      case 'VIDEO': return { bg: '#fef2f2', color: '#dc2626', label: 'VÍDEO' };
+      case 'PDF': return { bg: '#ecfdf5', color: '#059669', label: 'ARQUIVO PDF' };
+      default: return { bg: '#eff6ff', color: '#2563eb', label: 'TEXTO' };
     }
   };
 
   return (
     <div className="broadcasts-container animate-fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0, paddingBottom: 24, borderBottom: '1px solid var(--border-color)', marginBottom: 24 }}>
+      {/* Header */}
+      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 24 }}>
         <div>
-          <h1 className="page-title">Estudos e Material de Célula</h1>
-          <p className="page-subtitle">Forneça roteiros (PDF ou Vídeo) contendo a "Palavra da Semana" para a liderança.</p>
+          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Estudos e Material de Célula</h1>
+          <p className="card-subtitle">Forneça roteiros (PDF, Vídeo ou Texto) com a "Palavra da Semana" para toda a liderança.</p>
         </div>
-        <button className="btn-primary flex-center" onClick={openNewModal} style={{ padding: '12px 20px', fontSize: '0.9rem' }}>
+        <button className="btn-primary" onClick={openNewModal}>
           <PlusIcon /> Novo Estudo
         </button>
       </div>
 
       <div className="broadcast-mural">
         {loading ? (
-          <div className="loading-state">Carregando estudos...</div>
+          <div style={{ gridColumn: '1 / -1', padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando estudos...</div>
         ) : studies.length === 0 ? (
           <div className="empty-state">
             <FileTextIcon />
@@ -215,31 +206,33 @@ export default function Studies() {
           studies.map((s) => {
             const typeStyle = getTypeStyle(s.content_type);
             return (
-              <div key={s.id} className="broadcast-card card" onClick={() => openEditModal(s)}>
-                <div className="card-top">
-                  <div className={`status-badge ${s.status === 'ACTIVE' ? 'live' : 'scheduled'}`}>
-                    {s.status === 'ACTIVE' ? "DISPONÍVEL" : "RASCUNHO"}
-                  </div>
-                  
-                  <div className="status-badge" style={{ background: typeStyle.bg, color: typeStyle.color, marginLeft: 8, fontWeight: 800 }}>
-                     {s.content_type === 'VIDEO' ? <VideoIcon /> : <FileTextIcon />}
-                     <span style={{ marginLeft: 4 }}>{typeStyle.label}</span>
+              <div key={s.id} className="portal-card" style={{ padding: 20, cursor: 'pointer' }} onClick={() => openEditModal(s)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span className={`status-badge ${s.status === 'ACTIVE' ? 'excellent' : 'pending'}`}>
+                      {s.status === 'ACTIVE' ? "DISPONÍVEL" : "RASCUNHO"}
+                    </span>
+                    <span className="status-badge" style={{ background: typeStyle.bg, color: typeStyle.color, fontWeight: 800 }}>
+                      {typeStyle.label}
+                    </span>
                   </div>
 
-                  <button className="icon-btn danger-hover" style={{ marginLeft: 'auto' }} onClick={(e) => handleDelete(s.id, e)}>
+                  <button 
+                    className="action-circle-btn" 
+                    style={{ width: 30, height: 30, color: 'var(--danger)' }} 
+                    onClick={(e) => handleDelete(s.id, e)}
+                  >
                     <TrashIcon />
                   </button>
                 </div>
 
-                <div className="card-body">
-                  <h3 className="b-title">{s.title}</h3>
-                  <p className="b-desc" style={{ marginBottom: 12 }}>{s.description || 'Sem resumo disponível.'}</p>
-                  
-                  <div className="b-meta" style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-                    <div className="meta-item">📍 Restrito para: <strong>{s.target_group_name || 'Geral (Todos os Grupos)'}</strong></div>
-                    <div className="meta-item">🗓️ Liberação: {s.date_published.split('-').reverse().join('/')}</div>
-                    {s.link && <div className="meta-item" style={{ color: '#5bc3bb', fontWeight: 600 }}>🔗 Link Anexado</div>}
-                  </div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{s.title}</h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 16 }}>{s.description || 'Sem resumo disponível.'}</p>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.78rem', color: 'var(--text-muted)', paddingTop: 12, borderTop: '1px solid var(--panel-border)' }}>
+                  <div>📍 <strong>Público:</strong> {s.target_group_name || 'Geral (Todas as Células)'}</div>
+                  <div>🗓️ <strong>Liberação:</strong> {s.date_published.split('-').reverse().join('/')}</div>
+                  {s.link && <div style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>🔗 Link de Mídia Anexado</div>}
                 </div>
               </div>
             );
@@ -247,78 +240,207 @@ export default function Studies() {
         )}
       </div>
 
+      {/* ========================================================
+          MODAL STUDIO (2-Column Horizontal Split Architecture)
+          ======================================================== */}
       {showModal && createPortal(
-        <div className="modal-overlay animate-fade-in">
-          <div className="modal-container scrollable-modal" style={{ maxWidth: 650 }}>
-            <div className="modal-header">
-              <h3>{formData.id ? 'Editar Estudo' : 'Cadastrar Estudo / Lição'}</h3>
-              <button className="close-btn" onClick={() => setShowModal(false)}>&times;</button>
+        <div className="modal-overlay animate-fade-in" onClick={() => setShowModal(false)}>
+          <div className="modal-studio-container" onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header */}
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
+                  <FileTextIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">
+                    {formData.id ? 'Editar Estudo de Célula' : 'Cadastrar Novo Estudo de Célula'}
+                  </h2>
+                  <p className="modal-studio-subtitle">
+                    Disponibilize materiais, roteiros e vídeos para os líderes guiarem suas reuniões semanais.
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setShowModal(false)} title="Fechar">
+                &times;
+              </button>
             </div>
-            <form className="modal-body" onSubmit={handleSave}>
-              <div className="form-group">
-                <label>Título do Estudo / Série *</label>
-                <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ex: A armadura de Deus - Lição 3" required />
-              </div>
-              
-              <div className="form-group">
-                <label>Resumo Rápido para a Liderança *</label>
-                <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Do que se trata esse estudo e qual o foco da reunião?" required></textarea>
-              </div>
 
-              <div className="form-group">
-                <label>Público Alvo / Restrição de Célula</label>
-                <select value={formData.target_group_id} onChange={e => setFormData({...formData, target_group_id: e.target.value})}>
-                  <option value="">Geral (Todas as Células e Membros)</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-                <small style={{ color: 'var(--text-muted)' }}>Mantenha "Geral" para um estudo aplicado a todos.</small>
-              </div>
+            {/* Modal Body - 2 Column Grid */}
+            <form id="study-studio-form" onSubmit={handleSave} className="modal-studio-body">
+              <div className="modal-studio-grid">
+                
+                {/* LEFT COLUMN: Conteúdo & Mídia (60%) */}
+                <div className="modal-studio-column">
+                  
+                  {/* Segmented Media Selector */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Formato da Lição *</label>
+                    <div className="segmented-control">
+                      <div 
+                        className={`segmented-btn ${formData.content_type === 'TEXT' ? 'active' : ''}`}
+                        onClick={() => setFormData({ ...formData, content_type: 'TEXT' })}
+                      >
+                        📄 Texto / Esboço
+                      </div>
+                      <div 
+                        className={`segmented-btn ${formData.content_type === 'PDF' ? 'active' : ''}`}
+                        onClick={() => setFormData({ ...formData, content_type: 'PDF' })}
+                      >
+                        📕 Arquivo PDF
+                      </div>
+                      <div 
+                        className={`segmented-btn ${formData.content_type === 'VIDEO' ? 'active' : ''}`}
+                        onClick={() => setFormData({ ...formData, content_type: 'VIDEO' })}
+                      >
+                        🎥 Vídeo YouTube
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="form-row">
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Tipo de Mídia Central</label>
-                  <select value={formData.content_type} onChange={e => setFormData({...formData, content_type: e.target.value as 'TEXT' | 'PDF' | 'VIDEO'})}>
-                    <option value="TEXT">Desboço em Texto / Blog</option>
-                    <option value="PDF">Arquivo PDF Roteiro</option>
-                    <option value="VIDEO">Vídeo de Ensino (YouTube / Vimeo)</option>
-                  </select>
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Título da Lição / Série *</label>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      value={formData.title} 
+                      onChange={e => setFormData({...formData, title: e.target.value})} 
+                      placeholder="Ex: A Armadura de Deus - Lição 3" 
+                      required 
+                    />
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Resumo Rápido para a Liderança *</label>
+                    <textarea 
+                      rows={2} 
+                      className="textarea-modern"
+                      value={formData.description} 
+                      onChange={e => setFormData({...formData, description: e.target.value})} 
+                      placeholder="Qual o objetivo central desta lição e o que enfatizar?" 
+                      required
+                    />
+                  </div>
+
+                  {(formData.content_type === 'PDF' || formData.content_type === 'VIDEO') && (
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">
+                        Link Externo da Mídia * {formData.content_type === 'PDF' ? '(Google Drive, Dropbox)' : '(YouTube, Vimeo)'}
+                      </label>
+                      <input 
+                        type="url" 
+                        className="input-modern"
+                        value={formData.link} 
+                        onChange={e => setFormData({...formData, link: e.target.value})} 
+                        placeholder="https://..." 
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {formData.content_type === 'TEXT' && (
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Esboço Completo do Estudo (Texto) *</label>
+                      <textarea 
+                        rows={6} 
+                        className="textarea-modern"
+                        value={formData.content_text} 
+                        onChange={e => setFormData({...formData, content_text: e.target.value})} 
+                        placeholder="Cole aqui todo o roteiro, versículos chave e perguntas para discussão..." 
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Data de Utilização / Culto</label>
-                  <input type="date" value={formData.date_published} onChange={e => setFormData({...formData, date_published: e.target.value})} required/>
+
+                {/* RIGHT COLUMN: Público, Data & Visibilidade (40%) */}
+                <div className="modal-studio-column">
+                  
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Público / Célula Específica</label>
+                    <select 
+                      className="select-modern"
+                      value={formData.target_group_id} 
+                      onChange={e => setFormData({...formData, target_group_id: e.target.value})}
+                    >
+                      <option value="">Geral (Todas as Células e Membros)</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      Deixe "Geral" para disponibilizar para todo o ministério.
+                    </span>
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Data de Liberação / Aplicação</label>
+                    <input 
+                      type="date" 
+                      className="input-modern"
+                      value={formData.date_published} 
+                      onChange={e => setFormData({...formData, date_published: e.target.value})} 
+                      required
+                    />
+                  </div>
+
+                  {/* Toggle: Visibilidade */}
+                  <div className="toggle-card-modern" style={{ marginTop: 8 }}>
+                    <div className="toggle-card-info">
+                      <div className="toggle-card-title">
+                        <span style={{ color: '#059669' }}>👁️</span> Estudo Ativo no App
+                      </div>
+                      <div className="toggle-card-desc">
+                        Ficará visível imediatamente para os líderes
+                      </div>
+                    </div>
+                    <label className="switch-control">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.status === 'ACTIVE'} 
+                        onChange={e => setFormData({...formData, status: e.target.checked ? 'ACTIVE' : 'INACTIVE'})} 
+                      />
+                      <span className="switch-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Live Preview Box */}
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 16, border: '1px solid var(--panel-border)' }}>
+                    <div style={{ fontSize: '0.70rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+                      Preview para os Líderes
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: '0.90rem', color: 'var(--text-main)', marginBottom: 4 }}>
+                      {formData.title || 'Título do Estudo'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      Formato: <strong>{formData.content_type}</strong> • Para: <strong>{groups.find(g => g.id === formData.target_group_id)?.name || 'Geral'}</strong>
+                    </div>
+                  </div>
+
                 </div>
-              </div>
-
-              {(formData.content_type === 'PDF' || formData.content_type === 'VIDEO') && (
-                <div className="form-group animate-fade-in">
-                  <label>Link Externo da Mídia * {formData.content_type === 'PDF' ? '(Google Drive, OneDrive)' : '(YouTube, Vimeo)'}</label>
-                  <input type="url" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} placeholder="https://..." required={true} />
-                </div>
-              )}
-
-              {formData.content_type === 'TEXT' && (
-                <div className="form-group animate-fade-in" style={{ marginTop: 12 }}>
-                  <label>Esboço do Estudo (Texto Completo) *</label>
-                  <textarea rows={8} value={formData.content_text} onChange={e => setFormData({...formData, content_text: e.target.value})} placeholder="Escreva ou cole aqui todo o roteiro do Estudo..." required></textarea>
-                </div>
-              )}
-
-              <div className="form-group checkbox-group" style={{ marginTop: 12 }}>
-                <label className="toggle-label">
-                  <input type="checkbox" checked={formData.status === 'ACTIVE'} onChange={e => setFormData({...formData, status: e.target.checked ? 'ACTIVE' : 'INACTIVE'})} />
-                  <span className="toggle-text">Estudo Visível para a Igreja (Ativo)?</span>
-                </label>
-              </div>
-
-              <div className="modal-actions" style={{ marginTop: 24 }}>
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Publicando...' : 'Salvar Estudo e Publicar'}
-                </button>
               </div>
             </form>
+
+            {/* Modal Footer */}
+            <div className="modal-studio-footer">
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={() => setShowModal(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                form="study-studio-form" 
+                className="btn-primary" 
+                disabled={saving}
+              >
+                {saving ? 'Salvando...' : 'Salvar & Publicar Estudo'}
+              </button>
+            </div>
+
           </div>
         </div>,
         document.body

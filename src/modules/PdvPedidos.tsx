@@ -99,7 +99,7 @@ export const PdvPedidos = () => {
   };
 
   return (
-    <div className="members-container animate-fade-in" style={{ padding: '0 40px' }}>
+    <div className="members-container animate-fade-in" style={{ width: '100%' }}>
       <div className="header-actions" style={{ marginBottom: 30, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>Central de Vendas e Pedidos</h2>

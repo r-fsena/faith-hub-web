@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Members.css';
 
 // Icons used in Members module
@@ -9,7 +9,7 @@ const MoreVerticalIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
 );
 const UserPlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
 );
 const EditIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
@@ -40,8 +40,6 @@ interface Member {
   cellGroup?: string;
   cpf?: string;
 }
-
-// Removed Mock Array and AutocompleteCell to use dynamic db fetching
 
 export default function Members() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,11 +117,11 @@ export default function Members() {
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'Ativo': 
-      case 'ACTIVE': return <span className="badge badge-success">Ativo</span>;
+      case 'ACTIVE': return <span className="status-badge excellent">Ativo</span>;
       case 'Inativo': 
-      case 'INACTIVE': return <span className="badge badge-danger">Inativo</span>;
-      case 'Pendente': return <span className="badge badge-warning">Pendente</span>;
-      default: return <span className="badge">{status}</span>;
+      case 'INACTIVE': return <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626' }}>Inativo</span>;
+      case 'Pendente': return <span className="status-badge pending">Pendente</span>;
+      default: return <span className="status-badge">{status}</span>;
     }
   };
 
@@ -142,7 +140,7 @@ export default function Members() {
         body: JSON.stringify({ email: member.email, action })
       });
       if (response.ok) {
-        fetchMembers(); // recarrega do DB
+        fetchMembers();
       } else {
         alert("Erro ao alterar o status na API.");
       }
@@ -163,7 +161,7 @@ export default function Members() {
       if (resp.ok) {
         setInviteModalOpen(false);
         setInviteForm({ name: '', email: '', role: 'Membro', cellGroupId: '' });
-        fetchMembers(); // Atualiza a tabela
+        fetchMembers();
       } else {
         const err = await resp.json();
         alert("Erro ao convidar: " + err.error);
@@ -182,7 +180,7 @@ export default function Members() {
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ email })
        });
-       alert(`E-Mail de redefinição forçado no Cognito para ${email}`);
+       alert(`E-Mail de redefinição enviado para ${email}`);
      } catch(e) {}
   };
 
@@ -209,7 +207,7 @@ export default function Members() {
           setEditModalOpen(false);
           fetchMembers();
        } else {
-          alert('Error no update');
+          alert('Erro na atualização');
        }
     } catch(e) { console.error(e) }
   };
@@ -217,251 +215,238 @@ export default function Members() {
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
       
-      {/* Action Bar */}
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '300px' }}>
+      {/* Header */}
+      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', margin: 0 }}>
+        <div>
+          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Gestão de Membros & Liderança</h1>
+          <p className="card-subtitle">Gerencie os acessos ao aplicativo móvel, batismos, cargos ministeriais e células.</p>
+        </div>
+        <button className="btn-primary" onClick={() => setInviteModalOpen(true)}>
+          <UserPlusIcon /> Convidar Membro
+        </button>
+      </div>
+
+      {/* Filter / Search Bar */}
+      <div className="portal-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '280px' }}>
           
-          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-            <div style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }}><SearchIcon /></div>
+          <div className="search-pill" style={{ maxWidth: '380px' }}>
+            <SearchIcon />
             <input 
               type="text" 
               placeholder="Buscar por nome ou e-mail..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="table-search-input"
             />
           </div>
 
-          <div className="select-wrapper">
-            <select 
-              value={filterRole} 
-              onChange={(e) => setFilterRole(e.target.value)}
-              className="table-filter-select"
-            >
-              <option value="Todos">Todos os Cargos</option>
-              <option value="ADMIN">Administrador</option>
-              <option value="Líder de Célula">Líder de Célula</option>
-              <option value="Membro">Membro comum</option>
-            </select>
-          </div>
+          <select 
+            value={filterRole} 
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="select-pill"
+            style={{ padding: '8px 16px', fontSize: '0.84rem' }}
+          >
+            <option value="Todos">Todos os Cargos</option>
+            <option value="ADMIN">Administrador</option>
+            <option value="Líder de Célula">Líder de Célula</option>
+            <option value="Membro">Membro comum</option>
+          </select>
         </div>
         
-        <button className="btn-primary" style={{ boxShadow: 'var(--shadow-glow)' }} onClick={() => setInviteModalOpen(true)}>
-          <UserPlusIcon />
-          Convidar Membro
-        </button>
+        <div style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          {filteredMembers.length} membro(s) encontrado(s)
+        </div>
       </div>
 
-      {/* Data Table */}
-      <div className="card" style={{ padding: '0', overflowX: 'auto', minHeight: '400px' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Usuário</th>
-              <th>Cargo</th>
-              <th>Célula</th>
-              <th>Tempo de Casa</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>Carregando dados da AWS...</td></tr>
-            ) : filteredMembers.map((member) => {
-              // Calculate days since baptism or memberSince. Fallback to joinedAt.
-              const referenceDate = member.memberSince || member.baptismDate || member.joinedAt;
-              const daysDiff = referenceDate ? Math.floor((new Date().getTime() - new Date(referenceDate).getTime()) / (1000 * 3600 * 24)) : 0;
-              const daysText = daysDiff > 0 ? `${daysDiff} dias` : 'Recente';
-
-              return (
-              <tr key={member.id}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div className="member-avatar">
-                      {member.name ? member.name.charAt(0).toUpperCase() : '?'}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{member.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{member.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{member.role}</span>
-                  {(member.role === 'ADMIN' || member.role === 'Administrador') && <span style={{ color: 'var(--accent-primary)', marginLeft: '6px' }}>★</span>}
-                </td>
-                <td style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                  {cellGroups.find(c => c.id === member.cellGroup)?.name || <span style={{ color: 'var(--text-muted)' }}>Membro Global</span>}
-                </td>
-                <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{daysText}</span>
-                </td>
-                <td>
-                  {getStatusBadge(member.status)}
-                </td>
-                <td style={{ textAlign: 'right', position: 'relative' }}>
-                  <button 
-                    className="icon-btn-small" 
-                    title="Opções" 
-                    onClick={(e) => toggleDropdown(e, member.id)}
-                  >
-                    <MoreVerticalIcon />
-                  </button>
-                  
-                  {activeDropdownId === member.id && (
-                    <div className="dropdown-menu animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                        <button className="dropdown-item" onClick={() => handleEditClick(member)}>
-                          <EditIcon /> Editar Informações
-                        </button>
-                        {member.status === 'Ativo' || member.status === 'ACTIVE' ? (
-                          <button className="dropdown-item danger" onClick={() => handleUpdateStatus(member, 'Inativo')}>
-                            <BanIcon /> Inativar Acesso
-                          </button>
-                        ) : (
-                          <button className="dropdown-item" style={{ color: 'var(--success)' }} onClick={() => handleUpdateStatus(member, 'Ativo')}>
-                            <CheckCircleIcon /> Reativar Acesso
-                          </button>
-                        )}
-                    </div>
-                  )}
-                </td>
-              </tr>
-              );
-            })}
-            {!isLoading && filteredMembers.length === 0 && (
+      {/* Table Area */}
+      <div className="portal-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="members-table-container">
+          <table className="custom-table">
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Nenhum membro encontrado no banco de dados.
-                </td>
+                <th>Membro</th>
+                <th>Cargo / Função</th>
+                <th>Vínculo de Célula</th>
+                <th>Status de Acesso</th>
+                <th>Cadastro</th>
+                <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination (Mock) */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-        <span>Mostrando {filteredMembers.length > 0 ? 1 : 0} a {filteredMembers.length} de {members.length} membros</span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} disabled>Anterior</button>
-          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} disabled>Próxima</button>
-        </div>
-      </div>
-
-      {/* Invite Modal */}
-      {isInviteModalOpen && (
-        <div className="modal-overlay" onClick={() => setInviteModalOpen(false)}>
-          <div className="modal-content animate-fade-in" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Convidar Novo Membro</h2>
-              <button className="icon-btn-small" onClick={() => setInviteModalOpen(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>
-                A AWS enviará um e-mail com senha temporária e acesso ao aplicativo.
-              </p>
-              <div className="form-group">
-                <label className="form-label">Nome Completo</label>
-                <input type="text" className="form-input" placeholder="Ex: Maria" value={inviteForm.name} onChange={e => setInviteForm({...inviteForm, name: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">E-mail</label>
-                <input type="email" className="form-input" placeholder="maria@servidor.com" value={inviteForm.email} onChange={e => setInviteForm({...inviteForm, email: e.target.value})} />
-              </div>
-              <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="form-label">Atribuir Cargo/Função</label>
-                  <select className="form-select" value={inviteForm.role} onChange={e => setInviteForm({...inviteForm, role: e.target.value})}>
-                    <option value="Membro">Membro comum</option>
-                    <option value="Líder de Célula">Líder de Célula</option>
-                    <option value="Tesouraria">Tesouraria/Finanças</option>
-                    <option value="ADMIN">Administrador Geral</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Alocar já em uma Célula</label>
-                  <select className="form-select" value={inviteForm.cellGroupId} onChange={e => setInviteForm({...inviteForm, cellGroupId: e.target.value})}>
-                    <option value="">Não Alocar</option>
-                    {cellGroups.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setInviteModalOpen(false)}>Cancelar</button>
-              <button className="btn-primary" onClick={submitInvite} disabled={isInviting}>
-                <SendIcon /> {isInviting ? "Enviando..." : "Enviar Convite AWS"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {isEditModalOpen && memberToEdit && (
-        <div className="modal-overlay" onClick={() => setEditModalOpen(false)}>
-          <form className="modal-content animate-fade-in" onClick={(e) => e.stopPropagation()} onSubmit={submitEditProfile}>
-            <div className="modal-header">
-              <h2 className="modal-title">Editar Perfil do Membro</h2>
-              <button type="button" className="icon-btn-small" onClick={() => setEditModalOpen(false)}>✕</button>
-            </div>
-            <div className="modal-body" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-              
-              <div style={{ paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
-                <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Dados de Acesso</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                    <label className="form-label">Nome Completo</label>
-                    <input type="text" name="name" className="form-input" defaultValue={memberToEdit.name} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Telefone (Opcional)</label>
-                    <input type="text" name="phone" className="form-input" defaultValue={memberToEdit.phone || ''} placeholder="(00) 00000-0000" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">E-mail de Acesso</label>
-                    <input type="email" className="form-input" defaultValue={memberToEdit.email} disabled style={{ opacity: 0.7, cursor: 'not-allowed' }} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">CPF (Opcional)</label>
-                    <input type="text" name="cpf" className="form-input" defaultValue={memberToEdit.cpf || ''} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <label className="form-label">Alterar Função na Plataforma</label>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    Carregando membros cadastrados...
+                  </td>
+                </tr>
+              ) : filteredMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    Nenhum membro encontrado.
+                  </td>
+                </tr>
+              ) : (
+                filteredMembers.map((member) => (
+                  <tr key={member.id}>
+                    <td>
+                      <div className="user-cell">
+                        <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
+                          {member.name ? member.name.charAt(0).toUpperCase() : 'M'}
+                        </div>
+                        <div>
+                          <div className="member-meta-title">{member.name}</div>
+                          <div className="member-meta-sub">{member.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--text-main)' }}>
+                        {member.role || 'Membro'}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        {cellGroups.find(c => c.id === member.cellGroup)?.name || 'Sem Célula'}
+                      </span>
+                    </td>
+                    <td>
+                      {getStatusBadge(member.status)}
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
+                        {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('pt-BR') : '-'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right', position: 'relative' }}>
                       <button 
-                        type="button"
-                        className="btn-secondary" 
-                        style={{ padding: '6px 12px', fontSize: '0.8rem', border: '1px solid var(--border-color)', color: 'var(--text-main)', background: 'transparent' }}
-                        onClick={() => handleSendResetPassword(memberToEdit.email)}
+                        className="action-circle-btn" 
+                        style={{ marginLeft: 'auto', width: 32, height: 32 }}
+                        onClick={(e) => toggleDropdown(e, member.id)}
                       >
-                        Enviar Redefinição de Senha
+                        <MoreVerticalIcon />
                       </button>
-                    </div>
-                    <select name="role" className="form-select" defaultValue={memberToEdit.role}>
+
+                      {activeDropdownId === member.id && (
+                        <div style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '40px',
+                          background: '#ffffff',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)',
+                          border: '1px solid var(--panel-border)',
+                          padding: '6px',
+                          zIndex: 50,
+                          minWidth: '180px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px'
+                        }}>
+                          <button 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-main)', textAlign: 'left', fontWeight: 600 }}
+                            onClick={() => handleEditClick(member)}
+                          >
+                            <EditIcon /> Editar Cadastro
+                          </button>
+                          
+                          {(member.status === 'Ativo' || member.status === 'ACTIVE') ? (
+                            <button 
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--danger)', textAlign: 'left', fontWeight: 600 }}
+                              onClick={() => handleUpdateStatus(member, 'INACTIVE')}
+                            >
+                              <BanIcon /> Desativar Acesso
+                            </button>
+                          ) : (
+                            <button 
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--success)', textAlign: 'left', fontWeight: 600 }}
+                              onClick={() => handleUpdateStatus(member, 'ACTIVE')}
+                            >
+                              <CheckCircleIcon /> Reativar Acesso
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ========================================================
+          INVITE MODAL STUDIO (Horizontal 2-Column Format)
+          ======================================================== */}
+      {isInviteModalOpen && (
+        <div className="modal-overlay animate-fade-in" onClick={() => setInviteModalOpen(false)}>
+          <div className="modal-studio-container" style={{ maxWidth: 840 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
+                  <UserPlusIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Convidar Novo Membro</h2>
+                  <p className="modal-studio-subtitle">
+                    A AWS enviará um e-mail com a senha temporária e acesso ao aplicativo mobile.
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setInviteModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body">
+              <div className="modal-studio-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+                <div className="modal-studio-column">
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Nome Completo *</label>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      placeholder="Ex: Maria dos Santos" 
+                      value={inviteForm.name} 
+                      onChange={e => setInviteForm({...inviteForm, name: e.target.value})} 
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">E-mail Institucional / Pessoal *</label>
+                    <input 
+                      type="email" 
+                      className="input-modern"
+                      placeholder="maria@exemplo.com" 
+                      value={inviteForm.email} 
+                      onChange={e => setInviteForm({...inviteForm, email: e.target.value})} 
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-studio-column">
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Cargo / Função Ministerial</label>
+                    <select 
+                      className="select-modern"
+                      value={inviteForm.role} 
+                      onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
+                    >
                       <option value="Membro">Membro comum</option>
                       <option value="Líder de Célula">Líder de Célula</option>
-                      <option value="Tesouraria">Tesouraria/Finanças</option>
+                      <option value="Tesouraria">Tesouraria / Finanças</option>
                       <option value="ADMIN">Administrador Geral</option>
                     </select>
                   </div>
-                </div>
-              </div>
 
-              <div>
-                <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Histórico e Vínculos</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Data de Batismo</label>
-                    <input name="baptismDate" type="date" className="form-input" defaultValue={memberToEdit.baptismDate ? memberToEdit.baptismDate.split('T')[0] : ''} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                    <label className="form-label">Célula / Base / Departamento</label>
-                    <select name="cellGroup" className="form-select" defaultValue={memberToEdit.cellGroup || ''}>
-                      <option value="">Nenhum Vínculo Local</option>
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Alocar em Célula</label>
+                    <select 
+                      className="select-modern"
+                      value={inviteForm.cellGroupId} 
+                      onChange={e => setInviteForm({...inviteForm, cellGroupId: e.target.value})}
+                    >
+                      <option value="">Não Alocar Inicialmente</option>
                       {cellGroups.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -469,9 +454,107 @@ export default function Members() {
                   </div>
                 </div>
               </div>
-
             </div>
-            <div className="modal-footer">
+
+            <div className="modal-studio-footer">
+              <button className="btn-secondary" onClick={() => setInviteModalOpen(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={submitInvite} disabled={isInviting}>
+                <SendIcon /> {isInviting ? "Enviando..." : "Disparar Convite AWS"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          EDIT MODAL STUDIO (Horizontal 2-Column Format)
+          ======================================================== */}
+      {isEditModalOpen && memberToEdit && (
+        <div className="modal-overlay animate-fade-in" onClick={() => setEditModalOpen(false)}>
+          <form className="modal-studio-container" style={{ maxWidth: 920 }} onClick={(e) => e.stopPropagation()} onSubmit={submitEditProfile}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
+                  <EditIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Editar Perfil do Membro</h2>
+                  <p className="modal-studio-subtitle">
+                    Atualize os dados ministeriais, telefone e vínculo de célula deste membro.
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="modal-close-circle" onClick={() => setEditModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body">
+              <div className="modal-studio-grid">
+                
+                {/* Left Column: Dados Pessoais */}
+                <div className="modal-studio-column">
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Nome Completo</label>
+                    <input type="text" name="name" className="input-modern" defaultValue={memberToEdit.name} required />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Telefone / WhatsApp</label>
+                      <input type="text" name="phone" className="input-modern" defaultValue={memberToEdit.phone || ''} placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">CPF (Opcional)</label>
+                      <input type="text" name="cpf" className="input-modern" defaultValue={memberToEdit.cpf || ''} />
+                    </div>
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">E-mail de Acesso (Cognito)</label>
+                    <input type="email" className="input-modern" defaultValue={memberToEdit.email} disabled style={{ background: '#f1f5f9', cursor: 'not-allowed' }} />
+                  </div>
+                </div>
+
+                {/* Right Column: Cargo & Vínculos */}
+                <div className="modal-studio-column">
+                  <div className="form-group-modern">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label-modern" style={{ margin: 0 }}>Função / Cargo</label>
+                      <button 
+                        type="button"
+                        style={{ color: 'var(--accent-primary)', fontSize: '0.74rem', fontWeight: 700 }}
+                        onClick={() => handleSendResetPassword(memberToEdit.email)}
+                      >
+                        Redefinir Senha
+                      </button>
+                    </div>
+                    <select name="role" className="select-modern" defaultValue={memberToEdit.role}>
+                      <option value="Membro">Membro comum</option>
+                      <option value="Líder de Célula">Líder de Célula</option>
+                      <option value="Tesouraria">Tesouraria/Finanças</option>
+                      <option value="ADMIN">Administrador Geral</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Data de Batismo</label>
+                    <input name="baptismDate" type="date" className="input-modern" defaultValue={memberToEdit.baptismDate ? memberToEdit.baptismDate.split('T')[0] : ''} />
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Célula / Base Ministerial</label>
+                    <select name="cellGroup" className="select-modern" defaultValue={memberToEdit.cellGroup || ''}>
+                      <option value="">Nenhum Vínculo Local</option>
+                      {cellGroups.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div className="modal-studio-footer">
               <button type="button" className="btn-secondary" onClick={() => setEditModalOpen(false)}>Cancelar</button>
               <button type="submit" className="btn-primary">
                 <CheckCircleIcon /> Salvar Alterações

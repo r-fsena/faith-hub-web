@@ -6,10 +6,13 @@ import './Members.css';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 );
 const TrashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+);
+const BookOpenIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
 );
 
 type DevotionalData = {
@@ -89,10 +92,9 @@ export const Devotionals = () => {
   };
 
   const handleSave = async (desiredStatus: 'DRAFT' | 'PUBLISHED') => {
-    // Validação Manual Robusta
     if (!formData.available_date || !formData.title || !formData.central_text || !formData.context_text) {
       alert("⚠️ Você precisa preencher pelo menos: Data, Título, Texto Central Bíblico e Contexto!");
-      setActiveModalTab('editor'); // Puxa de volta para a aba de Redação automaticamente
+      setActiveModalTab('editor');
       return;
     }
 
@@ -111,11 +113,11 @@ export const Devotionals = () => {
         setShowSuccessPrompt(true);
         loadDevotionals();
       } else {
-        alert("Erro no servidor ao salvar o devocional. Verifique sua conexão.");
+        alert("Erro no servidor ao salvar o devocional.");
       }
     } catch (err) {
       console.error(err);
-      alert("Erro ao conectar com a Base de Dados Serverless.");
+      alert("Erro ao conectar com a Base de Dados.");
     } finally {
       setIsSaving(false);
     }
@@ -134,219 +136,333 @@ export const Devotionals = () => {
   };
 
   return (
-    <div className="members-container animate-fade-in" style={{ padding: '0 40px' }}>
-      <div className="header-actions" style={{ marginBottom: 30, display: 'flex', justifyContent: 'space-between' }}>
+    <div className="members-container animate-fade-in" style={{ width: '100%' }}>
+      {/* Header */}
+      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 24 }}>
         <div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>Devocionais Mensais</h2>
-          <p style={{ color: '#888', marginTop: 8 }}>Café com Deus, Pão Diário e Textos Oficiais para a Igreja.</p>
+          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Devocionais e Palavra Diária</h1>
+          <p className="card-subtitle">Café com Deus, Pão Diário e reflexões oficiais publicadas no app dos membros.</p>
         </div>
-        <button className="primary-btn" onClick={openNewModal} style={{ height: 'fit-content' }}>
-          <PlusIcon /> Adicionar Dia
+        <button className="btn-primary" onClick={openNewModal}>
+          <PlusIcon /> Adicionar Devocional
         </button>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}>Carregando Devocionais...</div>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Carregando devocionais...</div>
+      ) : devotionals.length === 0 ? (
+        <div className="empty-state">
+          <BookOpenIcon />
+          <h3>Nenhum devocional publicado</h3>
+          <p>Clique em Adicionar Devocional para redigir a primeira palavra inspiracional.</p>
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
           {devotionals.map((dev) => {
             const parsedDate = new Date(dev.available_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             return (
-              <div key={dev.id} className="broadcast-card card" onClick={() => openEditModal(dev)} style={{ padding: 24, cursor: 'pointer', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: '0.85rem', color: '#0a7ea4', fontWeight: 800, letterSpacing: 1 }}>{parsedDate}</div>
-                  {dev.status === 'DRAFT' && <span style={{ background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700 }}>RASCUNHO</span>}
-                  {(!dev.status || dev.status === 'PUBLISHED') && <span style={{ background: 'var(--success)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700 }}>PUBLICAÇÃO OFICIAL</span>}
-                </div>
-                <h3 style={{ fontSize: '1.2rem', margin: '0 0 12px 0', lineHeight: 1.3 }}>{dev.title}</h3>
-                <p style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: 20, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {dev.context_text}
-                </p>
-                <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'inline-block', fontSize: '0.8rem' }}>
-                  Fonte: <strong>{dev.source_type === 'LOCAL' ? 'Igreja / Base' : dev.source_name}</strong>
+              <div key={dev.id} className="portal-card" onClick={() => openEditModal(dev)} style={{ padding: 22, cursor: 'pointer', position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: '0.80rem', color: 'var(--accent-primary)', fontWeight: 800, letterSpacing: '0.04em' }}>{parsedDate}</span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {dev.status === 'DRAFT' ? (
+                      <span className="status-badge pending">RASCUNHO</span>
+                    ) : (
+                      <span className="status-badge excellent">PUBLICADO</span>
+                    )}
+                    <button 
+                      className="action-circle-btn" 
+                      style={{ width: 28, height: 28, color: 'var(--danger)' }} 
+                      onClick={(e) => handleDelete(dev.id, e)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </div>
 
-                <button className="icon-btn danger-hover" style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.5)', color: '#FFF' }} onClick={(e) => handleDelete(dev.id, e)}>
-                  <TrashIcon />
-                </button>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8, lineHeight: 1.3 }}>{dev.title}</h3>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                  {dev.context_text}
+                </p>
+                
+                <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: 8, display: 'inline-block', fontSize: '0.76rem', color: 'var(--text-secondary)', border: '1px solid var(--panel-border)' }}>
+                  Fonte: <strong style={{ color: 'var(--text-main)' }}>{dev.source_type === 'LOCAL' ? 'Igreja / Base' : dev.source_name}</strong>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
+      {/* ========================================================
+          MODAL STUDIO (2-Column Horizontal Split Architecture)
+          ======================================================== */}
       {showModal && createPortal(
-        <div className="modal-overlay" style={{ zIndex: 9999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)' }}>
-          <div className="modal-content" style={{ position: 'absolute', top: '40px', bottom: '40px', left: '50%', transform: 'translateX(-50%)', width: '1000px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', padding: 0, background: 'var(--panel-bg)', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
+        <div className="modal-overlay animate-fade-in" onClick={() => setShowModal(false)}>
+          <div className="modal-studio-container" style={{ maxWidth: 1060 }} onClick={e => e.stopPropagation()}>
             
             {showSuccessPrompt ? (
                <div style={{ padding: '60px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', overflowY: 'auto' }}>
-                 <div style={{ background: successStatus === 'PUBLISHED' ? 'var(--success)' : '#f59e0b', width: 80, height: 80, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-                   {successStatus === 'PUBLISHED' ? (
-                     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                   ) : (
-                     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                   )}
+                 <div style={{ background: successStatus === 'PUBLISHED' ? '#ecfdf5' : '#fffbeb', color: successStatus === 'PUBLISHED' ? '#059669' : '#d97706', width: 72, height: 72, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                   <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                  </div>
-                 <h2 style={{ fontSize: '2.5rem', marginBottom: 16 }}>
-                   {successStatus === 'PUBLISHED' ? 'Publicado com Sucesso!' : 'Rascunho Salvo'}
+                 <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 10 }}>
+                   {successStatus === 'PUBLISHED' ? 'Publicado no App com Sucesso!' : 'Rascunho Salvo'}
                  </h2>
-                 <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', marginBottom: 40, maxWidth: 500 }}>
+                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: 32, maxWidth: 480 }}>
                    {successStatus === 'PUBLISHED' 
-                     ? 'O devocional foi sincronizado na nuvem e o App de todos os membros consumirá sua nova atualização.'
-                     : 'Seu texto foi salvo de forma privada. O devocional permanecerá invisível no App até sua publicação definitiva.'}
+                     ? 'O devocional foi sincronizado e o App de todos os membros consumirá a nova mensagem inspiracional.'
+                     : 'Seu texto foi salvo de forma privada e permanecerá invisível no App até sua publicação definitiva.'}
                  </p>
 
-                 <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
-                   <button type="button" className="secondary-btn" onClick={() => setShowModal(false)} style={{ padding: '16px 32px', fontSize: '1.1rem' }}>
+                 <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
+                   <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
                      Voltar à Área de Gestão
                    </button>
-                   <button type="button" className="primary-btn" onClick={() => { setShowSuccessPrompt(false); setSuccessStatus(null); setFormData(defaultForm()); setActiveModalTab('editor'); }} style={{ padding: '16px 32px', fontSize: '1.1rem' }}>
-                     + Agendar Próximo Texto
+                   <button type="button" className="btn-primary" onClick={() => { setShowSuccessPrompt(false); setSuccessStatus(null); setFormData(defaultForm()); setActiveModalTab('editor'); }}>
+                     + Redigir Próximo Devocional
                    </button>
                  </div>
                </div>
             ) : (
               <>
-                <div className="modal-header" style={{ position: 'relative', padding: '20px 24px 0 24px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                  
-                  {/* Absolute X button moved to top right corner */}
-                  <button type="button" className="icon-btn danger-hover" style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }} onClick={() => setShowModal(false)}>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </button>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: 16 }}>
-                    <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>{formData.id ? 'Editar Devocional' : 'Novo Devocional Diário'}</h2>
+                {/* Modal Header */}
+                <div className="modal-studio-header">
+                  <div className="modal-studio-header-left">
+                    <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-orange-bg)', color: 'var(--pastel-orange-text)' }}>
+                      <BookOpenIcon />
+                    </div>
+                    <div>
+                      <h2 className="modal-studio-title">
+                        {formData.id ? 'Editar Devocional' : 'Novo Devocional Diário'}
+                      </h2>
+                      <p className="modal-studio-subtitle">
+                        Escreva a reflexão, indique música de louvor e adicione comentários pastorais.
+                      </p>
+                    </div>
                   </div>
-                  
-                  {/* MODAL TABS */}
-                  <div style={{ display: 'flex', gap: '24px' }}>
-                    <button type="button" onClick={() => setActiveModalTab('editor')} style={{ paddingBottom: 12, borderBottom: activeModalTab === 'editor' ? '3px solid #0a7ea4' : '3px solid transparent', color: activeModalTab === 'editor' ? '#FFF' : 'var(--text-muted)', fontWeight: activeModalTab === 'editor' ? 700 : 500, fontSize: '0.95rem', transition: 'all 0.2s' }}>
-                      Página de Redação
-                    </button>
-                    <button type="button" onClick={() => setActiveModalTab('preview')} style={{ paddingBottom: 12, borderBottom: activeModalTab === 'preview' ? '3px solid #0a7ea4' : '3px solid transparent', color: activeModalTab === 'preview' ? '#FFF' : 'var(--text-muted)', fontWeight: activeModalTab === 'preview' ? 700 : 500, fontSize: '0.95rem', transition: 'all 0.2s' }}>
-                      Visualização (App Mobile)
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Tabs Segmented */}
+                    <div className="segmented-control">
+                      <div 
+                        className={`segmented-btn ${activeModalTab === 'editor' ? 'active' : ''}`}
+                        onClick={() => setActiveModalTab('editor')}
+                      >
+                        ✍️ Redação & Campos
+                      </div>
+                      <div 
+                        className={`segmented-btn ${activeModalTab === 'preview' ? 'active' : ''}`}
+                        onClick={() => setActiveModalTab('preview')}
+                      >
+                        📱 Visualização no App
+                      </div>
+                    </div>
+
+                    <button className="modal-close-circle" onClick={() => setShowModal(false)} title="Fechar">
+                      &times;
                     </button>
                   </div>
                 </div>
 
-                {/* MODAL BODY (Strictly Scrollable Inner Area) */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-                  
+                {/* Modal Body */}
+                <div className="modal-studio-body">
                   {activeModalTab === 'editor' && (
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 48px' }}>
-                      <div className="modal-form" style={{ padding: 0, border: 'none' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                           <div className="form-group">
-                             <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Data da Leitura</label>
-                             <input type="date" value={formData.available_date} onChange={e => setFormData({...formData, available_date: e.target.value})} style={{ padding: 14, fontSize: '1rem' }} />
-                           </div>
-                           <div className="form-group">
-                             <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Origem do Conteúdo</label>
-                             <select value={formData.source_type} onChange={e => setFormData({...formData, source_type: e.target.value})} style={{ padding: 14, fontSize: '1rem' }}>
-                               <option value="LOCAL">Autoral (Escrito pela sua Igreja)</option>
-                               <option value="GLOBAL">Global (Redes externas)</option>
-                             </select>
-                           </div>
+                    <div className="modal-studio-grid">
+                      
+                      {/* Left Column (60%) */}
+                      <div className="modal-studio-column">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                          <div className="form-group-modern">
+                            <label className="form-label-modern">Data da Leitura *</label>
+                            <input 
+                              type="date" 
+                              className="input-modern"
+                              value={formData.available_date} 
+                              onChange={e => setFormData({...formData, available_date: e.target.value})} 
+                            />
+                          </div>
+                          <div className="form-group-modern">
+                            <label className="form-label-modern">Origem do Conteúdo</label>
+                            <select 
+                              className="select-modern"
+                              value={formData.source_type} 
+                              onChange={e => setFormData({...formData, source_type: e.target.value})}
+                            >
+                              <option value="LOCAL">Autoral (Escrito pela sua Igreja)</option>
+                              <option value="GLOBAL">Global (Redes externas)</option>
+                            </select>
+                          </div>
                         </div>
 
-                        <div className="form-group" style={{ marginTop: 24 }}>
-                          <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Título da Mensagem do Dia</label>
-                          <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ex: O Cuidado de Deus em Tempos Difíceis..." style={{ padding: 14, fontSize: '1rem' }} />
+                        <div className="form-group-modern">
+                          <label className="form-label-modern">Título da Mensagem do Dia *</label>
+                          <input 
+                            type="text" 
+                            className="input-modern"
+                            value={formData.title} 
+                            onChange={e => setFormData({...formData, title: e.target.value})} 
+                            placeholder="Ex: O Cuidado de Deus em Tempos Difíceis..." 
+                          />
                         </div>
 
                         {formData.source_type === 'GLOBAL' && (
-                          <div className="form-group" style={{ marginTop: 24 }}>
-                            <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Nome do Autor ou Ministério</label>
-                            <input type="text" value={formData.source_name} onChange={e => setFormData({...formData, source_name: e.target.value})} placeholder="Ex: Ministério Pão Diário" style={{ padding: 14, fontSize: '1rem' }} />
+                          <div className="form-group-modern">
+                            <label className="form-label-modern">Nome do Autor / Ministério</label>
+                            <input 
+                              type="text" 
+                              className="input-modern"
+                              value={formData.source_name} 
+                              onChange={e => setFormData({...formData, source_name: e.target.value})} 
+                              placeholder="Ex: Ministério Pão Diário" 
+                            />
                           </div>
                         )}
 
-                        <div className="form-group" style={{ marginTop: 24 }}>
-                          <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Trecho Bíblico Chave (Em Itálico para o App)</label>
-                          <textarea rows={3} value={formData.central_text} onChange={e => setFormData({...formData, central_text: e.target.value})} placeholder="O Senhor é o meu pastor, nada me faltará... Salmos 23:1" style={{ padding: 14, fontSize: '1rem', lineHeight: 1.5 }}></textarea>
+                        <div className="form-group-modern">
+                          <label className="form-label-modern">Trecho Bíblico Central * (Destaque)</label>
+                          <textarea 
+                            rows={2} 
+                            className="textarea-modern"
+                            value={formData.central_text} 
+                            onChange={e => setFormData({...formData, central_text: e.target.value})} 
+                            placeholder="O Senhor é o meu pastor, nada me faltará... Salmos 23:1" 
+                          />
                         </div>
 
-                        <div className="form-group" style={{ marginTop: 24 }}>
-                          <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>O Contexto e O Ensino Completo</label>
-                          <textarea rows={8} value={formData.context_text} onChange={e => setFormData({...formData, context_text: e.target.value})} placeholder="Inicie a partilha do ensinamento aqui. Você pode quebrar linhas normalmente. O aplicativo organizará seu texto..." style={{ padding: 14, fontSize: '1rem', lineHeight: 1.5 }}></textarea>
+                        <div className="form-group-modern">
+                          <label className="form-label-modern">O Contexto e o Ensino Completo *</label>
+                          <textarea 
+                            rows={6} 
+                            className="textarea-modern"
+                            value={formData.context_text} 
+                            onChange={e => setFormData({...formData, context_text: e.target.value})} 
+                            placeholder="Escreva a partilha do ensinamento aqui..." 
+                          />
                         </div>
 
-                        <div className="form-group" style={{ marginTop: 24 }}>
-                          <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Indicação de Oração (Diretriz)</label>
-                          <textarea rows={3} value={formData.prayer_indication} onChange={e => setFormData({...formData, prayer_indication: e.target.value})} placeholder="Pai, neste dia eu clamo por..." style={{ padding: 14, fontSize: '1rem', lineHeight: 1.5 }}></textarea>
-                        </div>
-
-                        {/* Additional Panels */}
-                        <div style={{ marginTop: 32, padding: 24, background: 'rgba(255,255,255,0.02)', borderRadius: 16, border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a4b1c5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
-                             <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#FFF' }}>Música Inspirativa do Youtube (Opcional)</h4>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                            <div className="form-group">
-                              <label style={{ fontSize: '0.85rem' }}>Banda / Título do Clipe</label>
-                              <input type="text" value={formData.suggested_song_title} onChange={e => setFormData({...formData, suggested_song_title: e.target.value})} placeholder="Ex: Morada - É Tudo Sobre Você" style={{ padding: 12 }}/>
-                            </div>
-                            <div className="form-group">
-                              <label style={{ fontSize: '0.85rem' }}>ID do Youtube (V=123)</label>
-                              <input type="text" value={formData.suggested_song_youtube_id} onChange={e => setFormData({...formData, suggested_song_youtube_id: e.target.value})} placeholder="Ex: jfKfPfyJRdk" style={{ padding: 12 }} />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ marginTop: 24, padding: 24, background: 'rgba(10, 126, 164, 0.05)', borderRadius: 16, border: '1px solid #0a7ea4' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0a7ea4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                             <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#0a7ea4' }}>Voz Local Presencial (De Líder em Líder)</h4>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 16 }}>
-                            <div className="form-group">
-                              <label style={{ fontSize: '0.85rem' }}>Nome da Liderança</label>
-                              <input type="text" value={formData.pastoral_author_name} onChange={e => setFormData({...formData, pastoral_author_name: e.target.value})} style={{ padding: 12 }}/>
-                            </div>
-                            <div className="form-group">
-                              <label style={{ fontSize: '0.85rem' }}>Seu Ministério ou Cargo</label>
-                              <input type="text" value={formData.pastoral_author_role} onChange={e => setFormData({...formData, pastoral_author_role: e.target.value})} style={{ padding: 12 }} />
-                            </div>
-                          </div>
-                          <div className="form-group">
-                            <label style={{ fontSize: '0.85rem' }}>Como esse Devocional se conecta com a realidade da sua congregação local hoje?</label>
-                            <textarea rows={4} value={formData.pastoral_comment} onChange={e => setFormData({...formData, pastoral_comment: e.target.value})} placeholder="Igreja, nesta semana temos batido nessa tecla nas células..." style={{ padding: 12, lineHeight: 1.5 }}></textarea>
-                          </div>
+                        <div className="form-group-modern">
+                          <label className="form-label-modern">Diretriz de Oração</label>
+                          <textarea 
+                            rows={2} 
+                            className="textarea-modern"
+                            value={formData.prayer_indication} 
+                            onChange={e => setFormData({...formData, prayer_indication: e.target.value})} 
+                            placeholder="Pai, neste dia eu clamo por paz e sabedoria..." 
+                          />
                         </div>
                       </div>
+
+                      {/* Right Column (40%) */}
+                      <div className="modal-studio-column">
+                        
+                        {/* Louvor / Música Card */}
+                        <div style={{ background: '#f8fafc', padding: 18, borderRadius: 16, border: '1px solid var(--panel-border)' }}>
+                          <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            🎵 Música de Louvor (YouTube)
+                          </div>
+                          <div className="form-group-modern" style={{ marginBottom: 10 }}>
+                            <label className="form-label-modern">Nome do Hino / Banda</label>
+                            <input 
+                              type="text" 
+                              className="input-modern"
+                              value={formData.suggested_song_title} 
+                              onChange={e => setFormData({...formData, suggested_song_title: e.target.value})} 
+                              placeholder="Ex: Morada - É Tudo Sobre Você" 
+                            />
+                          </div>
+                          <div className="form-group-modern">
+                            <label className="form-label-modern">ID do YouTube (V=ID)</label>
+                            <input 
+                              type="text" 
+                              className="input-modern"
+                              value={formData.suggested_song_youtube_id} 
+                              onChange={e => setFormData({...formData, suggested_song_youtube_id: e.target.value})} 
+                              placeholder="Ex: jfKfPfyJRdk" 
+                            />
+                          </div>
+                        </div>
+
+                        {/* Voz Pastoral Local */}
+                        <div style={{ background: '#f0fdfa', padding: 18, borderRadius: 16, border: '1px solid var(--pastel-green-border)' }}>
+                          <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--accent-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            💬 Comentário da Liderança Pastoral
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                            <div className="form-group-modern">
+                              <label className="form-label-modern">Nome do Líder</label>
+                              <input 
+                                type="text" 
+                                className="input-modern"
+                                value={formData.pastoral_author_name} 
+                                onChange={e => setFormData({...formData, pastoral_author_name: e.target.value})} 
+                              />
+                            </div>
+                            <div className="form-group-modern">
+                              <label className="form-label-modern">Cargo</label>
+                              <input 
+                                type="text" 
+                                className="input-modern"
+                                value={formData.pastoral_author_role} 
+                                onChange={e => setFormData({...formData, pastoral_author_role: e.target.value})} 
+                              />
+                            </div>
+                          </div>
+                          <div className="form-group-modern">
+                            <label className="form-label-modern">Conexão com a Igreja Local</label>
+                            <textarea 
+                              rows={3} 
+                              className="textarea-modern"
+                              value={formData.pastoral_comment} 
+                              onChange={e => setFormData({...formData, pastoral_comment: e.target.value})} 
+                              placeholder="Igreja, nesta semana vamos aplicar esse princípio nas células..." 
+                            />
+                          </div>
+                        </div>
+
+                      </div>
+
                     </div>
                   )}
 
                   {activeModalTab === 'preview' && (
-                    <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px 0' }}>
                       <TextPreviewMobile data={formData} />
                     </div>
                   )}
+                </div>
 
+                {/* Modal Footer */}
+                <div className="modal-studio-footer">
+                  <button 
+                    type="button" 
+                    className="btn-secondary" 
+                    onClick={() => setShowModal(false)}
+                    disabled={isSaving}
+                  >
+                    Descartar
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleSave('DRAFT')} 
+                    className="btn-secondary" 
+                    disabled={isSaving} 
+                    style={{ color: 'var(--warning)' }}
+                  >
+                    {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleSave('PUBLISHED')} 
+                    className="btn-primary" 
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Publicando...' : 'Aprovar & Publicar no App'}
+                  </button>
                 </div>
               </>
             )}
 
-            {/* MODAL FOOTER - ABSOLUTELY PINNED */}
-            {!showSuccessPrompt && (
-              <div style={{ padding: '20px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', background: 'var(--panel-bg)', flexShrink: 0 }}>
-                {activeModalTab === 'editor' && <span style={{ marginRight: 'auto', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Preencha os campos e salve sua versão.</span>}
-                <button type="button" className="secondary-btn" onClick={() => setShowModal(false)} disabled={isSaving} style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
-                  Descartar e Fechar
-                </button>
-                <div style={{ paddingLeft: 16, borderLeft: '1px solid var(--border-color)', display: 'flex', gap: 12 }}>
-                  <button type="button" onClick={() => handleSave('DRAFT')} className="secondary-btn" disabled={isSaving} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 24px', fontSize: '0.95rem', fontWeight: 600 }}>
-                    {isSaving ? 'Salvando...' : 'Salvar como Rascunho'}
-                  </button>
-                  <button type="button" onClick={() => handleSave('PUBLISHED')} className="primary-btn" disabled={isSaving} style={{ background: '#0a7ea4', padding: '10px 24px', fontSize: '0.95rem', fontWeight: 600 }}>
-                    {isSaving ? 'Aplicando ao Banco...' : 'Aprovar e Publicar Texto'}
-                  </button>
-                </div>
-              </div>
-            )}
-            
           </div>
         </div>,
         document.body
@@ -358,53 +474,53 @@ export const Devotionals = () => {
 // --- MOBILE PREVIEW COMPONENT ---
 const TextPreviewMobile = ({ data }: { data: DevotionalData }) => {
   return (
-    <div style={{ width: 340, height: 680, flexShrink: 0, background: '#1a2130', borderRadius: '40px', border: '8px solid #333', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', position: 'relative' }}>
-      {/* Notch fake */}
-      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 120, height: 25, background: '#333', borderBottomLeftRadius: 16, borderBottomRightRadius: 16, zIndex: 10 }}></div>
+    <div style={{ width: 340, height: 640, flexShrink: 0, background: '#ffffff', borderRadius: '36px', border: '8px solid #1e293b', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(15,23,42,0.15)', position: 'relative' }}>
+      {/* Notch */}
+      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 110, height: 20, background: '#1e293b', borderBottomLeftRadius: 14, borderBottomRightRadius: 14, zIndex: 10 }}></div>
       
-      {/* Header falso */}
-      <div style={{ height: 80, borderBottom: '1px solid #404c60', display: 'flex', alignItems: 'flex-end', padding: '0 20px 16px 20px', flexShrink: 0 }}>
-        <h4 style={{ color: '#FFF', margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Devocional Diário</h4>
+      {/* Header */}
+      <div style={{ height: 64, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'flex-end', padding: '0 20px 12px 20px', flexShrink: 0 }}>
+        <h4 style={{ color: '#1e293b', margin: 0, fontSize: '1rem', fontWeight: 800 }}>Devocional Diário</h4>
       </div>
       
-      {/* Tela do App */}
-      <div style={{ flex: 1, padding: 20, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ color: '#0a7ea4', fontWeight: 800, fontSize: '0.8rem', marginBottom: 12 }}>
+      {/* App Content */}
+      <div style={{ flex: 1, padding: 18, overflowY: 'auto' }}>
+        <div style={{ color: '#0f766e', fontWeight: 800, fontSize: '0.74rem', marginBottom: 8 }}>
           {data.available_date} • {data.source_type === 'LOCAL' ? 'Igreja Local' : (data.source_name || 'Global')}
         </div>
-        <h1 style={{ color: '#FFF', fontSize: '1.8rem', fontWeight: 800, lineHeight: 1.2, marginBottom: 24, letterSpacing: '-0.5px' }}>
+        <h1 style={{ color: '#1e293b', fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.25, marginBottom: 16, letterSpacing: '-0.3px' }}>
           {data.title || 'Título da Palavra'}
         </h1>
         
         {data.suggested_song_title && (
-          <div style={{ padding: 12, border: '1px solid #404c60', borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center' }}>
-            <div style={{ width: 32, height: 32, background: '#0a7ea4', borderRadius: '50%', marginRight: 12, flexShrink: 0 }}></div>
-            <div style={{ fontSize: '0.8rem', color: '#FFF', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.suggested_song_title}</div>
+          <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 24, height: 24, background: '#0f766e', borderRadius: '50%', flexShrink: 0 }}></div>
+            <div style={{ fontSize: '0.74rem', color: '#1e293b', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.suggested_song_title}</div>
           </div>
         )}
 
         {data.central_text && (
-           <div style={{ background: '#0a7ea4', padding: 20, borderRadius: 16, marginBottom: 24 }}>
-             <p style={{ color: '#FFF', fontStyle: 'italic', fontWeight: 600, fontSize: '1.1rem', margin: 0, lineHeight: 1.5 }}>
+           <div style={{ background: '#f0fdfa', border: '1px solid #a7f3d0', padding: 14, borderRadius: 12, marginBottom: 16 }}>
+             <p style={{ color: '#0f766e', fontStyle: 'italic', fontWeight: 600, fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
                "{data.central_text}"
              </p>
            </div>
         )}
 
-        <div style={{ color: '#FFF', fontSize: '1rem', lineHeight: 1.6, marginBottom: 24, opacity: 0.9 }}>
-          {data.context_text ? data.context_text.split('\n').map((para, i) => <p key={i} style={{ marginBottom: 16 }}>{para}</p>) : <p style={{ opacity: 0.5 }}>O contexto do ensino aparecerá aqui...</p>}
+        <div style={{ color: '#475569', fontSize: '0.84rem', lineHeight: 1.6, marginBottom: 16 }}>
+          {data.context_text ? data.context_text.split('\n').map((para, i) => <p key={i} style={{ marginBottom: 10 }}>{para}</p>) : <p style={{ opacity: 0.5 }}>O contexto do ensino aparecerá aqui...</p>}
         </div>
 
         {data.pastoral_comment && (
-           <div style={{ background: '#2c3444', padding: 16, borderRadius: 16, marginBottom: 24, border: '1px solid #404c60' }}>
-             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                <img src={data.pastoral_author_avatar} alt="pr" style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }} />
+           <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, marginBottom: 16, border: '1px solid #e2e8f0' }}>
+             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                <img src={data.pastoral_author_avatar} alt="pr" style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }} />
                 <div>
-                  <div style={{ color: '#FFF', fontWeight: 700, fontSize: '0.9rem' }}>{data.pastoral_author_name}</div>
-                  <div style={{ color: '#9BA1A6', fontSize: '0.75rem' }}>{data.pastoral_author_role}</div>
+                  <div style={{ color: '#1e293b', fontWeight: 700, fontSize: '0.80rem' }}>{data.pastoral_author_name}</div>
+                  <div style={{ color: '#64748b', fontSize: '0.70rem' }}>{data.pastoral_author_role}</div>
                 </div>
              </div>
-             <p style={{ color: '#FFF', margin: 0, fontSize: '0.9rem', lineHeight: 1.5, opacity: 0.9 }}>
+             <p style={{ color: '#334155', margin: 0, fontSize: '0.78rem', lineHeight: 1.4 }}>
                "{data.pastoral_comment}"
              </p>
            </div>

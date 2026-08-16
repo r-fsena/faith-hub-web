@@ -1,62 +1,221 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import './Members.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import './Broadcasts.css';
 
 const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 );
 const TrashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 );
+const ShoppingBagIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+);
+const FolderIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+);
+const TagIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r=".5" fill="currentColor"/></svg>
+);
+const GripVerticalIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'grab', color: 'var(--text-muted)' }}><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+);
+const ChevronUpIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+);
+const ChevronDownIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+);
 
-type ProductData = {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+export type ProductGroup = {
   id: string;
   name: string;
+  active: boolean;
+};
+
+const DEFAULT_GROUPS: ProductGroup[] = [
+  { id: 'grp_1', name: 'Salgados & Lanches', active: true },
+  { id: 'grp_2', name: 'Doces e Sobremesas', active: true },
+  { id: 'grp_3', name: 'Bebidas & Cafeteria', active: true },
+  { id: 'grp_4', name: 'Livraria & Bíblias', active: true },
+  { id: 'grp_5', name: 'Vestuário & Camisas', active: true }
+];
+
+type Product = {
+  id: string;
+  name: string;
+  category: string;
   description: string;
   price: number;
-  category: string;
   image_urls: string[];
   status: 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 };
 
-export const PdvProdutos = () => {
-  const [products, setProducts] = useState<ProductData[]>([]);
-  const [loading, setLoading] = useState(true);
+export const PdvProdutos: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [groups, setGroups] = useState<ProductGroup[]>(DEFAULT_GROUPS);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL');
+  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [newGroupInput, setNewGroupInput] = useState('');
+  const [inlineNewGroup, setInlineNewGroup] = useState(false);
+  const [quickGroupName, setQuickGroupName] = useState('');
   
-  const defaultForm = (): ProductData => ({
-    id: '', name: '', description: '', price: 0.00, category: 'Geral', image_urls: [], status: 'DRAFT'
+  // Drag & Drop State
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const [formData, setFormData] = useState<Product>({
+    id: '',
+    name: '',
+    category: '',
+    description: '',
+    price: 0,
+    image_urls: [],
+    status: 'ACTIVE'
   });
 
-  const [formData, setFormData] = useState<ProductData>(defaultForm());
-  const [newCatMode, setNewCatMode] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  useEffect(() => {
+    loadProducts();
+    loadGroups();
+  }, []);
+
+  const sortGroupsWithInactiveAtBottom = (list: ProductGroup[]): ProductGroup[] => {
+    const active = list.filter(g => g.active);
+    const inactive = list.filter(g => !g.active);
+    return [...active, ...inactive];
+  };
+
+  const loadGroups = () => {
+    const saved = localStorage.getItem('faithhub_pdv_groups');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Normaliza formato caso antes fosse array de strings
+          const normalized: ProductGroup[] = parsed.map((item: any, idx: number) => {
+            if (typeof item === 'string') {
+              return { id: `grp_${idx}_${Date.now()}`, name: item, active: true };
+            }
+            return {
+              id: item.id || `grp_${idx}_${Date.now()}`,
+              name: item.name || 'Sem nome',
+              active: item.active !== false
+            };
+          });
+          setGroups(sortGroupsWithInactiveAtBottom(normalized));
+          return;
+        }
+      } catch (e) {
+        console.error("Erro ao carregar grupos do PDV", e);
+      }
+    }
+    setGroups(DEFAULT_GROUPS);
+  };
+
+  const saveGroupsList = (newGroupsList: ProductGroup[]) => {
+    const sorted = sortGroupsWithInactiveAtBottom(newGroupsList);
+    setGroups(sorted);
+    localStorage.setItem('faithhub_pdv_groups', JSON.stringify(sorted));
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnter = (index: number) => {
+    setDragOverIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      const updated = [...groups];
+      const [movedItem] = updated.splice(draggedIndex, 1);
+      updated.splice(dragOverIndex, 0, movedItem);
+      saveGroupsList(updated);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const moveGroup = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= groups.length) return;
+    const updated = [...groups];
+    const [movedItem] = updated.splice(index, 1);
+    updated.splice(targetIndex, 0, movedItem);
+    saveGroupsList(updated);
+  };
+
+  const handleAddGroup = (groupName: string) => {
+    const trimmed = groupName.trim();
+    if (!trimmed) return;
+    if (groups.some(g => g.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert("Este grupo de produtos já existe.");
+      return;
+    }
+    const newGroup: ProductGroup = {
+      id: `grp_${Date.now()}`,
+      name: trimmed,
+      active: true
+    };
+    const updated = [newGroup, ...groups];
+    saveGroupsList(updated);
+    setNewGroupInput('');
+    setQuickGroupName('');
+    setInlineNewGroup(false);
+    setFormData(prev => ({ ...prev, category: trimmed }));
+  };
+
+  const handleToggleGroupActive = (groupId: string) => {
+    const updated = groups.map(g => {
+      if (g.id === groupId) {
+        return { ...g, active: !g.active };
+      }
+      return g;
+    });
+    saveGroupsList(updated);
+  };
+
+  const handleDeleteGroup = (groupId: string, groupName: string) => {
+    if (!window.confirm(`Deseja remover permanentemente o grupo "${groupName}"?`)) return;
+    const updated = groups.filter(g => g.id !== groupId);
+    saveGroupsList(updated);
+    if (formData.category === groupName) {
+      setFormData(prev => ({ ...prev, category: updated[0]?.name || '' }));
+    }
+  };
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
-      return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+      if (token) {
+        return {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+      }
+      return { 'Content-Type': 'application/json' };
     } catch {
       return { 'Content-Type': 'application/json' };
     }
   };
 
   const loadProducts = async () => {
+    setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/pdv/products?admin=true`, { headers });
+      const res = await fetch(`${API_URL}/pdv/products`, { headers });
       if (res.ok) {
         const data = await res.json();
-        // MySQL JSON comes as array or string depending on driver
-        setProducts(data.map((p: any) => ({
-           ...p,
-           image_urls: typeof p.image_urls === 'string' ? JSON.parse(p.image_urls) : (p.image_urls || [])
-        })));
+        setProducts(data.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -65,83 +224,107 @@ export const PdvProdutos = () => {
     }
   };
 
-  useEffect(() => { loadProducts(); }, []);
+  const activeGroups = groups.filter(g => g.active);
 
   const openNewModal = () => {
-    setFormData(defaultForm());
+    const initialCategory = activeGroups.length > 0 ? activeGroups[0].name : (groups[0]?.name || '');
+    setFormData({
+      id: '',
+      name: '',
+      category: initialCategory,
+      description: '',
+      price: 0,
+      image_urls: [],
+      status: 'ACTIVE'
+    });
+    setInlineNewGroup(false);
+    setQuickGroupName('');
     setShowModal(true);
   };
 
-  const openEditModal = (p: ProductData) => {
-    setFormData(p);
-    setNewCatMode(false);
+  const openEditModal = (p: Product) => {
+    setFormData({ ...p });
+    setInlineNewGroup(false);
+    setQuickGroupName('');
     setShowModal(true);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    if (formData.image_urls.length >= 3) {
-      alert("Aviso: Limite de 3 imagens por produto.");
-      return;
-    }
+    if (!e.target.files?.[0]) return;
     const file = e.target.files[0];
+    
     setUploadingImage(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/upload-url?filename=${encodeURIComponent(file.name)}&contentType=${file.type}&target_route=pdv`, { headers });
-      if (!res.ok) throw new Error("Erro ao pegar link S3");
-      const { uploadUrl, fileUrl } = await res.json();
+      const res = await fetch(`${API_URL}/upload-url?contentType=${encodeURIComponent(file.type)}&prefix=pdv`, { headers });
+      const { uploadUrl, url } = await res.json();
 
-      await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      });
 
-      setFormData(prev => ({ ...prev, image_urls: [...prev.image_urls, fileUrl] }));
-    } catch(err) {
-      console.error(err);
-      alert("Falha no envio da imagem.");
+      setFormData(prev => ({
+        ...prev,
+        image_urls: [...prev.image_urls, url]
+      }));
+    } catch (err) {
+      console.error("Erro no upload", err);
+      alert("Erro ao enviar imagem.");
     } finally {
       setUploadingImage(false);
     }
   };
 
-  const handleLinkAdd = (link: string) => {
-    if(!link) return;
-    if (formData.image_urls.length >= 3) {
-      alert("Aviso: Limite de 3 imagens atingido.");
+  const removeImage = (index: number) => {
+    const urls = [...formData.image_urls];
+    urls.splice(index, 1);
+    setFormData({ ...formData, image_urls: urls });
+  };
+
+  const handleLinkAdd = (url: string) => {
+    if (!url.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      image_urls: [...prev.image_urls, url.trim()]
+    }));
+  };
+
+  const handleSave = async (overrideStatus?: 'ACTIVE' | 'INACTIVE' | 'DRAFT') => {
+    if (!formData.name.trim()) {
+      alert("Informe o nome do produto.");
       return;
     }
-    setFormData(prev => ({ ...prev, image_urls: [...prev.image_urls, link] }));
-  };
 
-  const removeImage = (idx: number) => {
-    setFormData(prev => ({ ...prev, image_urls: prev.image_urls.filter((_, i) => i !== idx)}));
-  };
-
-  const handleSave = async (statusOverride?: 'ACTIVE' | 'DRAFT') => {
-    if (!formData.name || formData.price <= 0) {
-      alert("⚠️ Você precisa preencher pelo menos NOME e um PREÇO VÁLIDO!");
+    if (!formData.category.trim()) {
+      alert("Selecione ou crie um grupo para o produto.");
       return;
     }
 
     setIsSaving(true);
     try {
-      const payload = { ...formData, price: Number(formData.price) };
-      if (statusOverride) payload.status = statusOverride;
-
       const headers = await getAuthHeaders();
+      const payload = {
+        ...formData,
+        status: overrideStatus || formData.status,
+        price: Number(formData.price)
+      };
+
       const res = await fetch(`${API_URL}/pdv/products`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
       });
+
       if (res.ok) {
         setShowModal(false);
         loadProducts();
       } else {
-        alert("Erro no servidor ao salvar produto.");
+        alert("Erro ao salvar produto.");
       }
     } catch (err) {
       console.error(err);
-      alert("Erro de conexão.");
     } finally {
       setIsSaving(false);
     }
@@ -159,58 +342,118 @@ export const PdvProdutos = () => {
     }
   };
 
+  // Filtragem de produtos por grupo
+  const filteredProducts = selectedGroupFilter === 'ALL' 
+    ? products 
+    : products.filter(p => p.category === selectedGroupFilter);
+
   return (
-    <div className="members-container animate-fade-in" style={{ padding: '0 40px' }}>
-      <div className="header-actions" style={{ marginBottom: 30, display: 'flex', justifyContent: 'space-between' }}>
+    <div className="animate-fade-in" style={{ width: '100%' }}>
+      
+      {/* Header */}
+      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>Gestão de Produtos</h2>
-          <p style={{ color: '#888', marginTop: 8 }}>Cadastre e gerencie os itens do Aplicativo Faith-Hub.</p>
+          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Catálogo do Ponto de Venda (PDV)</h1>
+          <p className="card-subtitle">Cadastre e gerencie os itens da cantina, livraria e vestuário disponíveis para compra no App.</p>
         </div>
-        <button className="primary-btn" onClick={openNewModal} style={{ height: 'fit-content' }}>
-          <PlusIcon /> Novo Produto
+        
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            onClick={() => setShowGroupsModal(true)}
+            style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700 }}
+          >
+            <FolderIcon /> Gerenciar Grupos ({activeGroups.length} ativos)
+          </button>
+          
+          <button className="btn-primary" onClick={openNewModal}>
+            <PlusIcon /> Novo Produto
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Bar: Segmented Grupos de Produtos (Apenas grupos ativos) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', paddingBottom: 14, marginBottom: 16 }}>
+        <button
+          type="button"
+          className={`segmented-btn ${selectedGroupFilter === 'ALL' ? 'active' : ''}`}
+          onClick={() => setSelectedGroupFilter('ALL')}
+          style={{ padding: '8px 16px', fontSize: '0.80rem', whiteSpace: 'nowrap' }}
+        >
+          Todos ({products.length})
         </button>
+
+        {activeGroups.map(group => {
+          const count = products.filter(p => p.category === group.name).length;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              className={`segmented-btn ${selectedGroupFilter === group.name ? 'active' : ''}`}
+              onClick={() => setSelectedGroupFilter(group.name)}
+              style={{ padding: '8px 16px', fontSize: '0.80rem', whiteSpace: 'nowrap' }}
+            >
+              {group.name} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}>Carregando Estoque...</div>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Carregando catálogo de produtos...</div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="empty-state">
+          <ShoppingBagIcon />
+          <h3>{selectedGroupFilter === 'ALL' ? 'Nenhum produto cadastrado no PDV' : `Nenhum produto no grupo "${selectedGroupFilter}"`}</h3>
+          <p>Clique em Novo Produto para cadastrar itens e disponibilizá-los aos membros.</p>
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
-          {products.map((prod) => (
+          {filteredProducts.map((prod) => (
              <div 
                key={prod.id} 
-               className="broadcast-card card" 
+               className="portal-card" 
                onClick={() => openEditModal(prod)} 
                style={{ padding: 0, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
              >
-                {/* Imagem do Produto (Se existir a primeira) */}
-                <div style={{ height: 160, background: prod.image_urls && prod.image_urls[0] ? `url(${prod.image_urls[0]})` : '#2c3444', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Imagem do Produto */}
+                <div style={{ height: 160, background: prod.image_urls && prod.image_urls[0] ? `url(${prod.image_urls[0]})` : '#f1f5f9', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                    {(!prod.image_urls || prod.image_urls.length === 0) && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Sem Foto</span>}
                    
-                   {/* Status Badge Optimizado */}
-                   <div style={{ position: 'absolute', top: 12, left: 12, padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.65rem', background: prod.status === 'ACTIVE' ? 'var(--success)' : (prod.status === 'DRAFT' ? '#f59e0b' : '#ef4444'), color: '#FFF' }}>
-                     {prod.status === 'ACTIVE' ? 'PUBLICADO' : (prod.status === 'DRAFT' ? 'RASCUNHO' : 'INATIVO')}
+                   {/* Status Badge */}
+                   <div style={{ position: 'absolute', top: 12, left: 12 }}>
+                     <span className={`status-badge ${prod.status === 'ACTIVE' ? 'excellent' : (prod.status === 'DRAFT' ? 'pending' : '')}`} style={prod.status === 'INACTIVE' ? { background: '#fee2e2', color: '#dc2626' } : {}}>
+                       {prod.status === 'ACTIVE' ? 'PUBLICADO' : (prod.status === 'DRAFT' ? 'RASCUNHO' : 'ESGOTADO')}
+                     </span>
                    </div>
 
                    {/* Botao Delete */}
-                   <button className="icon-btn danger-hover" style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.6)', color: '#FFF', width: 32, height: 32, padding: 0 }} onClick={(e) => handleDelete(prod.id, e)}>
+                   <button 
+                     className="action-circle-btn" 
+                     style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, background: 'rgba(255,255,255,0.9)', color: 'var(--danger)' }} 
+                     onClick={(e) => handleDelete(prod.id, e)}
+                     title="Excluir"
+                   >
                      <TrashIcon />
                    </button>
                 </div>
 
                 {/* Infos do Produto */}
                 <div style={{ padding: 20 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#0a7ea4', fontWeight: 800, marginBottom: 8, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--accent-primary)', fontWeight: 800, marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                     {prod.category}
                   </div>
-                  <h3 style={{ fontSize: '1.2rem', margin: '0 0 8px 0', lineHeight: 1.2 }}>{prod.name}</h3>
-                  <p style={{ fontSize: '0.85rem', color: '#aaa', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40 }}>
-                    {prod.description || 'Nenhuma descrição fornecida.'}
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{prod.name}</h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 14, minHeight: 36 }}>
+                    {prod.description || 'Nenhuma descrição detalhada fornecida.'}
                   </p>
                   
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <span style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: '1px solid var(--panel-border)' }}>
+                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#059669' }}>
                        R$ {Number(prod.price).toFixed(2).replace('.', ',')}
                      </span>
+                     <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>App Mobile</span>
                   </div>
                 </div>
              </div>
@@ -218,114 +461,493 @@ export const PdvProdutos = () => {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO - NOSSO PADRÃO PREMIUM */}
+      {/* ========================================================
+          MODAL STUDIO: CADASTRO / EDIÇÃO DE PRODUTO
+          ======================================================== */}
       {showModal && createPortal(
-        <div className="modal-overlay" style={{ zIndex: 9999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)' }}>
-          <div className="modal-content" style={{ position: 'absolute', top: '40px', bottom: '40px', left: '50%', transform: 'translateX(-50%)', width: '900px', maxWidth: '95vw', display: 'flex', flexDirection: 'column', padding: 0, background: 'var(--panel-bg)', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
+        <div className="modal-overlay animate-fade-in" onClick={() => setShowModal(false)}>
+          <div className="modal-studio-container" onClick={e => e.stopPropagation()}>
             
-            <div className="modal-header" style={{ position: 'relative', padding: '24px 32px 0 32px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', flexDirection: 'column', paddingBottom: 24 }}>
-              <button type="button" className="icon-btn danger-hover" style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }} onClick={() => setShowModal(false)}>
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            {/* Modal Header */}
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
+                  <ShoppingBagIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">
+                    {formData.id ? 'Editar Produto do PDV' : 'Cadastrar Novo Produto no PDV'}
+                  </h2>
+                  <p className="modal-studio-subtitle">
+                    Configure os itens, precificação e fotos disponíveis para compra dos membros no App.
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setShowModal(false)} title="Fechar">
+                &times;
               </button>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>{formData.id ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h2>
-              <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)' }}>Crie o cardápio e os itens que estarão disponíveis para os membros da sua Igreja adquirirem através do App Móvel.</p>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-               
-               {/* FOTOS E STATUS */}
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 32, marginBottom: 32 }}>
-                  <div>
-                    <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'block', marginBottom: 12 }}>Galeria de Fotos (Qtd: {formData.image_urls.length}/3)</label>
-                    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
-                       {formData.image_urls.map((url, i) => (
-                         <div key={i} style={{ width: 100, height: 100, flexShrink: 0, background: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: 12, position: 'relative' }}>
-                            <button onClick={() => removeImage(i)} className="danger-hover" style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#FFF', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                         </div>
-                       ))}
-                       
-                       {formData.image_urls.length < 3 && (
-                         <div style={{ width: 100, height: 100, flexShrink: 0, borderRadius: 12, border: '2px dashed var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', position: 'relative' }}>
-                            {uploadingImage ? <span style={{fontSize:'0.7rem'}}>Enviando...</span> : <PlusIcon />}
-                            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0, cursor: 'pointer' }} />
-                         </div>
-                       )}
+            {/* Modal Body - 2 Column Grid */}
+            <div className="modal-studio-body">
+              <div className="modal-studio-grid">
+                
+                {/* LEFT COLUMN: Dados do Produto (60%) */}
+                <div className="modal-studio-column">
+                  
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Nome do Produto *</label>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      value={formData.name} 
+                      onChange={e => setFormData({...formData, name: e.target.value})} 
+                      placeholder="Ex: Coxinha Artesanal com Catupiry, Bíblia NVI..." 
+                      required 
+                    />
+                  </div>
+
+                  {/* Campo de Grupo de Produtos Inteligente */}
+                  <div className="form-group-modern">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label className="form-label-modern" style={{ margin: 0 }}>
+                        <span>Grupo / Categoria do Produto *</span>
+                      </label>
+
+                      {groups.length > 0 && !inlineNewGroup && (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button 
+                            type="button" 
+                            onClick={() => setInlineNewGroup(true)} 
+                            style={{ color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer' }}
+                          >
+                            + Novo Grupo
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Caso NÃO existam grupos cadastrados ainda */}
+                    {groups.length === 0 ? (
+                      <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px', padding: '14px' }}>
+                        <div style={{ fontSize: '0.80rem', fontWeight: 700, color: '#92400e', marginBottom: '6px' }}>
+                          ⚠️ Nenhum grupo de produtos criado ainda.
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#78350f', marginBottom: '10px' }}>
+                          Crie o primeiro grupo (ex: Cantina, Livraria, Vestuário, Cursos) para vincular este produto:
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input 
+                            type="text" 
+                            className="input-modern"
+                            value={quickGroupName} 
+                            onChange={e => setQuickGroupName(e.target.value)} 
+                            placeholder="Nome do Novo Grupo (ex: Cantina)" 
+                          />
+                          <button 
+                            type="button" 
+                            className="btn-primary" 
+                            style={{ padding: '8px 16px', fontSize: '0.80rem', whiteSpace: 'nowrap' }}
+                            onClick={() => handleAddGroup(quickGroupName)}
+                          >
+                            Criar Grupo
+                          </button>
+                        </div>
+                      </div>
+                    ) : inlineNewGroup ? (
+                      /* Formulário Inline de Criação Rápida de Grupo */
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid var(--panel-border)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          className="input-modern"
+                          value={quickGroupName} 
+                          onChange={e => setQuickGroupName(e.target.value)} 
+                          placeholder="Digite o nome do novo grupo..." 
+                          autoFocus
+                        />
+                        <button 
+                          type="button" 
+                          className="btn-primary" 
+                          style={{ padding: '8px 14px', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                          onClick={() => handleAddGroup(quickGroupName)}
+                        >
+                          Adicionar
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn-secondary" 
+                          style={{ padding: '8px 12px', fontSize: '0.78rem' }}
+                          onClick={() => setInlineNewGroup(false)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      /* Dropdown com os grupos disponíveis */
+                      <select 
+                        className="select-modern"
+                        value={formData.category} 
+                        onChange={e => setFormData({...formData, category: e.target.value})}
+                      >
+                        {groups.map(g => (
+                          <option key={g.id} value={g.name}>
+                            {g.name} {!g.active ? '(Desativado)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Preço Unitário (R$) *</label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      className="input-modern"
+                      style={{ fontWeight: 800, color: '#059669', fontSize: '1.1rem' }}
+                      value={formData.price} 
+                      onChange={e => setFormData({...formData, price: parseFloat(e.target.value) || 0})} 
+                      placeholder="0.00" 
+                      required 
+                    />
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Descrição & Ingredientes</label>
+                    <textarea 
+                      rows={3} 
+                      className="textarea-modern"
+                      value={formData.description} 
+                      onChange={e => setFormData({...formData, description: e.target.value})} 
+                      placeholder="Descreva o sabor, ingredientes, autor do livro ou detalhes que o membro lerá ao selecionar..." 
+                    />
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: Fotos & Visibilidade (40%) */}
+                <div className="modal-studio-column">
+                  
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">
+                      <span>Galeria de Imagens ({formData.image_urls.length}/3)</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Upload ou Link</span>
+                    </label>
+
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                      {formData.image_urls.map((url, i) => (
+                        <div 
+                          key={i} 
+                          style={{ 
+                            width: 80, 
+                            height: 80, 
+                            flexShrink: 0, 
+                            background: `url(${url})`, 
+                            backgroundSize: 'cover', 
+                            backgroundPosition: 'center', 
+                            borderRadius: 12, 
+                            position: 'relative',
+                            border: '1px solid var(--panel-border)'
+                          }}
+                        >
+                          <button 
+                            onClick={() => removeImage(i)} 
+                            style={{ position: 'absolute', top: -4, right: -4, background: '#ef4444', color: '#FFF', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800 }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {formData.image_urls.length < 3 && (
+                        <label 
+                          style={{ 
+                            width: 80, 
+                            height: 80, 
+                            flexShrink: 0, 
+                            borderRadius: 12, 
+                            border: '2px dashed var(--panel-border)', 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: 'var(--text-muted)', 
+                            cursor: 'pointer',
+                            background: '#f8fafc',
+                            fontSize: '0.74rem',
+                            fontWeight: 700
+                          }}
+                        >
+                          {uploadingImage ? 'Enviando...' : '+ Foto'}
+                          <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                        </label>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input 
+                        type="text" 
+                        id="linkInput" 
+                        placeholder="Ou cole a URL da foto..." 
+                        className="input-modern"
+                        style={{ padding: '7px 10px', fontSize: '0.80rem' }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => { const el = document.getElementById('linkInput') as HTMLInputElement; handleLinkAdd(el.value); el.value = ''; }} 
+                        className="btn-secondary" 
+                        style={{ padding: '7px 12px', fontSize: '0.78rem' }}
+                      >
+                        Add
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="modal-form" style={{ padding: 0, border: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                     <div className="form-group" style={{ marginBottom: 20 }}>
-                       <label style={{ fontSize: '0.85rem' }}>Ou Link Visual Direto (URL Web)</label>
-                       <div style={{ display: 'flex', gap: 8 }}>
-                         <input type="text" id="linkInput" placeholder="https://imagem.com/coxinha.jpg" style={{ padding: 14, flex: 1 }} />
-                         <button type="button" onClick={() => { const el = document.getElementById('linkInput') as HTMLInputElement; handleLinkAdd(el.value); el.value = ''; }} className="secondary-btn">Adicionar</button>
-                       </div>
-                     </div>
 
-                     <div className="form-group">
-                       <label style={{ fontSize: '0.85rem' }}>Visibilidade Imediata</label>
-                       <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} style={{ padding: 14 }}>
-                          <option value="ACTIVE">ATIVO (Aparece no App)</option>
-                          <option value="INACTIVE">INATIVO (Esgotado / Escondido)</option>
-                          <option value="DRAFT">RASCUNHO (Em construção)</option>
-                       </select>
-                     </div>
-                  </div>
-               </div>
-
-               {/* FORMS */}
-               <div className="modal-form" style={{ padding: 0, border: 'none' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 20 }}>
-                     <div className="form-group">
-                       <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Nome do Item</label>
-                       <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Ex: Coxinha Artesanal de Frango com Catupiry" style={{ padding: 14, fontSize: '1rem' }} />
-                     </div>
-                     <div className="form-group" style={{ position: 'relative' }}>
-                       <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                         Módulo de Categoria
-                         {!newCatMode && <button type="button" onClick={() => setNewCatMode(true)} style={{ background: 'none', border: 'none', color: '#0a7ea4', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>+ Nova Categoria</button>}
-                       </label>
-                       {newCatMode ? (
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} placeholder="Ex: Combos Promocionais" style={{ padding: 14, fontSize: '1rem', flex: 1 }} />
-                            <button type="button" onClick={() => setNewCatMode(false)} className="secondary-btn">OK</button>
-                          </div>
-                       ) : (
-                          <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={{ padding: 14, fontSize: '1rem' }}>
-                             {/* Standard defaults plus current dynamic if it doesn't match */}
-                             {['Salgados', 'Doces e Bolos', 'Bebidas Geadas / Quentes', 'Livraria e Mercearia'].includes(formData.category) ? null : <option value={formData.category}>{formData.category}</option>}
-                             <option value="Salgados">Salgados</option>
-                             <option value="Doces e Bolos">Doces e Bolos</option>
-                             <option value="Bebidas Geadas / Quentes">Bebidas Geadas / Quentes</option>
-                             <option value="Livraria e Mercearia">Livraria e Mercearia</option>
-                          </select>
-                       )}
-                     </div>
+                  {/* Toggle: Visibilidade no App */}
+                  <div className="toggle-card-modern" style={{ marginTop: 4 }}>
+                    <div className="toggle-card-info">
+                      <div className="toggle-card-title">
+                        <span style={{ color: '#059669' }}>🛒</span> Disponível para Compra
+                      </div>
+                      <div className="toggle-card-desc">
+                        Aparecerá no cardápio de compras do membro
+                      </div>
+                    </div>
+                    <label className="switch-control">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.status === 'ACTIVE'} 
+                        onChange={e => setFormData({...formData, status: e.target.checked ? 'ACTIVE' : 'INACTIVE'})} 
+                      />
+                      <span className="slider-round"></span>
+                    </label>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 20 }}>
-                     <div className="form-group">
-                       <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Preço (R$)</label>
-                       <input type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} placeholder="15.50" style={{ padding: 14, fontSize: '1.2rem', fontWeight: 800, color: 'var(--success)' }} />
-                     </div>
+                  {/* Live Mobile Card Preview */}
+                  <div style={{ background: '#f8fafc', padding: 14, borderRadius: 16, border: '1px solid var(--panel-border)' }}>
+                    <div style={{ fontSize: '0.70rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+                      📱 Live Card no App
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: '0.90rem', color: 'var(--text-main)', marginBottom: 2 }}>
+                      {formData.name || 'Nome do Produto'}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#059669' }}>
+                      R$ {Number(formData.price).toFixed(2).replace('.', ',')} • <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{formData.category || 'Sem Grupo'}</span>
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Descrição do Produto (Opcional)</label>
-                    <textarea rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="A descrição detalhada que o membro lerá ao abrir o app..." style={{ padding: 14, fontSize: '1rem', lineHeight: 1.5 }}></textarea>
-                  </div>
-               </div>
+                </div>
+              </div>
             </div>
-            
-            <div style={{ padding: '24px 32px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', background: 'var(--panel-bg-hover)', flexShrink: 0 }}>
-              <button type="button" className="secondary-btn" onClick={() => setShowModal(false)} disabled={isSaving || uploadingImage} style={{ padding: '12px 24px', fontSize: '1rem' }}>
+
+            {/* Modal Footer */}
+            <div className="modal-studio-footer">
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={() => setShowModal(false)}
+                disabled={isSaving || uploadingImage}
+              >
                 Cancelar
               </button>
-              <button type="button" onClick={() => handleSave('DRAFT')} className="secondary-btn" disabled={isSaving || uploadingImage} style={{ padding: '12px 24px', fontSize: '1rem', color: '#f59e0b' }}>
-                {isSaving ? '...' : 'Salvar como Rascunho'}
+              <button 
+                type="button" 
+                onClick={() => handleSave('DRAFT')} 
+                className="btn-secondary" 
+                disabled={isSaving || uploadingImage} 
+                style={{ color: 'var(--warning)' }}
+              >
+                Salvar Rascunho
               </button>
-              <button type="button" onClick={() => handleSave('ACTIVE')} className="primary-btn" disabled={isSaving || uploadingImage} style={{ background: '#0a7ea4', padding: '12px 32px', fontSize: '1rem', fontWeight: 600 }}>
-                {isSaving ? 'Salvando...' : 'Salvar e Publicar'}
+              <button 
+                type="button" 
+                onClick={() => handleSave('ACTIVE')} 
+                className="btn-primary" 
+                disabled={isSaving || uploadingImage}
+              >
+                {isSaving ? 'Salvando...' : 'Salvar & Publicar no App'}
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL: GERENCIADOR DE GRUPOS DE PRODUTOS
+          ======================================================== */}
+      {showGroupsModal && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setShowGroupsModal(false)}>
+          <div className="modal-studio-container" style={{ maxWidth: 660 }} onClick={e => e.stopPropagation()}>
+            
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
+                  <FolderIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Grupos & Categorias de Produtos</h2>
+                  <p className="modal-studio-subtitle">
+                    Ative, desative ou arraste para definir a ordem dos grupos no cardápio do App e PDV.
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setShowGroupsModal(false)}>&times;</button>
+            </div>
+
+            <div className="modal-studio-body" style={{ padding: '24px' }}>
+              
+              {/* Adicionar Novo Grupo */}
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                <input 
+                  type="text" 
+                  className="input-modern"
+                  value={newGroupInput} 
+                  onChange={e => setNewGroupInput(e.target.value)} 
+                  placeholder="Nome do novo grupo (ex: Cursos, Livraria, Cantina...)" 
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(newGroupInput); }}
+                />
+                <button 
+                  type="button" 
+                  className="btn-primary" 
+                  onClick={() => handleAddGroup(newGroupInput)}
+                  style={{ padding: '10px 20px', whiteSpace: 'nowrap' }}
+                >
+                  <PlusIcon /> Criar Grupo
+                </button>
+              </div>
+
+              {/* Lista de Grupos com Drag & Drop e Flag Ativo/Inativo */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    Ordem dos Grupos ({activeGroups.length} ativos / {groups.length - activeGroups.length} desativados)
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                    ⠿ Arraste para ordenar
+                  </span>
+                </div>
+
+                {groups.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', background: '#f8fafc', borderRadius: 12 }}>
+                    Nenhum grupo cadastrado. Crie um grupo acima.
+                  </div>
+                ) : (
+                  groups.map((group, idx) => {
+                    const count = products.filter(p => p.category === group.name).length;
+                    const isOver = dragOverIndex === idx;
+                    const isDragging = draggedIndex === idx;
+                    const isGroupActive = group.active;
+
+                    return (
+                      <div 
+                        key={group.id}
+                        draggable={isGroupActive}
+                        onDragStart={() => handleDragStart(idx)}
+                        onDragEnter={() => handleDragEnter(idx)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={e => e.preventDefault()}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          padding: '10px 14px', 
+                          background: isDragging ? '#e0f2fe' : (isOver ? '#f0fdfa' : (isGroupActive ? '#ffffff' : '#f1f5f9')), 
+                          borderRadius: '12px',
+                          border: isOver ? '2px dashed var(--accent-primary)' : (isGroupActive ? '1px solid var(--panel-border)' : '1px solid #cbd5e1'),
+                          cursor: isGroupActive ? 'grab' : 'default',
+                          opacity: isDragging ? 0.6 : (isGroupActive ? 1 : 0.65),
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div title={isGroupActive ? "Arraste para mudar a ordem" : "Ative o grupo para reordenar"} style={{ display: 'flex', alignItems: 'center', opacity: isGroupActive ? 1 : 0.3 }}>
+                            <GripVerticalIcon />
+                          </div>
+
+                          <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: isGroupActive ? '#e2e8f0' : '#cbd5e1', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.70rem', fontWeight: 800 }}>
+                            {isGroupActive ? `${idx + 1}º` : '—'}
+                          </div>
+
+                          <TagIcon />
+                          
+                          <div>
+                            <span style={{ fontWeight: 700, fontSize: '0.90rem', color: isGroupActive ? 'var(--text-main)' : 'var(--text-muted)', textDecoration: isGroupActive ? 'none' : 'line-through' }}>
+                              {group.name}
+                            </span>
+                            <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>
+                              {count} produto(s)
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Controles: Switch Ativar/Desativar + Subir/Descer + Delete */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          
+                          {/* Switch de Ativação */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: '0.70rem', fontWeight: 800, color: isGroupActive ? '#059669' : '#94a3b8' }}>
+                              {isGroupActive ? 'ATIVO' : 'DESATIVADO'}
+                            </span>
+                            <label className="switch-control" style={{ transform: 'scale(0.8)' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={isGroupActive} 
+                                onChange={() => handleToggleGroupActive(group.id)} 
+                              />
+                              <span className="slider-round"></span>
+                            </label>
+                          </div>
+
+                          {/* Botões Subir/Descer */}
+                          {isGroupActive && (
+                            <div style={{ display: 'flex', gap: 2 }}>
+                              <button
+                                type="button"
+                                className="action-circle-btn"
+                                onClick={() => moveGroup(idx, 'up')}
+                                disabled={idx === 0}
+                                title="Mover para cima"
+                                style={{ opacity: idx === 0 ? 0.3 : 1, width: 28, height: 28 }}
+                              >
+                                <ChevronUpIcon />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="action-circle-btn"
+                                onClick={() => moveGroup(idx, 'down')}
+                                disabled={idx >= activeGroups.length - 1}
+                                title="Mover para baixo"
+                                style={{ opacity: idx >= activeGroups.length - 1 ? 0.3 : 1, width: 28, height: 28 }}
+                              >
+                                <ChevronDownIcon />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Excluir Grupo */}
+                          <button 
+                            type="button" 
+                            className="action-circle-btn" 
+                            onClick={() => handleDeleteGroup(group.id, group.name)}
+                            title="Remover Grupo"
+                            style={{ color: '#ef4444', width: 28, height: 28 }}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+            </div>
+
+            <div className="modal-studio-footer">
+              <button type="button" className="btn-primary" onClick={() => setShowGroupsModal(false)}>
+                Concluir
               </button>
             </div>
 

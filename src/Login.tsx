@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { signIn, signInWithRedirect } from 'aws-amplify/auth';
 
 interface LoginProps {
@@ -6,7 +6,7 @@ interface LoginProps {
 }
 
 const GoogleIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -48,60 +48,68 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     <div style={{
       display: 'flex',
       minHeight: '100vh',
-      backgroundColor: 'var(--bg-color)',
+      backgroundColor: '#f4f7fb',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '24px'
     }}>
-      <div className="card animate-fade-in" style={{
+      <div style={{
         width: '100%',
-        maxWidth: '420px',
-        padding: '40px',
+        maxWidth: '440px',
+        background: '#ffffff',
+        borderRadius: '24px',
+        border: '1px solid #e2e8f0',
+        padding: '44px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '24px'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+        gap: '24px',
+        boxShadow: '0 20px 40px rgba(15, 23, 42, 0.06)'
+      }} className="animate-fade-in">
+        
+        {/* Brand Header */}
+        <div style={{ textAlign: 'center' }}>
           <div style={{
-            width: '48px',
-            height: '48px',
-            background: 'var(--gradient-main)',
-            borderRadius: '12px',
+            width: '54px',
+            height: '54px',
+            background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+            borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 16px',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '1.5rem',
-            boxShadow: 'var(--shadow-glow)'
+            color: '#ffffff',
+            fontWeight: 800,
+            fontSize: '1.4rem',
+            boxShadow: '0 8px 20px rgba(15, 118, 110, 0.3)',
+            letterSpacing: '-0.5px'
           }}>
             FH
           </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Faith-Hub Studio</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.3px' }}>Faith-Hub Studio</h1>
+          <p style={{ color: '#64748b', fontSize: '0.88rem', marginTop: '6px' }}>
             Acesse seu portal de gestão unificado.
           </p>
         </div>
 
         {error && (
           <div style={{
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            color: 'var(--danger)',
-            padding: '12px',
-            borderRadius: '8px',
-            fontSize: '0.85rem',
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            fontSize: '0.84rem',
             textAlign: 'center',
-            border: '1px solid rgba(239, 68, 68, 0.2)'
+            border: '1px solid #fecaca',
+            fontWeight: 600
           }}>
             {error}
           </div>
         )}
 
-        <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-              E-mail
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+              E-mail institucional
             </label>
             <input
               type="email"
@@ -110,20 +118,22 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               required
               style={{
                 width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-main)',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: '#f8fafc',
+                border: '1.5px solid #e2e8f0',
+                color: '#1e293b',
+                fontSize: '0.90rem',
                 outline: 'none',
-                transition: 'border-color 0.2s'
+                transition: 'all 0.2s ease'
               }}
-              placeholder="admin@igreja.com"
+              placeholder="seu.email@igreja.com"
             />
           </div>
+
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-              Senha
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+              Senha de acesso
             </label>
             <input
               type="password"
@@ -132,13 +142,14 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               required
               style={{
                 width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-main)',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: '#f8fafc',
+                border: '1.5px solid #e2e8f0',
+                color: '#1e293b',
+                fontSize: '0.90rem',
                 outline: 'none',
-                transition: 'border-color 0.2s'
+                transition: 'all 0.2s ease'
               }}
               placeholder="••••••••"
             />
@@ -147,27 +158,41 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <button 
             type="submit" 
             className="btn-primary" 
-            style={{ width: '100%', padding: '12px', marginTop: '8px', fontSize: '1rem' }}
+            style={{ width: '100%', padding: '13px', marginTop: '6px', fontSize: '0.95rem', justifyContent: 'center' }}
             disabled={loading}
           >
-            {loading ? 'Acessando...' : 'Entrar'}
+            {loading ? 'Validando acesso...' : 'Entrar no Studio'}
           </button>
         </form>
 
-        <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
-          <span style={{ padding: '0 12px' }}>Ou continue com</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', margin: '4px 0', color: '#94a3b8', fontSize: '0.80rem' }}>
+          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+          <span style={{ padding: '0 12px', fontWeight: 600 }}>ou autenticação rápida</span>
+          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
         </div>
 
         <button 
           type="button" 
           onClick={handleGoogleLogin}
-          className="btn-secondary" 
-          style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', background: '#ffffff', color: '#333', border: 'none' }}
+          style={{
+            width: '100%',
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            background: '#ffffff',
+            color: '#334155',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '12px',
+            fontWeight: 700,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease'
+          }}
         >
           <GoogleIcon />
-          <span style={{ fontWeight: 500 }}>Entrar com Google</span>
+          <span>Entrar com Google Workspace</span>
         </button>
       </div>
     </div>
