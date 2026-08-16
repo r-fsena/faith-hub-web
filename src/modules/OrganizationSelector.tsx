@@ -47,6 +47,10 @@ const LogOutIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
 );
 
+const SparklesIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+);
+
 export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +102,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       });
 
       if (res.ok) {
-        const json = await res.json();
         setIsModalOpen(false);
         setFormData({
           name: '',
@@ -130,81 +133,43 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0f172a',
-      color: '#f8fafc',
+      backgroundColor: 'var(--bg-color)',
+      color: 'var(--text-main)',
       fontFamily: '"Plus Jakarta Sans", sans-serif',
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Top Master Bar */}
-      <header style={{
-        background: 'rgba(15, 23, 42, 0.8)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '18px 36px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
+      {/* Top Header Bar (Matching App Design System) */}
+      <header className="topbar" style={{ position: 'sticky', top: 0, zIndex: 40, padding: '16px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: '1.2rem',
-            boxShadow: '0 4px 14px rgba(15, 118, 110, 0.4)'
-          }}>
-            FH
+          <div className="sidebar-logo">
+            <SparklesIcon />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.3px', color: '#ffffff' }}>
+              <span style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
                 Faith-Hub
               </span>
-              <span style={{
-                background: 'rgba(16, 185, 129, 0.2)',
-                color: '#34d399',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                border: '1px solid rgba(52, 211, 153, 0.3)'
-              }}>
+              <span className="sidebar-brand-badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
                 MASTER ADMIN
               </span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               Painel de Gestão Multi-Redes & Denominações
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              background: '#1e293b',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              color: '#38bdf8'
-            }}>
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>{userName}</span>
-              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Administrador Master</span>
+          <div className="user-mini-card" style={{ background: '#ffffff', padding: '6px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="user-avatar-circle">
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{userName}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Administrador Master</span>
+              </div>
             </div>
           </div>
 
@@ -212,17 +177,18 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             onClick={onSignOut}
             title="Encerrar Sessão"
             style={{
-              padding: '8px 12px',
+              padding: '9px 14px',
               borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              color: '#f87171',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
+              background: '#fee2e2',
+              color: '#dc2626',
+              border: 'none',
               fontSize: '0.80rem',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
             }}
           >
             <LogOutIcon /> Sair
@@ -236,46 +202,51 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         maxWidth: '1280px',
         width: '100%',
         margin: '0 auto',
-        padding: '48px 32px',
+        padding: '36px 32px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '32px'
+        gap: '28px'
       }}>
-        {/* Hub Header Section */}
+        {/* Hub Header Hero Card */}
         <div style={{
+          background: 'linear-gradient(135deg, #0f766e 0%, #0369a1 100%)',
+          borderRadius: '16px',
+          padding: '32px 36px',
+          color: '#ffffff',
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '20px'
+          gap: '20px',
+          boxShadow: '0 8px 24px rgba(15, 118, 110, 0.2)'
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#14b8a6', fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.9, fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
               <ShieldIcon /> Hub de Acesso Master
             </div>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, letterSpacing: '-0.5px', color: '#ffffff' }}>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, letterSpacing: '-0.3px' }}>
               Selecione a Rede / Igreja para Gerenciar
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '8px 0 0 0', maxWidth: '640px' }}>
-              Como Administrador Master, você pode impersonalizar e acessar o painel de qualquer igreja ou cadastrar uma nova denominação no ecossistema.
+            <p style={{ opacity: 0.85, fontSize: '0.90rem', margin: '6px 0 0 0', maxWidth: '640px', lineHeight: '1.5' }}>
+              Como Administrador Master, acesse o painel administrativo de qualquer igreja cliente ou cadastre uma nova denominação no ecossistema.
             </p>
           </div>
 
           <button
             onClick={() => setIsModalOpen(true)}
             style={{
-              background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-              color: '#ffffff',
+              background: '#ffffff',
+              color: '#0f766e',
               border: 'none',
-              padding: '14px 24px',
-              borderRadius: '12px',
-              fontWeight: 700,
+              padding: '12px 24px',
+              borderRadius: '10px',
+              fontWeight: 800,
               fontSize: '0.92rem',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               cursor: 'pointer',
-              boxShadow: '0 8px 20px rgba(15, 118, 110, 0.35)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
               transition: 'transform 0.15s ease'
             }}
           >
@@ -283,72 +254,52 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           </button>
         </div>
 
-        {/* Search Bar & Filters */}
-        <div style={{
-          background: '#1e293b',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '14px',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <SearchIcon />
-          <input
-            type="text"
-            placeholder="Buscar por nome da igreja, slug ou CNPJ..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: '#ffffff',
-              fontSize: '0.95rem',
-              width: '100%'
-            }}
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              Limpar
-            </button>
-          )}
+        {/* Search Pill Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div className="search-pill" style={{ maxWidth: '520px', background: '#ffffff', border: '1px solid var(--panel-border)' }}>
+            <SearchIcon />
+            <input
+              type="text"
+              placeholder="Buscar por nome da igreja, slug ou CNPJ..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem' }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            Total: <strong>{filteredOrgs.length}</strong> organização(ões)
+          </div>
         </div>
 
         {/* Grid de Organizações */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
-            <div style={{ width: '36px', height: '36px', border: '3px solid #334155', borderTopColor: '#14b8a6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
+          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+            <div style={{ width: '36px', height: '36px', border: '3px solid #e2e8f0', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
             Carregando redes e igrejas cadastradas...
             <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
           </div>
         ) : filteredOrgs.length === 0 ? (
-          <div style={{
-            background: '#1e293b',
-            border: '1px dashed rgba(255, 255, 255, 0.15)',
-            borderRadius: '16px',
+          <div className="portal-card" style={{
             padding: '64px 24px',
             textAlign: 'center'
           }}>
             <BuildingIcon />
-            <h3 style={{ color: '#ffffff', marginTop: '16px', fontSize: '1.2rem' }}>Nenhuma organização encontrada</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.90rem', maxWidth: '420px', margin: '8px auto 20px auto' }}>
+            <h3 style={{ color: 'var(--text-main)', marginTop: '16px', fontSize: '1.2rem' }}>Nenhuma organização encontrada</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.90rem', maxWidth: '420px', margin: '8px auto 20px auto' }}>
               {searchTerm ? 'Nenhuma rede corresponde aos termos da busca.' : 'Clique no botão acima para cadastrar a primeira igreja cliente do sistema.'}
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              style={{
-                background: '#0f766e',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
+              className="btn-primary"
+              style={{ padding: '10px 20px', borderRadius: '8px' }}
             >
               Criar Nova Rede
             </button>
@@ -364,20 +315,19 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               return (
                 <div
                   key={org.id}
+                  className="portal-card animate-fade-in"
                   style={{
-                    background: '#1e293b',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '16px',
+                    margin: 0,
                     padding: '24px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    transition: 'all 0.2s ease',
                     position: 'relative',
-                    overflow: 'hidden'
+                    border: '1px solid var(--panel-border)',
+                    boxShadow: 'var(--shadow-sm)'
                   }}
                 >
-                  {/* Top Color Accent Line */}
+                  {/* Top Accent Line */}
                   <div style={{
                     position: 'absolute',
                     top: 0,
@@ -392,8 +342,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                         <div style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '46px',
+                          height: '46px',
                           borderRadius: '12px',
                           background: primaryColor,
                           color: '#ffffff',
@@ -402,28 +352,27 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                           justifyContent: 'center',
                           fontWeight: 800,
                           fontSize: '1.2rem',
-                          boxShadow: `0 4px 12px ${primaryColor}40`
+                          boxShadow: `0 4px 12px ${primaryColor}30`
                         }}>
                           {org.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                          <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
                             {org.name}
                           </h2>
-                          <span style={{ fontSize: '0.76rem', color: '#64748b' }}>
-                            app: <strong style={{ color: '#94a3b8' }}>{org.slug}.faithhubs.com</strong>
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            app: <strong>{org.slug}.faithhubs.com</strong>
                           </span>
                         </div>
                       </div>
 
                       <span style={{
-                        background: 'rgba(56, 189, 248, 0.15)',
-                        color: '#38bdf8',
+                        background: '#e0f2fe',
+                        color: '#0369a1',
                         padding: '3px 8px',
                         borderRadius: '6px',
                         fontSize: '0.70rem',
-                        fontWeight: 800,
-                        border: '1px solid rgba(56, 189, 248, 0.25)'
+                        fontWeight: 800
                       }}>
                         {org.plan || 'PRO'}
                       </span>
@@ -434,25 +383,25 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                       display: 'grid',
                       gridTemplateColumns: '1fr 1fr',
                       gap: '12px',
-                      background: 'rgba(15, 23, 42, 0.6)',
+                      background: '#f8fafc',
                       padding: '14px',
                       borderRadius: '10px',
                       marginBottom: '20px',
-                      border: '1px solid rgba(255, 255, 255, 0.04)'
+                      border: '1px solid var(--panel-border)'
                     }}>
                       <div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>
                           {org.total_campuses ?? 1}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
                           Campi / Filiais
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#34d399' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#059669' }}>
                           {org.total_members ?? 0}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
                           Membros Ativos
                         </div>
                       </div>
@@ -462,22 +411,17 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   {/* Impersonate Button */}
                   <button
                     onClick={() => onSelectOrg(org)}
+                    className="btn-primary"
                     style={{
                       width: '100%',
-                      background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '12px',
+                      padding: '11px 16px',
                       borderRadius: '10px',
                       fontWeight: 700,
                       fontSize: '0.88rem',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)',
-                      transition: 'all 0.15s ease'
+                      gap: '8px'
                     }}
                   >
                     Acessar Painel da Igreja <ArrowRightIcon />
@@ -497,35 +441,31 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(15, 23, 42, 0.8)',
-          backdropFilter: 'blur(6px)',
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 100,
           padding: '20px'
         }}>
-          <div style={{
-            background: '#1e293b',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '18px',
-            padding: '28px',
+          <div className="portal-card animate-fade-in" style={{
             width: '100%',
             maxWidth: '520px',
-            color: '#ffffff',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)'
+            margin: 0,
+            padding: '28px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div className="card-header-row" style={{ marginBottom: '20px' }}>
               <div>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0 }}>Cadastrar Nova Organização / Rede</h3>
-                <span style={{ fontSize: '0.80rem', color: '#94a3b8' }}>Adicione um novo cliente / denominação ao SaaS</span>
+                <h3 className="card-title" style={{ fontSize: '1.25rem' }}>Cadastrar Nova Organização / Rede</h3>
+                <span className="card-subtitle">Adicione um novo cliente / denominação ao SaaS</span>
               </div>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.6rem', cursor: 'pointer' }}>×</button>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer' }}>×</button>
             </div>
 
             <form onSubmit={handleCreateOrg} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px', color: '#cbd5e1' }}>Nome Oficial da Igreja / Ministério *</label>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Nome Oficial da Igreja / Ministério *</label>
                 <input
                   type="text"
                   placeholder="Ex: Igreja Batista Central"
@@ -539,9 +479,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: '#0f172a',
-                    border: '1px solid #334155',
-                    color: '#ffffff'
+                    border: '1px solid var(--panel-border)'
                   }}
                   required
                 />
@@ -549,7 +487,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px', color: '#cbd5e1' }}>Slug PWA / Subdomínio *</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Slug PWA / Subdomínio *</label>
                   <input
                     type="text"
                     placeholder="batistacentral"
@@ -559,15 +497,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                       width: '100%',
                       padding: '10px 14px',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid #334155',
-                      color: '#ffffff'
+                      border: '1px solid var(--panel-border)'
                     }}
                     required
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px', color: '#cbd5e1' }}>Plano Contratado</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Plano Contratado</label>
                   <select
                     value={formData.plan}
                     onChange={e => setFormData(prev => ({ ...prev, plan: e.target.value }))}
@@ -575,9 +511,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                       width: '100%',
                       padding: '10px 14px',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid #334155',
-                      color: '#ffffff'
+                      border: '1px solid var(--panel-border)',
+                      background: '#ffffff'
                     }}
                   >
                     <option value="STARTER">Starter</option>
@@ -589,7 +524,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px', color: '#cbd5e1' }}>Cor Primária do PWA</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Cor Primária do PWA</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       type="color"
@@ -601,12 +536,12 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                       type="text"
                       value={formData.primary_color}
                       onChange={e => setFormData(prev => ({ ...prev, primary_color: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontSize: '0.85rem' }}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--panel-border)', fontSize: '0.85rem' }}
                     />
                   </div>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px', color: '#cbd5e1' }}>CNPJ (Opcional)</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>CNPJ (Opcional)</label>
                   <input
                     type="text"
                     placeholder="00.000.000/0000-00"
@@ -616,9 +551,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                       width: '100%',
                       padding: '10px 14px',
                       borderRadius: '8px',
-                      background: '#0f172a',
-                      border: '1px solid #334155',
-                      color: '#ffffff'
+                      border: '1px solid var(--panel-border)'
                     }}
                   />
                 </div>
@@ -628,22 +561,15 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  style={{ padding: '10px 18px', borderRadius: '8px', background: '#334155', color: '#ffffff', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ padding: '10px 18px', borderRadius: '8px', background: '#f1f5f9', color: 'var(--text-main)', border: 'none', fontWeight: 600, cursor: 'pointer' }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  style={{
-                    padding: '10px 22px',
-                    borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
+                  className="btn-primary"
+                  style={{ padding: '10px 22px', borderRadius: '8px', fontWeight: 700 }}
                 >
                   {saving ? 'Salvando...' : 'Criar e Ativar'}
                 </button>
