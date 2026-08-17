@@ -106,13 +106,51 @@ const UsersIcon = () => (
 interface KidsMinistryProps {
   selectedCampusId?: string;
   selectedOrganization?: any;
+  activeSubtab?: string;
+  onNavigateSubtab?: (subtab: string) => void;
 }
 
-export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
+export const KidsMinistry: React.FC<KidsMinistryProps> = ({ 
+  selectedCampusId = 'all', 
+  selectedOrganization,
+  activeSubtab,
+  onNavigateSubtab
+}) => {
   const orgId = selectedOrganization?.id || 'org_default';
 
+  const mapSubtabToInternal = (sub?: string): 'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas' => {
+    if (sub === 'kids_checkin') return 'checkin_rapido';
+    if (sub === 'kids_chamados') return 'chamados';
+    if (sub === 'kids_familias') return 'familias';
+    if (sub === 'kids_config_salas') return 'config_salas';
+    return 'salas';
+  };
+
+  const mapInternalToSubtab = (internal: string): string => {
+    if (internal === 'checkin_rapido') return 'kids_checkin';
+    if (internal === 'chamados') return 'kids_chamados';
+    if (internal === 'familias') return 'kids_familias';
+    if (internal === 'config_salas') return 'kids_config_salas';
+    return 'kids_salas';
+  };
+
   // Navigation Subtabs
-  const [activeTab, setActiveTab] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas'>('salas');
+  const [activeTab, setActiveTabState] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas'>(
+    mapSubtabToInternal(activeSubtab)
+  );
+
+  useEffect(() => {
+    if (activeSubtab) {
+      setActiveTabState(mapSubtabToInternal(activeSubtab));
+    }
+  }, [activeSubtab]);
+
+  const switchTab = (tab: 'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas') => {
+    setActiveTabState(tab);
+    if (onNavigateSubtab) {
+      onNavigateSubtab(mapInternalToSubtab(tab));
+    }
+  };
   
   // Data States
   const [rooms, setRooms] = useState<KidsRoom[]>([]);
@@ -501,7 +539,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
           {activeCheckinsCalling.length > 0 && (
             <button 
               type="button" 
-              onClick={() => setActiveTab('chamados')}
+              onClick={() => switchTab('chamados')}
               style={{
                 background: '#fee2e2',
                 border: '1px solid #ef4444',
@@ -525,7 +563,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
             type="button" 
             className="btn-primary"
             onClick={() => {
-              setActiveTab('checkin_rapido');
+              switchTab('checkin_rapido');
               setCheckinSuccessData(null);
             }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.84rem', padding: '9px 16px' }}
@@ -538,7 +576,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       {/* Navigation Subtabs Bar */}
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--panel-border)', paddingBottom: 12, marginBottom: 20, overflowX: 'auto' }}>
         <button
-          onClick={() => setActiveTab('salas')}
+          onClick={() => switchTab('salas')}
           style={{
             background: activeTab === 'salas' ? 'var(--accent-primary)' : '#ffffff',
             color: activeTab === 'salas' ? '#ffffff' : 'var(--text-main)',
@@ -557,7 +595,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         </button>
 
         <button
-          onClick={() => setActiveTab('checkin_rapido')}
+          onClick={() => switchTab('checkin_rapido')}
           style={{
             background: activeTab === 'checkin_rapido' ? 'var(--accent-primary)' : '#ffffff',
             color: activeTab === 'checkin_rapido' ? '#ffffff' : 'var(--text-main)',
@@ -576,7 +614,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         </button>
 
         <button
-          onClick={() => setActiveTab('chamados')}
+          onClick={() => switchTab('chamados')}
           style={{
             background: activeTab === 'chamados' ? 'var(--accent-primary)' : '#ffffff',
             color: activeTab === 'chamados' ? '#ffffff' : 'var(--text-main)',
@@ -595,7 +633,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         </button>
 
         <button
-          onClick={() => setActiveTab('familias')}
+          onClick={() => switchTab('familias')}
           style={{
             background: activeTab === 'familias' ? 'var(--accent-primary)' : '#ffffff',
             color: activeTab === 'familias' ? '#ffffff' : 'var(--text-main)',
@@ -614,7 +652,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         </button>
 
         <button
-          onClick={() => setActiveTab('config_salas')}
+          onClick={() => switchTab('config_salas')}
           style={{
             background: activeTab === 'config_salas' ? 'var(--accent-primary)' : '#ffffff',
             color: activeTab === 'config_salas' ? '#ffffff' : 'var(--text-main)',
@@ -730,7 +768,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
               <button 
                 type="button" 
                 className="btn-primary"
-                onClick={() => setActiveTab('checkin_rapido')}
+                onClick={() => switchTab('checkin_rapido')}
               >
                 <PlusIcon /> Fazer Check-in no Totem
               </button>

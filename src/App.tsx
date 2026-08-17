@@ -101,9 +101,17 @@ const navigationGroups = [
         ]
       },
       { 
-        id: 'kids_ministerio', 
+        id: 'kids_group', 
         label: 'Ministério Infantil (Kids)', 
-        icon: BabyIcon 
+        icon: BabyIcon,
+        hasSubmenu: true,
+        subItems: [
+          { id: 'kids_salas', label: 'Painel ao Vivo das Salas' },
+          { id: 'kids_checkin', label: 'Totem de Check-in Expresso' },
+          { id: 'kids_chamados', label: 'Central de Chamados' },
+          { id: 'kids_familias', label: 'Base de Famílias & Membros' },
+          { id: 'kids_config_salas', label: 'Configuração de Salas' },
+        ]
       },
       { 
         id: 'ensino_group', 
@@ -710,6 +718,11 @@ function App() {
                 <div className="greeting-text">
                   {activeTab === 'dashboard' && `Dashboard (${selectedOrganization.name})`}
                   {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
+                  {activeTab === 'kids_salas' && 'Ministério Infantil • Painel ao Vivo das Salas'}
+                  {activeTab === 'kids_checkin' && 'Ministério Infantil • Totem de Check-in Expresso'}
+                  {activeTab === 'kids_chamados' && 'Ministério Infantil • Central de Chamados de Pais'}
+                  {activeTab === 'kids_familias' && 'Ministério Infantil • Base de Famílias & Membros'}
+                  {activeTab === 'kids_config_salas' && 'Ministério Infantil • Configuração de Salas'}
                   {activeTab === 'kids_ministerio' && 'Ministério Infantil (Faith Kids & Check-in)'}
                   {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
                   {activeTab === 'devocionais' && 'Devocionais Diários'}
@@ -1059,7 +1072,14 @@ function App() {
                 ========================================== */}
             {activeTab === 'campuses' && <Campuses />}
             {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-            {activeTab === 'kids_ministerio' && <KidsMinistry selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+            {(activeTab.startsWith('kids_') || activeTab === 'kids_ministerio') && (
+              <KidsMinistry 
+                selectedCampusId={selectedCampusId} 
+                selectedOrganization={selectedOrganization}
+                activeSubtab={activeTab}
+                onNavigateSubtab={(subtab) => setActiveTab(subtab)}
+              />
+            )}
             {activeTab === 'transmissoes' && <Broadcasts />}
             {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'estudos' && <Studies />}
