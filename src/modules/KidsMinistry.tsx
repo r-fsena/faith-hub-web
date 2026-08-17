@@ -1,0 +1,1880 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import './Members.css';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
+
+// Interfaces
+export interface KidsRoom {
+  id: string;
+  name: string;
+  min_age: number;
+  max_age: number;
+  capacity: number;
+  color: string;
+  icon: string;
+  description?: string;
+  organization_id: string;
+  campus_id?: string;
+}
+
+export interface KidsChild {
+  id: string;
+  name: string;
+  birthdate?: string;
+  gender: string;
+  allergies?: string;
+  medical_notes?: string;
+  general_notes?: string;
+  parent_name: string;
+  parent_phone: string;
+  parent_email?: string;
+  emergency_contact?: string;
+  emergency_phone?: string;
+  photo_url?: string;
+  organization_id: string;
+  campus_id?: string;
+}
+
+export interface KidsCheckin {
+  id: string;
+  child_id: string;
+  child_name: string;
+  room_id: string;
+  room_name: string;
+  room_color?: string;
+  room_icon?: string;
+  parent_name: string;
+  parent_phone: string;
+  security_code: string;
+  status: 'CHECKED_IN' | 'CALLING_PARENTS' | 'CHECKED_OUT';
+  call_reason?: string;
+  call_message?: string;
+  called_at?: string;
+  checkin_at: string;
+  checkout_at?: string;
+  checked_in_by?: string;
+  checked_out_by?: string;
+  birthdate?: string;
+  allergies?: string;
+  medical_notes?: string;
+  general_notes?: string;
+  photo_url?: string;
+}
+
+// Icons
+const BabyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/><path d="M9 13v2"/><path d="M15 13v2"/></svg>
+);
+const SearchIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+);
+const PlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+);
+const AlertBellIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+);
+const ShieldCheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+);
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
+
+interface KidsMinistryProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
+  const orgId = selectedOrganization?.id || 'org_default';
+
+  // Navigation Subtabs
+  const [activeTab, setActiveTab] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'criancas' | 'config_salas'>('salas');
+  
+  // Data States
+  const [rooms, setRooms] = useState<KidsRoom[]>([]);
+  const [checkins, setCheckins] = useState<KidsCheckin[]>([]);
+  const [childrenList, setChildrenList] = useState<KidsChild[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Modals States
+  const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isChildModalOpen, setIsChildModalOpen] = useState(false);
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+
+  // Selected Target for Action Modals
+  const [selectedCheckinForAction, setSelectedCheckinForAction] = useState<KidsCheckin | null>(null);
+  const [checkoutInputPin, setCheckoutInputPin] = useState('');
+  const [checkoutError, setCheckoutError] = useState('');
+
+  // Call Parent Form State
+  const [callReason, setCallReason] = useState('CHORO');
+  const [callCustomMessage, setCallCustomMessage] = useState('');
+  const [callingSaving, setCallingSaving] = useState(false);
+
+  // Quick Check-in Form State
+  const [selectedChildForCheckin, setSelectedChildForCheckin] = useState<KidsChild | null>(null);
+  const [quickCheckinForm, setQuickCheckinForm] = useState({
+    child_name: '',
+    birthdate: '',
+    allergies: '',
+    medical_notes: '',
+    room_id: '',
+    parent_name: '',
+    parent_phone: '',
+    parent_email: ''
+  });
+  const [checkinSuccessData, setCheckinSuccessData] = useState<any | null>(null);
+
+  // Child Form State (Cadastro/Edição)
+  const [childForm, setChildForm] = useState<Partial<KidsChild>>({
+    name: '',
+    birthdate: '',
+    gender: 'M',
+    allergies: '',
+    medical_notes: '',
+    general_notes: '',
+    parent_name: '',
+    parent_phone: '',
+    parent_email: '',
+    emergency_contact: '',
+    emergency_phone: ''
+  });
+
+  // Room Form State
+  const [roomForm, setRoomForm] = useState<Partial<KidsRoom>>({
+    name: '',
+    min_age: 0,
+    max_age: 12,
+    capacity: 25,
+    color: '#0f766e',
+    icon: '👶',
+    description: ''
+  });
+
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      return token ? { 'Authorization': `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
+
+  // Load Rooms
+  const loadRooms = async () => {
+    try {
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/kids/rooms?organization_id=${encodeURIComponent(orgId)}${campusParam}`);
+      if (res.ok) {
+        const json = await res.json();
+        setRooms(json.data || []);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar salas do Kids:", e);
+    }
+  };
+
+  // Load Active Check-ins
+  const loadCheckins = async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/kids/checkins?organization_id=${encodeURIComponent(orgId)}&status=active${campusParam}`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        setCheckins(json.data || []);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar check-ins do Kids:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Children List
+  const loadChildren = async (query = '') => {
+    try {
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
+      const res = await fetch(`${API_URL}/kids/children?organization_id=${encodeURIComponent(orgId)}${campusParam}${searchParam}`);
+      if (res.ok) {
+        const json = await res.json();
+        setChildrenList(json.data || []);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar crianças:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadRooms();
+    loadCheckins();
+    loadChildren();
+
+    const interval = setInterval(() => {
+      loadCheckins();
+    }, 10000); // Polling a cada 10 segundos para chamadas de pais
+    return () => clearInterval(interval);
+  }, [orgId, selectedCampusId]);
+
+  // Handler: Realizar Check-in
+  const handlePerformCheckin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        child_id: selectedChildForCheckin?.id || null,
+        child_name: quickCheckinForm.child_name,
+        birthdate: quickCheckinForm.birthdate || null,
+        allergies: quickCheckinForm.allergies || null,
+        medical_notes: quickCheckinForm.medical_notes || null,
+        room_id: quickCheckinForm.room_id,
+        parent_name: quickCheckinForm.parent_name,
+        parent_phone: quickCheckinForm.parent_phone,
+        parent_email: quickCheckinForm.parent_email || null,
+        organization_id: orgId,
+        campus_id: selectedCampusId !== 'all' ? selectedCampusId : null,
+        checked_in_by: 'Equipe Kids'
+      };
+
+      const res = await fetch(`${API_URL}/kids/checkin`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        setCheckinSuccessData(json.checkin);
+        loadCheckins();
+        loadChildren();
+        // Reset form
+        setSelectedChildForCheckin(null);
+        setQuickCheckinForm({
+          child_name: '',
+          birthdate: '',
+          allergies: '',
+          medical_notes: '',
+          room_id: '',
+          parent_name: '',
+          parent_phone: '',
+          parent_email: ''
+        });
+      } else {
+        const errJson = await res.json();
+        alert(errJson.message || "Erro ao realizar check-in");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro de conexão ao realizar check-in");
+    }
+  };
+
+  // Handler: Chamar Pais
+  const handleCallParent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCheckinForAction) return;
+
+    setCallingSaving(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/kids/call-parent`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkin_id: selectedCheckinForAction.id,
+          reason: callReason,
+          message: callCustomMessage || null
+        })
+      });
+
+      if (res.ok) {
+        setIsCallModalOpen(false);
+        loadCheckins();
+      } else {
+        alert("Erro ao disparar chamada dos pais.");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCallingSaving(false);
+    }
+  };
+
+  // Handler: Resolver Chamado (Pais compareceram)
+  const handleResolveCall = async (checkinId: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      await fetch(`${API_URL}/kids/resolve-call`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkin_id: checkinId })
+      });
+      loadCheckins();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Handler: Checkout com Validação de PIN
+  const handlePerformCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCheckinForAction) return;
+
+    setCheckoutError('');
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/kids/checkout`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkin_id: selectedCheckinForAction.id,
+          security_code: checkoutInputPin,
+          checked_out_by: 'Educador da Sala'
+        })
+      });
+
+      if (res.ok) {
+        setIsCheckoutModalOpen(false);
+        setCheckoutInputPin('');
+        setSelectedCheckinForAction(null);
+        loadCheckins();
+      } else {
+        const errJson = await res.json();
+        setCheckoutError(errJson.message || "Código PIN incorreto.");
+      }
+    } catch (err) {
+      console.error(err);
+      setCheckoutError("Erro de comunicação ao validar checkout.");
+    }
+  };
+
+  // Handler: Salvar Criança
+  const handleSaveChild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/kids/children`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...childForm,
+          organization_id: orgId,
+          campus_id: selectedCampusId !== 'all' ? selectedCampusId : null
+        })
+      });
+
+      if (res.ok) {
+        setIsChildModalOpen(false);
+        loadChildren();
+      } else {
+        alert("Erro ao salvar cadastro da criança.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Handler: Salvar Sala
+  const handleSaveRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/kids/rooms`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...roomForm,
+          organization_id: orgId,
+          campus_id: selectedCampusId !== 'all' ? selectedCampusId : null
+        })
+      });
+
+      if (res.ok) {
+        setIsRoomModalOpen(false);
+        loadRooms();
+      } else {
+        alert("Erro ao salvar sala.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Helpers
+  const activeCheckinsCalling = checkins.filter(c => c.status === 'CALLING_PARENTS');
+  const filteredCheckins = checkins.filter(c => {
+    const matchRoom = selectedRoomFilter === 'all' || c.room_id === selectedRoomFilter;
+    const matchSearch = !searchTerm || c.child_name.toLowerCase().includes(searchTerm.toLowerCase()) || c.parent_name.toLowerCase().includes(searchTerm.toLowerCase()) || c.security_code.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchRoom && matchSearch;
+  });
+
+  const calculateAge = (birthdate?: string) => {
+    if (!birthdate) return null;
+    const birth = new Date(birthdate);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const getSuggestedRoomForAge = (age: number | null) => {
+    if (age === null || rooms.length === 0) return rooms[0]?.id || '';
+    const found = rooms.find(r => age >= r.min_age && age <= r.max_age);
+    return found ? found.id : rooms[0]?.id || '';
+  };
+
+  return (
+    <div className="members-container animate-fade-in" style={{ width: '100%' }}>
+      {/* Top Header */}
+      <div className="header-actions" style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ background: 'var(--accent-primary-light)', color: 'var(--accent-primary)', width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BabyIcon />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 900, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+                Ministério Infantil (Faith Kids)
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: '0.86rem' }}>
+                Check-in expresso, crachás de segurança, painel de salas e chamador de pais em tempo real.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {activeCheckinsCalling.length > 0 && (
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('chamados')}
+              style={{
+                background: '#fee2e2',
+                border: '1px solid #ef4444',
+                color: '#b91c1c',
+                padding: '8px 14px',
+                borderRadius: 10,
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: 'pointer',
+                animation: 'pulse 2s infinite'
+              }}
+            >
+              <span>🚨</span> {activeCheckinsCalling.length} Chamado(s) de Pais Ativo(s)
+            </button>
+          )}
+
+          <button 
+            type="button" 
+            className="btn-primary"
+            onClick={() => {
+              setSelectedChildForCheckin(null);
+              setQuickCheckinForm({
+                child_name: '',
+                birthdate: '',
+                allergies: '',
+                medical_notes: '',
+                room_id: rooms[0]?.id || '',
+                parent_name: '',
+                parent_phone: '',
+                parent_email: ''
+              });
+              setCheckinSuccessData(null);
+              setIsCheckinModalOpen(true);
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.84rem', padding: '9px 16px' }}
+          >
+            <PlusIcon /> Fazer Check-in de Criança
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation Subtabs Bar */}
+      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--panel-border)', paddingBottom: 12, marginBottom: 20, overflowX: 'auto' }}>
+        <button
+          onClick={() => setActiveTab('salas')}
+          style={{
+            background: activeTab === 'salas' ? 'var(--accent-primary)' : '#ffffff',
+            color: activeTab === 'salas' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid var(--panel-border)',
+            padding: '8px 16px',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer'
+          }}
+        >
+          <span>🚸</span> Painel ao Vivo das Salas ({checkins.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('checkin_rapido')}
+          style={{
+            background: activeTab === 'checkin_rapido' ? 'var(--accent-primary)' : '#ffffff',
+            color: activeTab === 'checkin_rapido' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid var(--panel-border)',
+            padding: '8px 16px',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer'
+          }}
+        >
+          <span>🏷️</span> Totem de Check-in Expresso
+        </button>
+
+        <button
+          onClick={() => setActiveTab('chamados')}
+          style={{
+            background: activeTab === 'chamados' ? 'var(--accent-primary)' : '#ffffff',
+            color: activeTab === 'chamados' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid var(--panel-border)',
+            padding: '8px 16px',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer'
+          }}
+        >
+          <span>📢</span> Central de Chamados {activeCheckinsCalling.length > 0 && `(${activeCheckinsCalling.length})`}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('criancas')}
+          style={{
+            background: activeTab === 'criancas' ? 'var(--accent-primary)' : '#ffffff',
+            color: activeTab === 'criancas' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid var(--panel-border)',
+            padding: '8px 16px',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer'
+          }}
+        >
+          <span>📋</span> Base de Crianças & Famílias ({childrenList.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('config_salas')}
+          style={{
+            background: activeTab === 'config_salas' ? 'var(--accent-primary)' : '#ffffff',
+            color: activeTab === 'config_salas' ? '#ffffff' : 'var(--text-main)',
+            border: '1px solid var(--panel-border)',
+            padding: '8px 16px',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer'
+          }}
+        >
+          <span>🏫</span> Configurar Salas ({rooms.length})
+        </button>
+      </div>
+
+      {/* ========================================================
+          TAB 1: PAINEL AO VIVO DAS SALAS & CRIANÇAS ATIVAS
+          ======================================================== */}
+      {activeTab === 'salas' && (
+        <div className="animate-fade-in">
+          {/* Top Room Cards Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
+            {rooms.map(room => {
+              const roomCheckins = checkins.filter(c => c.room_id === room.id);
+              const isSelected = selectedRoomFilter === room.id;
+
+              return (
+                <div 
+                  key={room.id}
+                  onClick={() => setSelectedRoomFilter(isSelected ? 'all' : room.id)}
+                  style={{
+                    background: '#ffffff',
+                    border: isSelected ? `2px solid ${room.color || 'var(--accent-primary)'}` : '1px solid var(--panel-border)',
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.02)',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{ width: 4, position: 'absolute', top: 0, left: 0, bottom: 0, background: room.color || '#0f766e' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '1.2rem' }}>{room.icon || '👶'}</span>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)' }}>{room.name}</span>
+                    </div>
+                    <span style={{ 
+                      background: roomCheckins.length > 0 ? room.color || '#0f766e' : '#f1f5f9', 
+                      color: roomCheckins.length > 0 ? '#ffffff' : '#64748b',
+                      fontSize: '0.74rem', 
+                      fontWeight: 900, 
+                      padding: '2px 8px', 
+                      borderRadius: 10 
+                    }}>
+                      {roomCheckins.length} {roomCheckins.length === 1 ? 'criança' : 'crianças'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Faixa etária: {room.min_age} a {room.max_age} anos • Cap: {room.capacity}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="search-pill" style={{ width: 280 }}>
+                <SearchIcon />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por criança, responsável ou PIN..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {selectedRoomFilter !== 'all' && (
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={() => setSelectedRoomFilter('all')}
+                  style={{ fontSize: '0.76rem', padding: '6px 12px' }}
+                >
+                  ✕ Limpar Filtro de Sala
+                </button>
+              )}
+            </div>
+
+            <div style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Exibindo <strong>{filteredCheckins.length}</strong> de <strong>{checkins.length}</strong> crianças presentes
+            </div>
+          </div>
+
+          {/* Children Grid */}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-muted)' }}>
+              Carregando crianças presentes...
+            </div>
+          ) : filteredCheckins.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 50, background: '#ffffff', borderRadius: 16, border: '1px dashed var(--panel-border)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>👶</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Nenhuma criança presente no momento</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4, maxWidth: 380, margin: '6px auto 16px auto' }}>
+                Utilize o botão de check-in rápido na recepção ou totem para registrar a entrada dos pequenos no Ministério Infantil.
+              </p>
+              <button 
+                type="button" 
+                className="btn-primary"
+                onClick={() => {
+                  setSelectedChildForCheckin(null);
+                  setIsCheckinModalOpen(true);
+                }}
+              >
+                <PlusIcon /> Fazer Primeiro Check-in
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+              {filteredCheckins.map(item => {
+                const isCalling = item.status === 'CALLING_PARENTS';
+                const age = calculateAge(item.birthdate);
+
+                return (
+                  <div 
+                    key={item.id}
+                    className="portal-card"
+                    style={{
+                      margin: 0,
+                      padding: 0,
+                      overflow: 'hidden',
+                      border: isCalling ? '2px solid #ef4444' : '1px solid var(--panel-border)',
+                      boxShadow: isCalling ? '0 0 18px rgba(239, 68, 68, 0.2)' : '0 4px 12px rgba(0,0,0,0.03)',
+                      background: '#ffffff',
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Header do Card */}
+                    <div style={{
+                      background: isCalling ? '#fef2f2' : '#f8fafc',
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #f1f5f9',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: '50%',
+                          background: item.room_color || 'var(--accent-primary)',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 900,
+                          fontSize: '1.1rem'
+                        }}>
+                          {item.child_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.96rem', fontWeight: 900, color: 'var(--text-main)' }}>
+                            {item.child_name}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>{item.room_name}</span>
+                            {age !== null && <span>• {age} anos</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Crachá / PIN de Segurança */}
+                      <div style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        padding: '4px 10px',
+                        borderRadius: 8,
+                        textAlign: 'right'
+                      }}>
+                        <div style={{ fontSize: '0.60rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>PIN de Segurança</div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--accent-primary)', letterSpacing: '0.05em' }}>{item.security_code}</div>
+                      </div>
+                    </div>
+
+                    {/* Banner de Chamada Ativa se estiver chamando pais */}
+                    {isCalling && (
+                      <div style={{ background: '#fee2e2', color: '#991b1b', padding: '8px 14px', fontSize: '0.74rem', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #fca5a5' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>🚨</span>
+                          <span>Chamando Pais: {item.call_reason || 'Solicitação da Sala'}</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => handleResolveCall(item.id)}
+                          style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 6px', fontSize: '0.68rem', cursor: 'pointer' }}
+                        >
+                          Atendido
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Corpo do Card */}
+                    <div style={{ padding: '14px 16px' }}>
+                      {/* Alertas Médicos / Alergias */}
+                      {item.allergies && (
+                        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 8, padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: '0.90rem' }}>⚠️</span>
+                          <div style={{ fontSize: '0.74rem', color: '#be123c', fontWeight: 700 }}>
+                            Alergia: <strong>{item.allergies}</strong>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.medical_notes && (
+                        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: '0.90rem' }}>💊</span>
+                          <div style={{ fontSize: '0.74rem', color: '#b45309', fontWeight: 700 }}>
+                            Cuidados: <strong>{item.medical_notes}</strong>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Informações dos Pais */}
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.4 }}>
+                        <div><strong>Responsável:</strong> {item.parent_name}</div>
+                        <div><strong>WhatsApp:</strong> {item.parent_phone}</div>
+                        <div><strong>Entrada:</strong> {new Date(item.checkin_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+
+                      {/* Ações Rápidas */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCheckinForAction(item);
+                            setCallReason('CHORO');
+                            setCallCustomMessage('');
+                            setIsCallModalOpen(true);
+                          }}
+                          style={{
+                            background: isCalling ? '#fee2e2' : '#fff7ed',
+                            color: isCalling ? '#b91c1c' : '#c2410c',
+                            border: '1px solid #fed7aa',
+                            borderRadius: 8,
+                            padding: '8px',
+                            fontWeight: 800,
+                            fontSize: '0.76rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <AlertBellIcon /> Chamar Pais
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCheckinForAction(item);
+                            setCheckoutInputPin('');
+                            setCheckoutError('');
+                            setIsCheckoutModalOpen(true);
+                          }}
+                          style={{
+                            background: '#f0fdf4',
+                            color: '#15803d',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: 8,
+                            padding: '8px',
+                            fontWeight: 800,
+                            fontSize: '0.76rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <ShieldCheckIcon /> Checkout
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB 2: TOTEM DE CHECK-IN EXPRESSO
+          ======================================================== */}
+      {activeTab === 'checkin_rapido' && (
+        <div className="animate-fade-in" style={{ maxWidth: 840, margin: '0 auto' }}>
+          <div className="portal-card" style={{ padding: 24 }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', marginBottom: 6 }}>
+              🏷️ Totem de Recepção & Check-in Kids
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginBottom: 20 }}>
+              Busque uma criança cadastrada ou preencha os dados para gerar o crachá de segurança do dia.
+            </p>
+
+            {/* Caixa de Busca Rápida */}
+            <div style={{ marginBottom: 20 }}>
+              <label className="form-label-modern">Buscar Criança ou Pai Cadastrado</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input 
+                  type="text" 
+                  className="input-modern"
+                  placeholder="Digite o nome da criança ou telefone do pai..."
+                  onChange={e => loadChildren(e.target.value)}
+                />
+              </div>
+
+              {childrenList.length > 0 && (
+                <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 150, overflowY: 'auto' }}>
+                  {childrenList.slice(0, 10).map(ch => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedChildForCheckin(ch);
+                        const age = calculateAge(ch.birthdate);
+                        setQuickCheckinForm({
+                          child_name: ch.name,
+                          birthdate: ch.birthdate || '',
+                          allergies: ch.allergies || '',
+                          medical_notes: ch.medical_notes || '',
+                          room_id: getSuggestedRoomForAge(age),
+                          parent_name: ch.parent_name,
+                          parent_phone: ch.parent_phone,
+                          parent_email: ch.parent_email || ''
+                        });
+                      }}
+                      style={{
+                        background: selectedChildForCheckin?.id === ch.id ? 'var(--accent-primary-light)' : '#f8fafc',
+                        border: selectedChildForCheckin?.id === ch.id ? '1px solid var(--accent-primary)' : '1px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <span>👶 {ch.name}</span>
+                      <span style={{ color: '#64748b', fontSize: '0.70rem' }}>({ch.parent_name})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Formulário de Check-in */}
+            <form onSubmit={handlePerformCheckin}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label className="form-label-modern">Nome Completo da Criança *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.child_name} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, child_name: e.target.value })}
+                    placeholder="Ex: Pedro Henrique Silva"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label-modern">Data de Nascimento / Idade</label>
+                  <input 
+                    type="date" 
+                    className="input-modern"
+                    value={quickCheckinForm.birthdate} 
+                    onChange={e => {
+                      const bdate = e.target.value;
+                      const age = calculateAge(bdate);
+                      setQuickCheckinForm({ 
+                        ...quickCheckinForm, 
+                        birthdate: bdate,
+                        room_id: getSuggestedRoomForAge(age)
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label className="form-label-modern">Sala / Turma Destino *</label>
+                  <select 
+                    className="select-modern"
+                    value={quickCheckinForm.room_id} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, room_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Selecione a Sala</option>
+                    {rooms.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.icon} {r.name} ({r.min_age} a {r.max_age} anos)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label-modern">Alergias Alimentares (Opcional)</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.allergies} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, allergies: e.target.value })}
+                    placeholder="Ex: Lactose, Amendoim, Glúten..."
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+                <div>
+                  <label className="form-label-modern">Nome do Responsável *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.parent_name} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_name: e.target.value })}
+                    placeholder="Ex: Ana Paula Silva (Mãe)"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label-modern">WhatsApp do Responsável *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.parent_phone} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_phone: e.target.value })}
+                    placeholder="(00) 00000-0000"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button type="submit" className="btn-primary" style={{ padding: '10px 24px', fontSize: '0.90rem' }}>
+                  <CheckIcon /> Concluir Check-in & Gerar Crachá
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado do Check-in com Crachá de Impressão */}
+            {checkinSuccessData && (
+              <div style={{ marginTop: 24, padding: 20, background: '#ecfdf5', border: '2px dashed #059669', borderRadius: 16, textAlign: 'center' }}>
+                <div style={{ color: '#059669', fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>
+                  ✅ Check-in Concluído com Sucesso!
+                </div>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)', margin: '4px 0 10px 0' }}>
+                  {checkinSuccessData.child_name}
+                </h2>
+                <div style={{ display: 'inline-block', background: '#ffffff', border: '2px solid #059669', padding: '10px 24px', borderRadius: 12, marginBottom: 12 }}>
+                  <div style={{ fontSize: '0.70rem', fontWeight: 800, color: '#64748b' }}>CÓDIGO DE SEGURANÇA (PIN)</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 900, color: '#059669', letterSpacing: '0.08em' }}>
+                    {checkinSuccessData.security_code}
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: '#065f46', margin: 0 }}>
+                  Sala: <strong>{checkinSuccessData.room_name}</strong> • Responsável: <strong>{checkinSuccessData.parent_name}</strong>
+                </p>
+                <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 10 }}>
+                  <button 
+                    type="button" 
+                    className="btn-secondary"
+                    onClick={() => window.print()}
+                    style={{ fontSize: '0.78rem' }}
+                  >
+                    🖨️ Imprimir Etiqueta
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-primary"
+                    onClick={() => setCheckinSuccessData(null)}
+                    style={{ fontSize: '0.78rem' }}
+                  >
+                    Novo Check-in
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB 3: CENTRAL DE CHAMADOS
+          ======================================================== */}
+      {activeTab === 'chamados' && (
+        <div className="animate-fade-in">
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+              📢 Central de Chamados de Pais em Tempo Real
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
+              Acompanhe as solicitações ativas dos educadores para comparecimento dos pais nas salas.
+            </p>
+          </div>
+
+          {activeCheckinsCalling.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, background: '#ffffff', borderRadius: 16, border: '1px dashed var(--panel-border)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>✨</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Nenhum chamado ativo no momento</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
+                Todas as crianças estão tranquilas nas salas com seus respectivos educadores.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {activeCheckinsCalling.map(c => (
+                <div 
+                  key={c.id}
+                  className="portal-card"
+                  style={{
+                    margin: 0,
+                    padding: 16,
+                    borderLeft: '6px solid #ef4444',
+                    background: '#ffffff',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: 6 }}>
+                        🚨 CHAMADO ATIVO
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                        Sala: <strong>{c.room_name}</strong>
+                      </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: '2px 0' }}>
+                      {c.child_name} <span style={{ fontSize: '0.90rem', color: '#64748b', fontWeight: 600 }}>({c.security_code})</span>
+                    </h3>
+                    <div style={{ fontSize: '0.82rem', color: '#b45309', fontWeight: 700, marginTop: 4 }}>
+                      Motivo: {c.call_reason} {c.call_message ? `• "${c.call_message}"` : ''}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 4 }}>
+                      Responsável: <strong>{c.parent_name}</strong> ({c.parent_phone})
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <a
+                      href={`https://wa.me/55${c.parent_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${c.parent_name}, estamos na sala ${c.room_name} com ${c.child_name} e precisamos do seu comparecimento. Motivo: ${c.call_reason}`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        background: '#25d366',
+                        color: '#ffffff',
+                        padding: '8px 14px',
+                        borderRadius: 8,
+                        fontWeight: 800,
+                        fontSize: '0.80rem',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <span>💬</span> WhatsApp Direto
+                    </a>
+
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleResolveCall(c.id)}
+                      style={{ fontSize: '0.80rem', padding: '8px 14px' }}
+                    >
+                      <CheckIcon /> Pais Compareceram / Resolver
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB 4: BASE DE CRIANÇAS & FAMÍLIAS
+          ======================================================== */}
+      {activeTab === 'criancas' && (
+        <div className="animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                📋 Cadastro de Crianças & Famílias
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
+                Base permanente de crianças, dados médicos e contatos de emergência.
+              </p>
+            </div>
+
+            <button 
+              type="button" 
+              className="btn-primary"
+              onClick={() => {
+                setChildForm({
+                  name: '',
+                  birthdate: '',
+                  gender: 'M',
+                  allergies: '',
+                  medical_notes: '',
+                  general_notes: '',
+                  parent_name: '',
+                  parent_phone: '',
+                  parent_email: '',
+                  emergency_contact: '',
+                  emergency_phone: ''
+                });
+                setIsChildModalOpen(true);
+              }}
+            >
+              <PlusIcon /> Nova Criança
+            </button>
+          </div>
+
+          <div className="members-table-container">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Criança</th>
+                  <th>Idade / Nascimento</th>
+                  <th>Responsáveis</th>
+                  <th>Alergias & Cuidados</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {childrenList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                      Nenhuma criança cadastrada ainda nesta congregação.
+                    </td>
+                  </tr>
+                ) : (
+                  childrenList.map(ch => {
+                    const age = calculateAge(ch.birthdate);
+                    return (
+                      <tr key={ch.id}>
+                        <td>
+                          <div className="user-cell">
+                            <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
+                              {ch.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="member-meta-title">{ch.name}</div>
+                              <div className="member-meta-sub">{ch.gender === 'F' ? 'Menina' : 'Menino'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                            {age !== null ? `${age} anos` : 'Não informada'}
+                          </div>
+                          {ch.birthdate && (
+                            <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>
+                              {new Date(ch.birthdate).toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{ch.parent_name}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{ch.parent_phone}</div>
+                        </td>
+                        <td>
+                          {ch.allergies ? (
+                            <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 800 }}>
+                              ⚠️ {ch.allergies}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#64748b', fontSize: '0.74rem' }}>Nenhuma restrição</span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => {
+                              setChildForm(ch);
+                              setIsChildModalOpen(true);
+                            }}
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB 5: CONFIGURAR SALAS & TURMAS
+          ======================================================== */}
+      {activeTab === 'config_salas' && (
+        <div className="animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                🏫 Salas & Turmas do Ministério Infantil
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
+                Configure as faixas etárias, capacidades e identidade visual de cada turma.
+              </p>
+            </div>
+
+            <button 
+              type="button" 
+              className="btn-primary"
+              onClick={() => {
+                setRoomForm({
+                  name: '',
+                  min_age: 0,
+                  max_age: 12,
+                  capacity: 25,
+                  color: '#0f766e',
+                  icon: '👶',
+                  description: ''
+                });
+                setIsRoomModalOpen(true);
+              }}
+            >
+              <PlusIcon /> Nova Sala
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            {rooms.map(r => (
+              <div 
+                key={r.id}
+                className="portal-card"
+                style={{
+                  margin: 0,
+                  padding: 16,
+                  borderLeft: `5px solid ${r.color || '#0f766e'}`,
+                  background: '#ffffff'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '1.4rem' }}>{r.icon || '👶'}</span>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>{r.name}</h4>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="link-btn"
+                    onClick={() => {
+                      setRoomForm(r);
+                      setIsRoomModalOpen(true);
+                    }}
+                  >
+                    Editar
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 10px 0' }}>
+                  {r.description || 'Turma do Ministério Infantil'}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+                  <span>Idade: <strong>{r.min_age} a {r.max_age} anos</strong></span>
+                  <span>Capacidade: <strong>{r.capacity} crianças</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 1: CHECK-IN RÁPIDO MODAL
+          ======================================================== */}
+      {isCheckinModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsCheckinModalOpen(false)}>
+          <form className="modal-studio-container" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()} onSubmit={handlePerformCheckin}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--accent-primary-light)', color: 'var(--accent-primary)' }}>
+                  <BabyIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Check-in de Criança (Kids)</h2>
+                  <p className="modal-studio-subtitle">Alocação de sala e geração do código PIN de segurança.</p>
+                </div>
+              </div>
+              <button type="button" className="modal-close-circle" onClick={() => setIsCheckinModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label-modern">Nome da Criança *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.child_name} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, child_name: e.target.value })}
+                    placeholder="Nome completo"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">Data de Nascimento</label>
+                  <input 
+                    type="date" 
+                    className="input-modern"
+                    value={quickCheckinForm.birthdate} 
+                    onChange={e => {
+                      const bdate = e.target.value;
+                      const age = calculateAge(bdate);
+                      setQuickCheckinForm({ 
+                        ...quickCheckinForm, 
+                        birthdate: bdate,
+                        room_id: getSuggestedRoomForAge(age)
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label-modern">Sala Destino *</label>
+                  <select 
+                    className="select-modern"
+                    value={quickCheckinForm.room_id} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, room_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Selecione a Sala</option>
+                    {rooms.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.icon} {r.name} ({r.min_age} a {r.max_age} anos)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label-modern">Alergias / Restrições (Opcional)</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.allergies} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, allergies: e.target.value })}
+                    placeholder="Ex: Lactose, glúten..."
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label-modern">Nome do Pai / Mãe *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.parent_name} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_name: e.target.value })}
+                    placeholder="Nome do responsável"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">WhatsApp do Responsável *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={quickCheckinForm.parent_phone} 
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_phone: e.target.value })}
+                    placeholder="(00) 00000-0000"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-studio-footer">
+              <button type="button" className="btn-secondary" onClick={() => setIsCheckinModalOpen(false)}>Cancelar</button>
+              <button type="submit" className="btn-primary">
+                <CheckIcon /> Concluir Check-in
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL 2: CHAMAR PAIS (ALERTA NO APP & WHATSAPP)
+          ======================================================== */}
+      {isCallModalOpen && selectedCheckinForAction && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsCallModalOpen(false)}>
+          <form className="modal-studio-container" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()} onSubmit={handleCallParent}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: '#fee2e2', color: '#b91c1c' }}>
+                  <AlertBellIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Chamar Responsáveis</h2>
+                  <p className="modal-studio-subtitle">Dispare um alerta sonoro e visual no app dos pais.</p>
+                </div>
+              </div>
+              <button type="button" className="modal-close-circle" onClick={() => setIsCallModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.80rem', color: '#64748b' }}>Criança:</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-main)' }}>
+                  {selectedCheckinForAction.child_name}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 2 }}>
+                  Pais: <strong>{selectedCheckinForAction.parent_name}</strong> • WhatsApp: <strong>{selectedCheckinForAction.parent_phone}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label-modern">Motivo da Chamada *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+                  {[
+                    { id: 'CHORO', label: '😭 Choro Inconsolável' },
+                    { id: 'FRALDA', label: '🍼 Fralda / Banheiro' },
+                    { id: 'FEBRE', label: '💊 Febre / Não Passando Bem' },
+                    { id: 'COMPARECER_SALA', label: '🚸 Comparecer à Sala' }
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setCallReason(m.id)}
+                      style={{
+                        background: callReason === m.id ? '#fee2e2' : '#f8fafc',
+                        color: callReason === m.id ? '#b91c1c' : 'var(--text-main)',
+                        border: callReason === m.id ? '2px solid #ef4444' : '1px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: '10px 8px',
+                        fontWeight: 700,
+                        fontSize: '0.76rem',
+                        textAlign: 'left',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label-modern">Mensagem Personalizada (Opcional)</label>
+                <input 
+                  type="text" 
+                  className="input-modern"
+                  value={callCustomMessage} 
+                  onChange={e => setCallCustomMessage(e.target.value)}
+                  placeholder="Ex: Pode trazer a mamadeira / troca de roupa..."
+                />
+              </div>
+            </div>
+
+            <div className="modal-studio-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <a
+                href={`https://wa.me/55${selectedCheckinForAction.parent_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${selectedCheckinForAction.parent_name}, estamos na sala ${selectedCheckinForAction.room_name} com ${selectedCheckinForAction.child_name} e precisamos do seu comparecimento.`)}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  background: '#25d366',
+                  color: '#ffffff',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  fontWeight: 800,
+                  fontSize: '0.78rem',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span>💬</span> WhatsApp
+              </a>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn-secondary" onClick={() => setIsCallModalOpen(false)}>Cancelar</button>
+                <button type="submit" className="btn-primary" style={{ background: '#b91c1c' }} disabled={callingSaving}>
+                  {callingSaving ? "Disparando..." : "🚨 Disparar Alerta"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL 3: CHECKOUT COM VALIDAÇÃO DE SEGURANÇA (PIN)
+          ======================================================== */}
+      {isCheckoutModalOpen && selectedCheckinForAction && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsCheckoutModalOpen(false)}>
+          <form className="modal-studio-container" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()} onSubmit={handlePerformCheckout}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: '#f0fdf4', color: '#15803d' }}>
+                  <ShieldCheckIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Checkout de Segurança</h2>
+                  <p className="modal-studio-subtitle">Valide o PIN do crachá do responsável.</p>
+                </div>
+              </div>
+              <button type="button" className="modal-close-circle" onClick={() => setIsCheckoutModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: 10, textAlign: 'center' }}>
+                <div style={{ fontSize: '0.74rem', color: '#64748b' }}>Liberando a criança:</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)' }}>
+                  {selectedCheckinForAction.child_name}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                  Responsável: <strong>{selectedCheckinForAction.parent_name}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label-modern" style={{ textAlign: 'center', display: 'block', fontSize: '0.84rem' }}>
+                  Digite o Código PIN do Crachá do Pai:
+                </label>
+                <input 
+                  type="text" 
+                  className="input-modern"
+                  value={checkoutInputPin} 
+                  onChange={e => setCheckoutInputPin(e.target.value)}
+                  placeholder="Ex: K-4829 ou 4829"
+                  style={{ textAlign: 'center', fontSize: '1.4rem', fontWeight: 900, letterSpacing: '0.1em' }}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {checkoutError && (
+                <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '8px 12px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700 }}>
+                  {checkoutError}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-studio-footer">
+              <button type="button" className="btn-secondary" onClick={() => setIsCheckoutModalOpen(false)}>Cancelar</button>
+              <button type="submit" className="btn-primary" style={{ background: '#15803d' }}>
+                <CheckIcon /> Validar PIN & Liberar
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL 4: CADASTRO / EDIÇÃO DE CRIANÇA
+          ======================================================== */}
+      {isChildModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsChildModalOpen(false)}>
+          <form className="modal-studio-container" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()} onSubmit={handleSaveChild}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--accent-primary-light)', color: 'var(--accent-primary)' }}>
+                  <BabyIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">{childForm.id ? 'Editar Criança' : 'Cadastrar Criança'}</h2>
+                  <p className="modal-studio-subtitle">Dados cadastrais, médicos e vínculos familiares.</p>
+                </div>
+              </div>
+              <button type="button" className="modal-close-circle" onClick={() => setIsChildModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label-modern">Nome Completo *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={childForm.name} 
+                    onChange={e => setChildForm({ ...childForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">Data de Nascimento</label>
+                  <input 
+                    type="date" 
+                    className="input-modern"
+                    value={childForm.birthdate || ''} 
+                    onChange={e => setChildForm({ ...childForm, birthdate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label-modern">Nome do Pai / Mãe *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={childForm.parent_name} 
+                    onChange={e => setChildForm({ ...childForm, parent_name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">WhatsApp do Responsável *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={childForm.parent_phone} 
+                    onChange={e => setChildForm({ ...childForm, parent_phone: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label-modern">Alergias Alimentares</label>
+                <input 
+                  type="text" 
+                  className="input-modern"
+                  value={childForm.allergies || ''} 
+                  onChange={e => setChildForm({ ...childForm, allergies: e.target.value })}
+                  placeholder="Ex: Alérgico a leite e amendoim..."
+                />
+              </div>
+
+              <div>
+                <label className="form-label-modern">Observações Médicas / Remédios</label>
+                <textarea 
+                  className="input-modern"
+                  rows={2}
+                  value={childForm.medical_notes || ''} 
+                  onChange={e => setChildForm({ ...childForm, medical_notes: e.target.value })}
+                  placeholder="Instruções de remédios ou necessidades especiais..."
+                />
+              </div>
+            </div>
+
+            <div className="modal-studio-footer">
+              <button type="button" className="btn-secondary" onClick={() => setIsChildModalOpen(false)}>Cancelar</button>
+              <button type="submit" className="btn-primary">
+                <CheckIcon /> Salvar Cadastro
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL 5: SALA / TURMA
+          ======================================================== */}
+      {isRoomModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsRoomModalOpen(false)}>
+          <form className="modal-studio-container" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()} onSubmit={handleSaveRoom}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--accent-primary-light)', color: 'var(--accent-primary)' }}>
+                  <span>🏫</span>
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">{roomForm.id ? 'Editar Sala' : 'Nova Sala Kids'}</h2>
+                  <p className="modal-studio-subtitle">Defina faixas etárias, ícone e capacidade.</p>
+                </div>
+              </div>
+              <button type="button" className="modal-close-circle" onClick={() => setIsRoomModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: 10 }}>
+                <div>
+                  <label className="form-label-modern">Ícone</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={roomForm.icon} 
+                    onChange={e => setRoomForm({ ...roomForm, icon: e.target.value })}
+                    style={{ textAlign: 'center', fontSize: '1.2rem' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">Nome da Sala *</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={roomForm.name} 
+                    onChange={e => setRoomForm({ ...roomForm, name: e.target.value })}
+                    placeholder="Ex: Maternal (3 a 5 anos)"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="form-label-modern">Idade Mínima</label>
+                  <input 
+                    type="number" 
+                    className="input-modern"
+                    value={roomForm.min_age} 
+                    onChange={e => setRoomForm({ ...roomForm, min_age: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">Idade Máxima</label>
+                  <input 
+                    type="number" 
+                    className="input-modern"
+                    value={roomForm.max_age} 
+                    onChange={e => setRoomForm({ ...roomForm, max_age: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">Capacidade</label>
+                  <input 
+                    type="number" 
+                    className="input-modern"
+                    value={roomForm.capacity} 
+                    onChange={e => setRoomForm({ ...roomForm, capacity: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label-modern">Cor da Sala</label>
+                <input 
+                  type="color" 
+                  value={roomForm.color || '#0f766e'} 
+                  onChange={e => setRoomForm({ ...roomForm, color: e.target.value })}
+                  style={{ width: '100%', height: 36, border: 'none', borderRadius: 8, cursor: 'pointer' }}
+                />
+              </div>
+
+              <div>
+                <label className="form-label-modern">Descrição</label>
+                <input 
+                  type="text" 
+                  className="input-modern"
+                  value={roomForm.description || ''} 
+                  onChange={e => setRoomForm({ ...roomForm, description: e.target.value })}
+                  placeholder="Ex: Bebês de colo e atividades sensoriais"
+                />
+              </div>
+            </div>
+
+            <div className="modal-studio-footer">
+              <button type="button" className="btn-secondary" onClick={() => setIsRoomModalOpen(false)}>Cancelar</button>
+              <button type="submit" className="btn-primary">
+                <CheckIcon /> Salvar Sala
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+    </div>
+  );
+};
+
+export default KidsMinistry;

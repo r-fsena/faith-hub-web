@@ -10,6 +10,7 @@ import Events from './modules/Events';
 import { Devotionals } from './modules/Devotionals';
 import { PdvProdutos } from './modules/PdvProdutos';
 import { PdvPedidos } from './modules/PdvPedidos';
+import KidsMinistry from './modules/KidsMinistry';
 import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
 import Campuses, { type Campus } from './modules/Campuses';
@@ -74,6 +75,9 @@ const ArrowRightIcon = () => (
 const SparklesIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
 );
+const BabyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/><path d="M9 13v2"/><path d="M15 13v2"/></svg>
+);
 
 // Navigation Structure
 const navigationGroups = [
@@ -95,6 +99,11 @@ const navigationGroups = [
           { id: 'membros', label: 'Gestão de Membros' },
           { id: 'celulas', label: 'Células & Redes' },
         ]
+      },
+      { 
+        id: 'kids_ministerio', 
+        label: 'Ministério Infantil (Kids)', 
+        icon: BabyIcon 
       },
       { 
         id: 'ensino_group', 
@@ -701,6 +710,7 @@ function App() {
                 <div className="greeting-text">
                   {activeTab === 'dashboard' && `Dashboard (${selectedOrganization.name})`}
                   {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
+                  {activeTab === 'kids_ministerio' && 'Ministério Infantil (Faith Kids & Check-in)'}
                   {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
                   {activeTab === 'devocionais' && 'Devocionais Diários'}
                   {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
@@ -1049,6 +1059,7 @@ function App() {
                 ========================================== */}
             {activeTab === 'campuses' && <Campuses />}
             {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+            {activeTab === 'kids_ministerio' && <KidsMinistry selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'transmissoes' && <Broadcasts />}
             {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'estudos' && <Studies />}
