@@ -2266,7 +2266,28 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       {/* Modal de Crachá Digital & QR Code de Check-in */}
       <KidsBadgeModal
         isOpen={!!checkinSuccessData}
-        onClose={() => setCheckinSuccessData(null)}
+        onClose={() => {
+          setCheckinSuccessData(null);
+          setActiveTab('salas'); // Retorna para o painel ao vivo das salas
+        }}
+        onNewCheckin={() => {
+          setCheckinSuccessData(null);
+          setSelectedChildForCheckin(null);
+          setMemberSearchInput('');
+          setQuickCheckinForm({
+            child_name: '',
+            birthdate: '',
+            allergies: '',
+            medical_notes: '',
+            room_id: rooms.length > 0 ? rooms[0].id : '',
+            parent_name: selectedFamilyMember ? selectedFamilyMember.name : '',
+            parent_phone: selectedFamilyMember ? (selectedFamilyMember.phone || '') : '',
+            parent_email: selectedFamilyMember ? (selectedFamilyMember.email || '') : '',
+            parent_member_id: selectedFamilyMember ? selectedFamilyMember.id : '',
+            is_visitor: checkinMode === 'VISITOR',
+            register_as_member: true
+          });
+        }}
         badge={checkinSuccessData}
       />
 

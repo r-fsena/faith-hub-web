@@ -19,9 +19,10 @@ interface KidsBadgeModalProps {
   isOpen: boolean;
   onClose: () => void;
   badge: KidsBadgeData | null;
+  onNewCheckin?: () => void;
 }
 
-export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose, badge }) => {
+export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose, badge, onNewCheckin }) => {
   const printRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen || !badge) return null;
@@ -171,7 +172,7 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
               style={{ width: 180, height: 180, borderRadius: 8, display: 'block' }} 
             />
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', marginTop: 8, textTransform: 'uppercase' }}>
-              Apresente na devolução
+              Apresente no checkout
             </span>
           </div>
 
@@ -197,7 +198,7 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
         </div>
 
         {/* Action Buttons */}
-        <div style={{ padding: '0 22px 22px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ padding: '0 22px 22px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8 }}>
             {cleanPhone && (
               <a
@@ -209,17 +210,17 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
                   background: '#25d366',
                   color: '#ffffff',
                   borderRadius: 12,
-                  padding: '10px',
+                  padding: '11px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 6,
                   fontWeight: 800,
-                  fontSize: '0.84rem',
+                  fontSize: '0.86rem',
                   textDecoration: 'none'
                 }}
               >
-                <span>💬</span> WhatsApp
+                <span>💬</span> WhatsApp Pais
               </a>
             )}
 
@@ -232,37 +233,66 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
                 color: 'var(--text-main, #0f172a)',
                 border: '1px solid #cbd5e1',
                 borderRadius: 12,
-                padding: '10px',
+                padding: '11px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
                 fontWeight: 800,
-                fontSize: '0.84rem',
+                fontSize: '0.86rem',
                 cursor: 'pointer'
               }}
             >
-              <span>🖨️</span> Imprimir
+              <span>🖨️</span> Imprimir Crachá
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'var(--accent-primary, #0f766e)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: 12,
-              padding: '12px',
-              fontWeight: 900,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              width: '100%'
-            }}
-          >
-            ✓ Concluir Check-in
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: onNewCheckin ? '1fr 1fr' : '1fr', gap: 8 }}>
+            {onNewCheckin && (
+              <button
+                type="button"
+                onClick={onNewCheckin}
+                style={{
+                  background: 'var(--accent-primary-light, #f0fdfa)',
+                  color: 'var(--accent-primary, #0f766e)',
+                  border: '1.5px solid var(--accent-primary, #0f766e)',
+                  borderRadius: 12,
+                  padding: '12px',
+                  fontWeight: 900,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4
+                }}
+              >
+                <span>➕</span> Novo Check-in
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'var(--accent-primary, #0f766e)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 12,
+                padding: '12px',
+                fontWeight: 900,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
+              }}
+            >
+              <span>🚪</span> Voltar às Salas
+            </button>
+          </div>
         </div>
 
       </div>
