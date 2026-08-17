@@ -525,18 +525,26 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
               <BabyIcon />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 900, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
-                Ministério Infantil (Faith Kids)
+              <h2 style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+                {activeTab === 'salas' && `Painel ao Vivo das Salas (${checkins.length} crianças)`}
+                {activeTab === 'checkin_rapido' && 'Totem de Check-in Expresso'}
+                {activeTab === 'chamados' && `Central de Chamados de Pais ${activeCheckinsCalling.length > 0 ? `(${activeCheckinsCalling.length})` : ''}`}
+                {activeTab === 'familias' && `Base de Famílias & Membros (${families.length})`}
+                {activeTab === 'config_salas' && `Configuração de Salas & Turmas (${rooms.length})`}
               </h2>
               <p style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: '0.86rem' }}>
-                Check-in integrado aos membros, crachás de segurança, painel de salas e chamador de pais.
+                {activeTab === 'salas' && 'Monitoramento em tempo real das turmas infantis e conferência de crachás.'}
+                {activeTab === 'checkin_rapido' && 'Registro ágil de entrada de crianças (membros e visitantes) com geração de PIN.'}
+                {activeTab === 'chamados' && 'Disparo e acompanhamento de alertas aos responsáveis via aplicativo e WhatsApp.'}
+                {activeTab === 'familias' && 'Crianças agrupadas diretamente por seus responsáveis na base de membros.'}
+                {activeTab === 'config_salas' && 'Gestão de turmas, faixas etárias, capacidades e identidade visual das salas.'}
               </p>
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {activeCheckinsCalling.length > 0 && (
+          {activeCheckinsCalling.length > 0 && activeTab !== 'chamados' && (
             <button 
               type="button" 
               onClick={() => switchTab('chamados')}
@@ -555,120 +563,24 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                 animation: 'pulse 2s infinite'
               }}
             >
-              <span>🚨</span> {activeCheckinsCalling.length} Chamado(s) de Pais Ativo(s)
+              <span>🚨</span> {activeCheckinsCalling.length} Chamado(s) Ativo(s)
             </button>
           )}
 
-          <button 
-            type="button" 
-            className="btn-primary"
-            onClick={() => {
-              switchTab('checkin_rapido');
-              setCheckinSuccessData(null);
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.84rem', padding: '9px 16px' }}
-          >
-            <PlusIcon /> Fazer Check-in de Criança
-          </button>
+          {activeTab !== 'checkin_rapido' && (
+            <button 
+              type="button" 
+              className="btn-primary"
+              onClick={() => {
+                switchTab('checkin_rapido');
+                setCheckinSuccessData(null);
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.84rem', padding: '9px 16px' }}
+            >
+              <PlusIcon /> Fazer Check-in de Criança
+            </button>
+          )}
         </div>
-      </div>
-
-      {/* Navigation Subtabs Bar */}
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--panel-border)', paddingBottom: 12, marginBottom: 20, overflowX: 'auto' }}>
-        <button
-          onClick={() => switchTab('salas')}
-          style={{
-            background: activeTab === 'salas' ? 'var(--accent-primary)' : '#ffffff',
-            color: activeTab === 'salas' ? '#ffffff' : 'var(--text-main)',
-            border: '1px solid var(--panel-border)',
-            padding: '8px 16px',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: '0.84rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer'
-          }}
-        >
-          <span>🚸</span> Painel ao Vivo das Salas ({checkins.length})
-        </button>
-
-        <button
-          onClick={() => switchTab('checkin_rapido')}
-          style={{
-            background: activeTab === 'checkin_rapido' ? 'var(--accent-primary)' : '#ffffff',
-            color: activeTab === 'checkin_rapido' ? '#ffffff' : 'var(--text-main)',
-            border: '1px solid var(--panel-border)',
-            padding: '8px 16px',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: '0.84rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer'
-          }}
-        >
-          <span>🏷️</span> Totem de Check-in Expresso
-        </button>
-
-        <button
-          onClick={() => switchTab('chamados')}
-          style={{
-            background: activeTab === 'chamados' ? 'var(--accent-primary)' : '#ffffff',
-            color: activeTab === 'chamados' ? '#ffffff' : 'var(--text-main)',
-            border: '1px solid var(--panel-border)',
-            padding: '8px 16px',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: '0.84rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer'
-          }}
-        >
-          <span>📢</span> Central de Chamados {activeCheckinsCalling.length > 0 && `(${activeCheckinsCalling.length})`}
-        </button>
-
-        <button
-          onClick={() => switchTab('familias')}
-          style={{
-            background: activeTab === 'familias' ? 'var(--accent-primary)' : '#ffffff',
-            color: activeTab === 'familias' ? '#ffffff' : 'var(--text-main)',
-            border: '1px solid var(--panel-border)',
-            padding: '8px 16px',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: '0.84rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer'
-          }}
-        >
-          <span>👨‍👩‍👧‍👦</span> Base de Famílias & Membros ({families.length})
-        </button>
-
-        <button
-          onClick={() => switchTab('config_salas')}
-          style={{
-            background: activeTab === 'config_salas' ? 'var(--accent-primary)' : '#ffffff',
-            color: activeTab === 'config_salas' ? '#ffffff' : 'var(--text-main)',
-            border: '1px solid var(--panel-border)',
-            padding: '8px 16px',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: '0.84rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer'
-          }}
-        >
-          <span>🏫</span> Configurar Salas ({rooms.length})
-        </button>
       </div>
 
       {/* ========================================================

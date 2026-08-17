@@ -157,6 +157,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [openSubmenus, setOpenSubmenus] = useState<{ [key: string]: boolean }>({
     membros_group: true,
+    kids_group: true,
     ensino_group: true,
     pdv_group: true,
   });
