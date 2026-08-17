@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { KidsBadgeModal } from '../components/KidsBadgeModal';
+import { KidsQrScannerModal } from '../components/KidsQrScannerModal';
 import './Members.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -176,6 +178,10 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
   const [selectedCheckinForAction, setSelectedCheckinForAction] = useState<KidsCheckin | null>(null);
   const [checkoutInputPin, setCheckoutInputPin] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
+
+  // Scanner de Câmera QR Code
+  const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
+  const [scannerTargetChild, setScannerTargetChild] = useState<KidsCheckin | null>(null);
 
   // Call Parent Form State
   const [callReason, setCallReason] = useState('CHORO');
@@ -428,12 +434,55 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         setSelectedCheckinForAction(null);
         loadCheckins();
       } else {
-        const errJson = await res.json();
+        const errJson = await res.json().catch(() => ({}));
         setCheckoutError(errJson.message || "Código PIN incorreto.");
       }
     } catch (err) {
       console.error(err);
       setCheckoutError("Erro de comunicação ao validar checkout.");
+    }
+  };
+
+  // Handler: Checkout Seguro via Scanner de Câmera QR Code
+  const handleScanSuccessCheckout = async (scannedCode: string) => {
+    setIsScannerModalOpen(false);
+    const target = scannerTargetChild;
+    setScannerTargetChild(null);
+
+    let targetCheckin = target;
+    if (!targetCheckin) {
+      targetCheckin = checkins.find(c =>
+        c.security_code.trim().toUpperCase() === scannedCode.trim().toUpperCase() ||
+        scannedCode.includes(c.security_code)
+      ) || null;
+    }
+
+    if (!targetCheckin) {
+      alert(`O QR Code "${scannedCode}" não corresponde a nenhuma criança ativa no Ministério Infantil.`);
+      return;
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/kids/checkout`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkin_id: targetCheckin.id,
+          security_code: scannedCode,
+          checked_out_by: 'Educador da Sala (Web Studio)'
+        })
+      });
+
+      if (res.ok) {
+        alert(`✅ Devolução de ${targetCheckin.child_name} liberada com sucesso!`);
+        loadCheckins();
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        alert(errJson.message || "Código QR inválido para esta criança.");
+      }
+    } catch (e) {
+      alert("Erro ao validar devolução.");
     }
   };
 
@@ -660,8 +709,32 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
               )}
             </div>
 
-            <div style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Exibindo <strong>{filteredCheckins.length}</strong> de <strong>{checkins.length}</strong> crianças presentes
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setScannerTargetChild(null);
+                  setIsScannerModalOpen(true);
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontWeight: 900,
+                  fontSize: '0.80rem',
+                  padding: '7px 14px'
+                }}
+              >
+                <span>📸</span> Escanear QR Code de Devolução
+              </button>
+
+              <div style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Exibindo <strong>{filteredCheckins.length}</strong> de <strong>{checkins.length}</strong> crianças presentes
+              </div>
             </div>
           </div>
 
@@ -741,48 +814,77 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                         </div>
                       </div>
 
-                      {/* Crachá / PIN de Segurança */}
-                      <div style={{
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        padding: '4px 10px',
-                        borderRadius: 8,
-                        textAlign: 'right'
-                      }}>
-                        <div style={{ fontSize: '0.60rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>PIN de Retirada</div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--accent-primary)', letterSpacing: '0.05em' }}>{item.security_code}</div>
-                      </div>
+                      {/* PIN de Segurança com Botão de Ver Crachá */}
+                      <button
+                        type="button"
+                        onClick={() => setCheckinSuccessData(item)}
+                        style={{
+                          background: '#ffffff',
+                          border: '1.5px solid var(--accent-primary)',
+                          padding: '4px 10px',
+                          borderRadius: 8,
+                          textAlign: 'right',
+                          cursor: 'pointer'
+                        }}
+                        title="Ver Crachá & QR Code"
+                      >
+                        <div style={{ fontSize: '0.58rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>QR & PIN</div>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--accent-primary)', letterSpacing: '0.05em' }}>
+                          {item.security_code}
+                        </div>
+                      </button>
                     </div>
 
-                    {/* Banner de Chamada Ativa se estiver chamando pais */}
-                    {isCalling && (
-                      <div style={{ background: '#fee2e2', color: '#991b1b', padding: '8px 14px', fontSize: '0.74rem', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #fca5a5' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span>🚨</span>
-                          <span>Chamando Pais: {item.call_reason || 'Solicitação da Sala'}</span>
-                        </div>
-                        <button 
-                          type="button" 
-                          onClick={() => handleResolveCall(item.id)}
-                          style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 6px', fontSize: '0.68rem', cursor: 'pointer' }}
-                        >
-                          Atendido
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Corpo do Card */}
+                    {/* Conteúdo do Card */}
                     <div style={{ padding: '14px 16px' }}>
-                      {/* Alertas Médicos / Alergias */}
+                      {/* Alerta de Chamada Ativa */}
+                      {isCalling && (
+                        <div style={{
+                          background: '#fee2e2',
+                          border: '1px solid #fca5a5',
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                          marginBottom: 12,
+                          animation: 'pulse 2s infinite'
+                        }}>
+                          <div style={{ fontSize: '0.80rem', fontWeight: 800, color: '#991b1b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>🚨 CHAMADO ATIVO: {item.call_reason}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleResolveCall(item.id)}
+                              style={{
+                                background: '#b91c1c',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '3px 8px',
+                                borderRadius: 4,
+                                fontSize: '0.70rem',
+                                fontWeight: 800,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ✓ Resolver
+                            </button>
+                          </div>
+                          {item.call_message && (
+                            <div style={{ fontSize: '0.74rem', color: '#7f1d1d', marginTop: 4, fontStyle: 'italic' }}>
+                              "{item.call_message}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Alergias */}
                       {item.allergies && (
-                        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 8, padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontSize: '0.90rem' }}>⚠️</span>
-                          <div style={{ fontSize: '0.74rem', color: '#be123c', fontWeight: 700 }}>
+                          <div style={{ fontSize: '0.74rem', color: '#991b1b', fontWeight: 700 }}>
                             Alergia: <strong>{item.allergies}</strong>
                           </div>
                         </div>
                       )}
 
+                      {/* Observações Médicas */}
                       {item.medical_notes && (
                         <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontSize: '0.90rem' }}>💊</span>
@@ -800,7 +902,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                       </div>
 
                       {/* Ações Rápidas */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 6, paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
                         <button
                           type="button"
                           onClick={() => {
@@ -814,17 +916,41 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                             color: isCalling ? '#b91c1c' : '#c2410c',
                             border: '1px solid #fed7aa',
                             borderRadius: 8,
-                            padding: '8px',
+                            padding: '7px 4px',
                             fontWeight: 800,
-                            fontSize: '0.76rem',
+                            fontSize: '0.74rem',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: 6,
+                            gap: 4,
                             cursor: 'pointer'
                           }}
                         >
-                          <AlertBellIcon /> Chamar Pais
+                          <AlertBellIcon /> Chamar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScannerTargetChild(item);
+                            setIsScannerModalOpen(true);
+                          }}
+                          style={{
+                            background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '7px 4px',
+                            fontWeight: 800,
+                            fontSize: '0.74rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span>📸</span> Ler QR
                         </button>
 
                         <button
@@ -840,17 +966,17 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                             color: '#15803d',
                             border: '1px solid #bbf7d0',
                             borderRadius: 8,
-                            padding: '8px',
+                            padding: '7px 4px',
                             fontWeight: 800,
-                            fontSize: '0.76rem',
+                            fontSize: '0.74rem',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: 6,
+                            gap: 4,
                             cursor: 'pointer'
                           }}
                         >
-                          <ShieldCheckIcon /> Checkout
+                          <ShieldCheckIcon /> PIN Manual
                         </button>
                       </div>
                     </div>
@@ -1978,6 +2104,24 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         </div>,
         document.body
       )}
+
+      {/* Modal de Crachá Digital & QR Code de Check-in */}
+      <KidsBadgeModal
+        isOpen={!!checkinSuccessData}
+        onClose={() => setCheckinSuccessData(null)}
+        badge={checkinSuccessData}
+      />
+
+      {/* Modal de Scanner de Câmera para Devolução com QR Code */}
+      <KidsQrScannerModal
+        isOpen={isScannerModalOpen}
+        onClose={() => {
+          setIsScannerModalOpen(false);
+          setScannerTargetChild(null);
+        }}
+        onScanSuccess={handleScanSuccessCheckout}
+        childName={scannerTargetChild?.child_name}
+      />
 
     </div>
   );
