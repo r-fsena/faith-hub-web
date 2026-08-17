@@ -14,6 +14,7 @@ import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
 import Campuses, { type Campus } from './modules/Campuses';
 import OrganizationSelector, { type Organization } from './modules/OrganizationSelector';
+import { ProposalPublicView } from './modules/ProposalPublicView';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -379,6 +380,14 @@ function App() {
   const toggleSubmenu = (groupId: string) => {
     setOpenSubmenus(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
+
+  // Se for acesso direto a uma Proposta Comercial (link público do cliente/pastor)
+  const urlParams = new URLSearchParams(window.location.search);
+  const proposalToken = urlParams.get('proposta') || (window.location.pathname.startsWith('/proposta/') ? window.location.pathname.split('/proposta/')[1] : null);
+
+  if (proposalToken) {
+    return <ProposalPublicView token={proposalToken} />;
+  }
 
   if (isLoadingAuth) {
     return (

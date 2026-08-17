@@ -17,50 +17,97 @@ export interface Organization {
   created_at?: string;
 }
 
+export interface Proposal {
+  id: string;
+  token: string;
+  church_name: string;
+  cnpj_cpf?: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone?: string;
+  plan_tier: string;
+  billing_cycle: string;
+  monthly_amount: number;
+  setup_fee: number;
+  suggested_slug?: string;
+  status: string;
+  features_included?: string[];
+  proposal_url?: string;
+  created_at?: string;
+}
+
+export interface Subscription {
+  id: string;
+  organization_id?: string;
+  org_name?: string;
+  church_name?: string;
+  status: string;
+  value: number;
+  cycle: string;
+  billing_type: string;
+  next_due_date?: string;
+  payment_link?: string;
+}
+
 interface OrganizationSelectorProps {
   onSelectOrg: (org: Organization) => void;
   onSignOut: () => void;
   userName: string;
 }
 
-const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-);
-
-const UserPlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-);
-
-const SearchIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-);
-
-const ArrowRightIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-);
-
-const BuildingIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M16 18h.01"/></svg>
-);
-
-const ShieldIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-);
-
-const LogOutIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-);
-
-const SparklesIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-);
-
 export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName }) => {
+  const [activeTab, setActiveTab] = useState<'orgs' | 'proposals' | 'subscriptions' | 'master_users'>('orgs');
+  
+  // Organizations State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+  const [savingOrg, setSavingOrg] = useState(false);
+  const [orgFormData, setOrgFormData] = useState({
+    name: '',
+    slug: '',
+    cnpj: '',
+    plan: 'PRO',
+    primary_color: '#0f766e',
+    secondary_color: '#14b8a6',
+    status: 'ACTIVE'
+  });
+
+  // Proposals Funnel State
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [proposalStats, setProposalStats] = useState<any>({
+    total_proposals: 0,
+    active_mrr: 0,
+    pipeline_mrr: 0,
+    conversion_rate: 0,
+    funnel: { total: 0, sent: 0, viewed: 0, accepted: 0, paid: 0 }
+  });
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [proposalFilter, setProposalFilter] = useState('ALL');
+  const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+  const [savingProposal, setSavingProposal] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  
+  // New Proposal Form
+  const [proposalForm, setProposalForm] = useState({
+    church_name: '',
+    cnpj_cpf: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    plan_tier: 'PRO',
+    billing_cycle: 'MONTHLY',
+    monthly_amount: '297',
+    setup_fee: '0',
+    suggested_slug: '',
+    expires_days: '15',
+    notes: ''
+  });
+
+  // Subscriptions State
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
 
   // Master Users State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -72,26 +119,18 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     role: 'MASTER_ADMIN'
   });
 
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    cnpj: '',
-    plan: 'PRO',
-    primary_color: '#0f766e',
-    secondary_color: '#14b8a6',
-    status: 'ACTIVE'
-  });
-
   useEffect(() => {
-    // Garante que o Portal Master use SEMPRE a identidade visual oficial da plataforma SaaS
     document.documentElement.style.setProperty('--accent-primary', '#0f766e');
     document.documentElement.style.setProperty('--accent-primary-gradient', 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)');
     document.documentElement.style.setProperty('--accent-primary-light', '#f0fdfa');
+    
     fetchOrganizations();
+    fetchProposals();
+    fetchSubscriptions();
   }, []);
 
   const fetchOrganizations = async () => {
-    setLoading(true);
+    setLoadingOrgs(true);
     try {
       const res = await fetch(`${API_URL}/organizations`);
       if (res.ok) {
@@ -99,29 +138,55 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         setOrganizations(json.data || []);
       }
     } catch (e) {
-      console.error('Erro ao buscar organizações:', e);
+      console.error(e);
     } finally {
-      setLoading(false);
+      setLoadingOrgs(false);
+    }
+  };
+
+  const fetchProposals = async () => {
+    setLoadingProposals(true);
+    try {
+      const res = await fetch(`${API_URL}/proposals`);
+      if (res.ok) {
+        const json = await res.json();
+        setProposals(json.proposals || []);
+        if (json.stats) setProposalStats(json.stats);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingProposals(false);
+    }
+  };
+
+  const fetchSubscriptions = async () => {
+    setLoadingSubs(true);
+    try {
+      const res = await fetch(`${API_URL}/saas-subscriptions`);
+      if (res.ok) {
+        const json = await res.json();
+        setSubscriptions(json || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSubs(false);
     }
   };
 
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.slug) {
-      return alert('Preencha o nome e o slug da organização.');
-    }
-
-    setSaving(true);
+    setSavingOrg(true);
     try {
       const res = await fetch(`${API_URL}/organizations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(orgFormData)
       });
-
       if (res.ok) {
-        setIsModalOpen(false);
-        setFormData({
+        setIsOrgModalOpen(false);
+        setOrgFormData({
           name: '',
           slug: '',
           cnpj: '',
@@ -131,24 +196,76 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           status: 'ACTIVE'
         });
         fetchOrganizations();
-        alert('Nova rede/organização criada com sucesso!');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        alert('Erro ao criar organização: ' + (err.error || 'Falha na requisição'));
       }
-    } catch (e: any) {
-      alert('Erro: ' + e.message);
+    } catch (e) {
+      alert('Erro ao criar organização');
     } finally {
-      setSaving(false);
+      setSavingOrg(false);
+    }
+  };
+
+  const handleCreateProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProposal(true);
+    try {
+      const res = await fetch(`${API_URL}/proposals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...proposalForm,
+          created_by: userName
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsProposalModalOpen(false);
+        setProposalForm({
+          church_name: '',
+          cnpj_cpf: '',
+          contact_name: '',
+          contact_email: '',
+          contact_phone: '',
+          plan_tier: 'PRO',
+          billing_cycle: 'MONTHLY',
+          monthly_amount: '297',
+          setup_fee: '0',
+          suggested_slug: '',
+          expires_days: '15',
+          notes: ''
+        });
+        fetchProposals();
+        alert(`✓ Proposta comercial gerada com sucesso!\nLink: ${data.proposal.proposal_url}`);
+      }
+    } catch (e) {
+      alert('Erro ao criar proposta comercial');
+    } finally {
+      setSavingProposal(false);
+    }
+  };
+
+  const handleSimulatePayment = async (proposalId: string) => {
+    if (!confirm('Deseja simular o pagamento desta proposta e disparar o provisionamento automático na AWS?')) return;
+    try {
+      const res = await fetch(`${API_URL}/proposals/${proposalId}/simulate-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`🎉 Sucesso! Ambiente provisionado na AWS!\n- Organização: ${data.result?.church_name}\n- PWA: ${data.result?.pwa_url}`);
+        fetchProposals();
+        fetchOrganizations();
+        fetchSubscriptions();
+      } else {
+        alert(data.message || 'Erro na simulação');
+      }
+    } catch (e) {
+      alert('Erro ao conectar na API');
     }
   };
 
   const handleCreateMasterUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userFormData.name || !userFormData.email) {
-      return alert('Preencha o nome e o e-mail do usuário master.');
-    }
-
     setSavingUser(true);
     try {
       const res = await fetch(`${API_URL}/members/invite`, {
@@ -168,614 +285,750 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       if (res.ok) {
         setIsUserModalOpen(false);
         setUserFormData({ name: '', email: '', phone: '', role: 'MASTER_ADMIN' });
-        alert(`Usuário Master criado com sucesso!\nUm e-mail de acesso e ativação de senha provisória foi enviado para ${userFormData.email}.`);
+        alert(`✓ Usuário Master criado com sucesso! Um e-mail com a senha provisória foi enviado para ${userFormData.email}.`);
       } else {
-        const err = await res.json().catch(() => ({}));
-        alert('Erro ao criar usuário master: ' + (err.error || err.message || 'Falha na requisição'));
+        const err = await res.json();
+        alert(`Erro ao criar usuário master: ${err.error || err.message}`);
       }
-    } catch (e: any) {
-      alert('Erro: ' + e.message);
+    } catch (e) {
+      alert('Erro ao conectar no servidor.');
     } finally {
       setSavingUser(false);
     }
   };
 
-  const filteredOrgs = organizations.filter(org => 
-    org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    org.slug.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredOrgs = organizations.filter(o =>
+    o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    o.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (o.cnpj && o.cnpj.includes(searchTerm))
   );
 
+  const filteredProposals = proposals.filter(p => {
+    if (proposalFilter === 'ALL') return true;
+    return (p.status || '').toUpperCase() === proposalFilter;
+  });
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: 'var(--bg-color)',
-      color: 'var(--text-main)',
-      fontFamily: '"Plus Jakarta Sans", sans-serif',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
-      {/* Top Header Bar (Matching App Design System) */}
-      <header className="topbar" style={{ position: 'sticky', top: 0, zIndex: 40, padding: '16px 36px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div className="sidebar-logo">
-            <SparklesIcon />
+    <div style={{ minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
+      
+      {/* Top Header do SaaS Command Center */}
+      <header style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid var(--panel-border)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50
+      }}>
+        <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'var(--accent-primary-gradient)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 900,
+              fontSize: '1.25rem',
+              boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
+            }}>
+              ✝
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h1 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
+                  Faith-Hub
+                </h1>
+                <span style={{
+                  background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                  color: '#ffffff',
+                  fontSize: '0.70rem',
+                  fontWeight: 900,
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  letterSpacing: '0.04em'
+                }}>
+                  MASTER COMMAND CENTER
+                </span>
+              </div>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Gestão Global de Redes, Propostas Comerciais & Recorrência Asaas
+              </span>
+            </div>
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
-                Faith-Hub
-              </span>
-              <span className="sidebar-brand-badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                MASTER ADMIN
-              </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ textAlign: 'right', display: 'none', md: 'block' } as any}>
+              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-main)' }}>{userName || 'Super Administrador'}</div>
+              <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 700 }}>● Acesso Global Ativo</div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Painel de Gestão Multi-Redes & Denominações
+
+            <button
+              onClick={onSignOut}
+              className="btn-secondary"
+              style={{ padding: '8px 14px', fontSize: '0.80rem', borderRadius: '10px' }}
+            >
+              Sair
+            </button>
+          </div>
+
+        </div>
+
+        {/* Executive KPI Bar */}
+        <div style={{ background: '#f8fafc', borderTop: '1px solid var(--panel-border)', padding: '12px 24px' }}>
+          <div style={{ maxWidth: '1360px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+            
+            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '0.70rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>🏛️ Igrejas Ativas</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>{organizations.length}</div>
             </div>
+
+            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '0.70rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>💵 MRR Ativo (Asaas)</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#059669', marginTop: '2px' }}>
+                R$ {Number(proposalStats.active_mrr || (organizations.length * 297)).toFixed(2).replace('.', ',')}
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '0.70rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>⏳ Pipeline de Propostas</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0284c7', marginTop: '2px' }}>
+                R$ {Number(proposalStats.pipeline_mrr || 0).toFixed(2).replace('.', ',')}
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '0.70rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>🎯 Taxa de Conversão</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>
+                {proposalStats.conversion_rate || 0}%
+              </div>
+            </div>
+
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div className="user-mini-card" style={{ background: '#ffffff', padding: '6px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div className="user-avatar-circle">
-                {userName.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{userName}</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Administrador Master</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={onSignOut}
-            title="Encerrar Sessão"
-            style={{
-              padding: '9px 14px',
-              borderRadius: '8px',
-              background: '#fee2e2',
-              color: '#dc2626',
-              border: 'none',
-              fontSize: '0.80rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <LogOutIcon /> Sair
-          </button>
+        {/* Master Navigation Tabs */}
+        <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+          {[
+            { id: 'orgs', label: `🏛️ Redes & Igrejas Ativas (${organizations.length})` },
+            { id: 'proposals', label: `📊 Funil de Propostas (${proposals.length})` },
+            { id: 'subscriptions', label: `💳 Assinaturas Asaas (${subscriptions.length})` },
+            { id: 'master_users', label: '🛡️ Equipe Master' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              style={{
+                padding: '12px 18px',
+                border: 'none',
+                borderBottom: activeTab === tab.id ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                background: 'transparent',
+                color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                fontWeight: 800,
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Main Hub Body */}
-      <main style={{
-        flex: 1,
-        maxWidth: '1280px',
-        width: '100%',
-        margin: '0 auto',
-        padding: '36px 32px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '28px'
-      }}>
-        {/* Hub Header Hero Card */}
-        <div style={{
-          background: 'linear-gradient(135deg, #0f766e 0%, #0369a1 100%)',
-          borderRadius: '16px',
-          padding: '32px 36px',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '20px',
-          boxShadow: '0 8px 24px rgba(15, 118, 110, 0.2)'
-        }}>
+      {/* Main Content Area */}
+      <main style={{ maxWidth: '1360px', margin: '0 auto', padding: '28px 24px' }}>
+        
+        {/* ========================================================
+            TAB 1: REDES & IGREJAS ATIVAS
+            ======================================================== */}
+        {activeTab === 'orgs' && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.9, fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-              <ShieldIcon /> Hub de Acesso Master
-            </div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, letterSpacing: '-0.3px' }}>
-              Selecione a Rede / Igreja para Gerenciar
-            </h1>
-            <p style={{ opacity: 0.85, fontSize: '0.90rem', margin: '6px 0 0 0', maxWidth: '640px', lineHeight: '1.5' }}>
-              Como Administrador Master, acesse o painel administrativo de qualquer igreja cliente ou cadastre uma nova denominação no ecossistema.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setIsUserModalOpen(true)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                color: '#ffffff',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                padding: '12px 20px',
-                borderRadius: '10px',
-                fontWeight: 800,
-                fontSize: '0.92rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-                transition: 'all 0.15s ease',
-                backdropFilter: 'blur(8px)'
-              }}
-            >
-              <UserPlusIcon /> Novo Usuário Master
-            </button>
-
-            <button
-              onClick={() => setIsModalOpen(true)}
-              style={{
-                background: '#ffffff',
-                color: '#0f766e',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '10px',
-                fontWeight: 800,
-                fontSize: '0.92rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                transition: 'transform 0.15s ease'
-              }}
-            >
-              <PlusIcon /> Nova Organização / Rede
-            </button>
-          </div>
-        </div>
-
-        {/* Search Pill Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-          <div className="search-pill" style={{ maxWidth: '520px', background: '#ffffff', border: '1px solid var(--panel-border)' }}>
-            <SearchIcon />
-            <input
-              type="text"
-              placeholder="Buscar por nome da igreja, slug ou CNPJ..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem' }}
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            Total: <strong>{filteredOrgs.length}</strong> organização(ões)
-          </div>
-        </div>
-
-        {/* Grid de Organizações */}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-            <div style={{ width: '36px', height: '36px', border: '3px solid #e2e8f0', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
-            Carregando redes e igrejas cadastradas...
-            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-          </div>
-        ) : filteredOrgs.length === 0 ? (
-          <div className="portal-card" style={{
-            padding: '64px 24px',
-            textAlign: 'center'
-          }}>
-            <BuildingIcon />
-            <h3 style={{ color: 'var(--text-main)', marginTop: '16px', fontSize: '1.2rem' }}>Nenhuma organização encontrada</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.90rem', maxWidth: '420px', margin: '8px auto 20px auto' }}>
-              {searchTerm ? 'Nenhuma rede corresponde aos termos da busca.' : 'Clique no botão acima para cadastrar a primeira igreja cliente do sistema.'}
-            </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="btn-primary"
-              style={{ padding: '10px 20px', borderRadius: '8px' }}
-            >
-              Criar Nova Rede
-            </button>
-          </div>
-        ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-            gap: '24px'
-          }}>
-            {filteredOrgs.map(org => {
-              const primaryColor = org.primary_color || '#0f766e';
-              return (
-                <div
-                  key={org.id}
-                  className="portal-card animate-fade-in"
-                  style={{
-                    margin: 0,
-                    padding: '24px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    position: 'relative',
-                    border: '1px solid var(--panel-border)',
-                    boxShadow: 'var(--shadow-sm)'
-                  }}
-                >
-                  {/* Top Accent Line */}
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: `linear-gradient(90deg, ${primaryColor} 0%, ${org.secondary_color || '#14b8a6'} 100%)`
-                  }} />
-
-                  <div>
-                    {/* Header Row */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{
-                          width: '46px',
-                          height: '46px',
-                          borderRadius: '12px',
-                          background: primaryColor,
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 800,
-                          fontSize: '1.2rem',
-                          boxShadow: `0 4px 12px ${primaryColor}30`
-                        }}>
-                          {org.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                            {org.name}
-                          </h2>
-                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                            app: <strong>app.faithhubs.com/{org.slug}</strong>
-                          </span>
-                        </div>
-                      </div>
-
-                      <span style={{
-                        background: '#e0f2fe',
-                        color: '#0369a1',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.70rem',
-                        fontWeight: 800
-                      }}>
-                        {org.plan || 'PRO'}
-                      </span>
-                    </div>
-
-                    {/* Stats Grid */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: '12px',
-                      background: '#f8fafc',
-                      padding: '14px',
-                      borderRadius: '10px',
-                      marginBottom: '20px',
-                      border: '1px solid var(--panel-border)'
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                          {org.total_campuses ?? 1}
-                        </div>
-                        <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                          Campi / Filiais
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#059669' }}>
-                          {org.total_members ?? 0}
-                        </div>
-                        <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                          Membros Ativos
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Impersonate Button */}
-                  <button
-                    onClick={() => onSelectOrg(org)}
-                    className="btn-primary"
-                    style={{
-                      width: '100%',
-                      padding: '11px 16px',
-                      borderRadius: '10px',
-                      fontWeight: 700,
-                      fontSize: '0.88rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    Acessar Painel da Igreja <ArrowRightIcon />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
-
-      {/* Modal Criar Nova Organização */}
-      {isModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          padding: '20px'
-        }}>
-          <div className="portal-card animate-fade-in" style={{
-            width: '100%',
-            maxWidth: '520px',
-            margin: 0,
-            padding: '28px'
-          }}>
-            <div className="card-header-row" style={{ marginBottom: '20px' }}>
-              <div>
-                <h3 className="card-title" style={{ fontSize: '1.25rem' }}>Cadastrar Nova Organização / Rede</h3>
-                <span className="card-subtitle">Adicione um novo cliente / denominação ao SaaS</span>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer' }}>×</button>
-            </div>
-
-            <form onSubmit={handleCreateOrg} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Nome Oficial da Igreja / Ministério *</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div className="search-box-modern" style={{ width: '360px', margin: 0 }}>
                 <input
                   type="text"
-                  placeholder="Ex: Igreja Batista Central"
-                  value={formData.name}
-                  onChange={e => setFormData(prev => ({
-                    ...prev,
-                    name: e.target.value,
-                    slug: e.target.value.toLowerCase().trim().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--panel-border)'
-                  }}
+                  placeholder="Buscar por nome da igreja, slug ou CNPJ..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <button
+                onClick={() => setIsOrgModalOpen(true)}
+                className="btn-primary"
+                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.84rem' }}
+              >
+                + Nova Organização / Rede
+              </button>
+            </div>
+
+            {/* Grid de Igrejas */}
+            {loadingOrgs ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando igrejas...</div>
+            ) : filteredOrgs.length === 0 ? (
+              <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                <h3>Nenhuma organização encontrada</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Crie uma nova rede ou emita uma proposta comercial.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+                {filteredOrgs.map(org => (
+                  <div
+                    key={org.id}
+                    className="portal-card animate-fade-in"
+                    style={{
+                      margin: 0,
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      position: 'relative',
+                      border: '1px solid var(--panel-border)',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${org.primary_color || '#0f766e'} 0%, ${org.secondary_color || '#14b8a6'} 100%)` }} />
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: org.primary_color || '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
+                            {org.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{org.name}</h2>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>app: <strong>app.faithhubs.com/{org.slug}</strong></span>
+                          </div>
+                        </div>
+                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>{org.plan || 'PRO'}</span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '16px', border: '1px solid var(--panel-border)' }}>
+                        <div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{org.total_campuses ?? 1}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Campi / Filiais</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#059669' }}>Ativa</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Status do SaaS</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={() => onSelectOrg(org)}
+                        className="btn-primary"
+                        style={{ flex: 1, padding: '10px', fontSize: '0.84rem', borderRadius: '10px' }}
+                      >
+                        Acessar Studio ➔
+                      </button>
+                      <a
+                        href={`https://app.faithhubs.com/${org.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-secondary"
+                        style={{ padding: '10px 14px', fontSize: '0.84rem', borderRadius: '10px', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+                      >
+                        📱 App
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 2: FUNIL DE PROPOSTAS COMERCIAIS
+            ======================================================== */}
+        {activeTab === 'proposals' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              
+              {/* Filtros de Status */}
+              <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+                {[
+                  { id: 'ALL', label: 'Todas' },
+                  { id: 'SENT', label: 'Enviadas' },
+                  { id: 'VIEWED', label: 'Visualizadas' },
+                  { id: 'ACCEPTED', label: 'Aceitas' },
+                  { id: 'PAID', label: 'Pagas & Ativas' }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setProposalFilter(f.id)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: proposalFilter === f.id ? '#ffffff' : 'transparent',
+                      color: proposalFilter === f.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      fontWeight: 800,
+                      fontSize: '0.76rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setIsProposalModalOpen(true)}
+                className="btn-primary"
+                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.84rem' }}
+              >
+                + Nova Proposta Comercial
+              </button>
+            </div>
+
+            {loadingProposals ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando propostas...</div>
+            ) : filteredProposals.length === 0 ? (
+              <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📄</div>
+                <h3>Nenhuma proposta comercial encontrada</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Clique no botão acima para emitir a primeira proposta personalizada.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
+                {filteredProposals.map(prop => {
+                  const statusColors: any = {
+                    SENT: { bg: '#fef3c7', text: '#d97706', label: 'Enviada' },
+                    VIEWED: { bg: '#e0f2fe', text: '#0284c7', label: '👀 Visualizada pelo Pastor' },
+                    ACCEPTED: { bg: '#fef9c3', text: '#ca8a04', label: '✍️ Aceita (Aguardando Pagto)' },
+                    PAID: { bg: '#ecfdf5', text: '#059669', label: '✓ Paga & Provisionada' },
+                    CANCELLED: { bg: '#fee2e2', text: '#dc2626', label: 'Cancelada' }
+                  };
+                  const badge = statusColors[prop.status] || { bg: '#f1f5f9', text: '#64748b', label: prop.status };
+
+                  return (
+                    <div key={prop.id} className="portal-card animate-fade-in" style={{ margin: 0, padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--panel-border)' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                          <div>
+                            <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>{prop.church_name}</h3>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Responsável: {prop.contact_name}</span>
+                          </div>
+                          <span style={{ background: badge.bg, color: badge.text, padding: '4px 9px', borderRadius: '8px', fontSize: '0.70rem', fontWeight: 800 }}>
+                            {badge.label}
+                          </span>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', margin: '14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mensalidade Acordada</span>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--accent-primary)' }}>
+                              R$ {Number(prop.monthly_amount).toFixed(2).replace('.', ',')}<span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)' }}>/mês</span>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Plano</span>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-main)' }}>{prop.plan_tier}</div>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '16px' }}>
+                          <div>✉️ {prop.contact_email}</div>
+                          {prop.contact_phone && <div>📱 {prop.contact_phone}</div>}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(prop.proposal_url || `https://studio.faithhubs.com/?proposta=${prop.token}`);
+                              setCopiedToken(prop.token);
+                              setTimeout(() => setCopiedToken(null), 3000);
+                            }}
+                            className="btn-secondary"
+                            style={{ flex: 1, padding: '8px', fontSize: '0.78rem', borderRadius: '8px' }}
+                          >
+                            {copiedToken === prop.token ? '✓ Link Copiado!' : '📋 Copiar Link'}
+                          </button>
+
+                          {prop.contact_phone && (
+                            <a
+                              href={`https://wa.me/${prop.contact_phone.replace(/\D/g, '')}?text=Ol%C3%A1%20${encodeURIComponent(prop.contact_name)}!%20Segue%20a%20sua%20proposta%20exclusiva%20para%20o%20aplicativo%20da%20${encodeURIComponent(prop.church_name)}:%20${encodeURIComponent(prop.proposal_url || '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '8px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 800, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              💬 WhatsApp
+                            </a>
+                          )}
+
+                          <a
+                            href={prop.proposal_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn-secondary"
+                            style={{ padding: '8px 10px', fontSize: '0.78rem', borderRadius: '8px', textDecoration: 'none' }}
+                          >
+                            👁️
+                          </a>
+                        </div>
+
+                        {prop.status !== 'PAID' && (
+                          <button
+                            type="button"
+                            onClick={() => handleSimulatePayment(prop.id)}
+                            style={{ background: '#f0fdf4', color: '#16a34a', border: '1px dashed #86efac', padding: '8px', borderRadius: '8px', fontWeight: 800, fontSize: '0.74rem', cursor: 'pointer' }}
+                          >
+                            ⚡ Simular Pagamento & Ativar Agora (Teste)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 3: ASSINATURAS & FATURAMENTO ASAAS
+            ======================================================== */}
+        {activeTab === 'subscriptions' && (
+          <div>
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                💳 Assinaturas Recorrentes Asaas
+              </h2>
+              <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                Controle de pagamentos mensais, vencimentos e status financeiro das igrejas clientes.
+              </p>
+            </div>
+
+            {loadingSubs ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando assinaturas...</div>
+            ) : subscriptions.length === 0 ? (
+              <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>💳</div>
+                <h3>Nenhuma assinatura ativa registrada</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>As assinaturas serão listadas aqui conforme as propostas forem pagas pelo Asaas.</p>
+              </div>
+            ) : (
+              <div className="portal-card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.84rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--panel-border)', color: 'var(--text-muted)', fontSize: '0.74rem', textTransform: 'uppercase' }}>
+                      <th style={{ padding: '14px 18px' }}>Igreja / Organização</th>
+                      <th style={{ padding: '14px 18px' }}>Valor Recorrente</th>
+                      <th style={{ padding: '14px 18px' }}>Ciclo</th>
+                      <th style={{ padding: '14px 18px' }}>Status</th>
+                      <th style={{ padding: '14px 18px' }}>Próximo Vencimento</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'right' }}>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptions.map(sub => (
+                      <tr key={sub.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                        <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--text-main)' }}>
+                          {sub.church_name || sub.org_name || 'Igreja Cliente'}
+                        </td>
+                        <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--accent-primary)' }}>
+                          R$ {Number(sub.value || 297).toFixed(2).replace('.', ',')}
+                        </td>
+                        <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
+                          {sub.cycle === 'YEARLY' ? 'Anual' : 'Mensal'}
+                        </td>
+                        <td style={{ padding: '16px 18px' }}>
+                          <span style={{ background: sub.status === 'ACTIVE' ? '#ecfdf5' : '#fef2f2', color: sub.status === 'ACTIVE' ? '#059669' : '#dc2626', padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                            {sub.status === 'ACTIVE' ? '✓ Em Dia' : '● Atrasado'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
+                          {sub.next_due_date ? new Date(sub.next_due_date).toLocaleDateString('pt-BR') : 'Próximo mês'}
+                        </td>
+                        <td style={{ padding: '16px 18px', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            onClick={() => alert(`Assinatura Asaas ID: ${sub.id}\nStatus: ${sub.status}`)}
+                            className="btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}
+                          >
+                            Detalhes
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 4: EQUIPE MASTER
+            ======================================================== */}
+        {activeTab === 'master_users' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  🛡️ Usuários com Acesso Master Global
+                </h2>
+                <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                  Superusuários que têm permissão de criar propostas, alternar entre igrejas e gerenciar o ecossistema.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsUserModalOpen(true)}
+                className="btn-primary"
+                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.84rem' }}
+              >
+                + Novo Usuário Master
+              </button>
+            </div>
+
+            <div className="portal-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent-primary-gradient)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem' }}>
+                  👑
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-main)' }}>{userName || 'Super Admin'}</div>
+                  <span style={{ fontSize: '0.74rem', color: '#059669', fontWeight: 700 }}>● MASTER_ADMIN (Permissão Total)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* ========================================================
+          MODAL: NOVA PROPOSTA COMERCIAL
+          ======================================================== */}
+      {isProposalModalOpen && (
+        <div className="modal-overlay-modern animate-fade-in" style={{ zIndex: 100 }}>
+          <div className="modal-content-modern" style={{ maxWidth: '580px', padding: '32px' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                  📄 Nova Proposta Comercial SaaS
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Preencha os dados da igreja para gerar o link da proposta interativa.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsProposalModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProposal} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              <div>
+                <label className="form-label-modern">Nome da Igreja / Denominação *</label>
+                <input
+                  type="text"
+                  className="input-modern"
+                  value={proposalForm.church_name}
+                  onChange={e => setProposalForm({ ...proposalForm, church_name: e.target.value })}
+                  placeholder="Ex: Igreja Comunidade da Fé"
                   required
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Slug PWA / Subdomínio *</label>
+                  <label className="form-label-modern">Nome do Pastor / Gestor *</label>
                   <input
                     type="text"
-                    placeholder="batistacentral"
-                    value={formData.slug}
-                    onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--panel-border)'
-                    }}
+                    className="input-modern"
+                    value={proposalForm.contact_name}
+                    onChange={e => setProposalForm({ ...proposalForm, contact_name: e.target.value })}
+                    placeholder="Ex: Pr. Carlos Eduardo"
                     required
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Plano Contratado</label>
+                  <label className="form-label-modern">CNPJ / CPF</label>
+                  <input
+                    type="text"
+                    className="input-modern"
+                    value={proposalForm.cnpj_cpf}
+                    onChange={e => setProposalForm({ ...proposalForm, cnpj_cpf: e.target.value })}
+                    placeholder="00.000.000/0001-00"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="form-label-modern">E-mail de Contato *</label>
+                  <input
+                    type="email"
+                    className="input-modern"
+                    value={proposalForm.contact_email}
+                    onChange={e => setProposalForm({ ...proposalForm, contact_email: e.target.value })}
+                    placeholder="pastor@igreja.com.br"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label-modern">WhatsApp</label>
+                  <input
+                    type="text"
+                    className="input-modern"
+                    value={proposalForm.contact_phone}
+                    onChange={e => setProposalForm({ ...proposalForm, contact_phone: e.target.value })}
+                    placeholder="48999999999"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label-modern">Plano</label>
                   <select
-                    value={formData.plan}
-                    onChange={e => setFormData(prev => ({ ...prev, plan: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--panel-border)',
-                      background: '#ffffff'
-                    }}
+                    className="input-modern"
+                    value={proposalForm.plan_tier}
+                    onChange={e => setProposalForm({ ...proposalForm, plan_tier: e.target.value })}
                   >
                     <option value="STARTER">Starter</option>
                     <option value="PRO">Pro</option>
                     <option value="ENTERPRISE">Enterprise</option>
                   </select>
                 </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Cor Primária do PWA</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="color"
-                      value={formData.primary_color}
-                      onChange={e => setFormData(prev => ({ ...prev, primary_color: e.target.value }))}
-                      style={{ width: '38px', height: '38px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'transparent' }}
-                    />
-                    <input
-                      type="text"
-                      value={formData.primary_color}
-                      onChange={e => setFormData(prev => ({ ...prev, primary_color: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--panel-border)', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>CNPJ (Opcional)</label>
+                  <label className="form-label-modern">Mensalidade (R$)</label>
                   <input
-                    type="text"
-                    placeholder="00.000.000/0000-00"
-                    value={formData.cnpj}
-                    onChange={e => setFormData(prev => ({ ...prev, cnpj: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--panel-border)'
-                    }}
+                    type="number"
+                    className="input-modern"
+                    value={proposalForm.monthly_amount}
+                    onChange={e => setProposalForm({ ...proposalForm, monthly_amount: e.target.value })}
+                    required
                   />
                 </div>
+                <div>
+                  <label className="form-label-modern">Ciclo</label>
+                  <select
+                    className="input-modern"
+                    value={proposalForm.billing_cycle}
+                    onChange={e => setProposalForm({ ...proposalForm, billing_cycle: e.target.value })}
+                  >
+                    <option value="MONTHLY">Mensal</option>
+                    <option value="YEARLY">Anual</option>
+                  </select>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '14px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  style={{ padding: '10px 18px', borderRadius: '8px', background: '#f1f5f9', color: 'var(--text-main)', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+                  onClick={() => setIsProposalModalOpen(false)}
+                  className="btn-secondary"
+                  style={{ flex: 1, padding: '12px', borderRadius: '10px' }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={savingProposal}
                   className="btn-primary"
-                  style={{ padding: '10px 22px', borderRadius: '8px', fontWeight: 700 }}
+                  style={{ flex: 2, padding: '12px', borderRadius: '10px' }}
                 >
-                  {saving ? 'Salvando...' : 'Criar e Ativar'}
+                  {savingProposal ? 'Gerando Proposta...' : '🚀 Gerar Proposta & Criar Link'}
                 </button>
               </div>
+
             </form>
+
           </div>
         </div>
       )}
-      {/* Modal Criar Novo Usuário Master */}
+
+      {/* ========================================================
+          MODAL: NOVO USUÁRIO MASTER
+          ======================================================== */}
       {isUserModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          padding: '20px'
-        }}>
-          <div className="portal-card animate-fade-in" style={{
-            width: '100%',
-            maxWidth: '500px',
-            margin: 0,
-            padding: '28px'
-          }}>
-            <div className="card-header-row" style={{ marginBottom: '20px' }}>
+        <div className="modal-overlay-modern animate-fade-in" style={{ zIndex: 100 }}>
+          <div className="modal-content-modern" style={{ maxWidth: '480px', padding: '30px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ShieldIcon />
-                  <h3 className="card-title" style={{ fontSize: '1.25rem', margin: 0 }}>Criar Usuário Master</h3>
-                </div>
-                <span className="card-subtitle" style={{ marginTop: '4px', display: 'block' }}>
-                  Acesso administrativo global para gerenciar todas as redes e congregações
-                </span>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>🛡️ Novo Usuário Master</h3>
+                <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Convidar administrador com privilégios globais.</p>
               </div>
-              <button onClick={() => setIsUserModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer' }}>×</button>
+              <button onClick={() => setIsUserModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <form onSubmit={handleCreateMasterUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleCreateMasterUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>Nome Completo *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Rafael Sena"
-                  value={userFormData.name}
-                  onChange={e => setUserFormData(prev => ({ ...prev, name: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--panel-border)'
-                  }}
-                  required
-                />
+                <label className="form-label-modern">Nome Completo *</label>
+                <input type="text" className="input-modern" value={userFormData.name} onChange={e => setUserFormData({ ...userFormData, name: e.target.value })} required />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>E-mail de Acesso *</label>
-                <input
-                  type="email"
-                  placeholder="admin@faithhub.com"
-                  value={userFormData.email}
-                  onChange={e => setUserFormData(prev => ({ ...prev, email: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--panel-border)'
-                  }}
-                  required
-                />
+                <label className="form-label-modern">E-mail de Acesso *</label>
+                <input type="email" className="input-modern" value={userFormData.email} onChange={e => setUserFormData({ ...userFormData, email: e.target.value })} required />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>WhatsApp / Telefone (Opcional)</label>
-                <input
-                  type="text"
-                  placeholder="(11) 99999-9999"
-                  value={userFormData.phone}
-                  onChange={e => setUserFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--panel-border)'
-                  }}
-                />
+                <label className="form-label-modern">WhatsApp</label>
+                <input type="text" className="input-modern" value={userFormData.phone} onChange={e => setUserFormData({ ...userFormData, phone: e.target.value })} />
               </div>
 
-              <div style={{
-                background: '#f0fdfa',
-                border: '1px solid #99f6e4',
-                borderRadius: '8px',
-                padding: '12px 14px',
-                fontSize: '0.80rem',
-                color: '#0f766e',
-                lineHeight: 1.4
-              }}>
-                ℹ️ <strong>Permissão Global:</strong> O usuário receberá um e-mail do sistema com as credenciais iniciais e terá permissão de visualizar e alternar entre quaisquer organizações cadastradas.
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '14px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsUserModalOpen(false)}
-                  style={{ padding: '10px 18px', borderRadius: '8px', background: '#f1f5f9', color: 'var(--text-main)', border: 'none', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingUser}
-                  className="btn-primary"
-                  style={{ padding: '10px 22px', borderRadius: '8px', fontWeight: 700 }}
-                >
-                  {savingUser ? 'Enviando Convite...' : 'Criar e Convidar'}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setIsUserModalOpen(false)} className="btn-secondary" style={{ flex: 1, padding: '12px' }}>Cancelar</button>
+                <button type="submit" disabled={savingUser} className="btn-primary" style={{ flex: 2, padding: '12px' }}>
+                  {savingUser ? 'Enviando...' : '🛡️ Enviar Convite Master'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ========================================================
+          MODAL: NOVA ORGANIZAÇÃO MANUAL
+          ======================================================== */}
+      {isOrgModalOpen && (
+        <div className="modal-overlay-modern animate-fade-in" style={{ zIndex: 100 }}>
+          <div className="modal-content-modern" style={{ maxWidth: '480px', padding: '30px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>Nova Rede / Denominação</h3>
+              <button onClick={() => setIsOrgModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateOrg} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="form-label-modern">Nome da Igreja *</label>
+                <input type="text" className="input-modern" value={orgFormData.name} onChange={e => setOrgFormData({ ...orgFormData, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-') })} required />
+              </div>
+              <div>
+                <label className="form-label-modern">Slug do PWA (app.faithhubs.com/slug)</label>
+                <input type="text" className="input-modern" value={orgFormData.slug} onChange={e => setOrgFormData({ ...orgFormData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} required />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setIsOrgModalOpen(false)} className="btn-secondary" style={{ flex: 1, padding: '12px' }}>Cancelar</button>
+                <button type="submit" disabled={savingOrg} className="btn-primary" style={{ flex: 2, padding: '12px' }}>
+                  {savingOrg ? 'Criando...' : 'Criar Igreja'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
