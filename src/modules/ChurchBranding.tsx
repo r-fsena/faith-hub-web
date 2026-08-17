@@ -940,118 +940,336 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
           
           {/* Emulator Mode Selector */}
           <div className="portal-card" style={{ padding: '12px 14px' }}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>
-              📱 Live Emulator View
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                📱 Live PWA Mobile Emulator
+              </div>
+              <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '6px' }}>
+                ● Tempo Real
+              </span>
             </div>
-            <div className="segmented-control">
+            <div className="segmented-control" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
               <button 
                 className={`segmented-btn ${emulatorView === 'home' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('home')}
-                style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
               >
-                App Home
+                Início
+              </button>
+              <button 
+                className={`segmented-btn ${emulatorView === 'devotionals' ? 'active' : ''}`}
+                onClick={() => setEmulatorView('devotionals')}
+                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
+              >
+                Ensino
               </button>
               <button 
                 className={`segmented-btn ${emulatorView === 'splash' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('splash')}
-                style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
               >
                 Splash
               </button>
               <button 
                 className={`segmented-btn ${emulatorView === 'qr' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('qr')}
-                style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
               >
                 QR Code
               </button>
             </div>
           </div>
 
-          {/* Smartphone Mockup */}
-          <div className="pwa-phone-emulator">
-            <div className="pwa-phone-notch" />
+          {/* Smartphone Mockup Frame */}
+          <div style={{
+            width: '340px',
+            height: '680px',
+            borderRadius: '46px',
+            border: '10px solid #0f172a',
+            background: '#090d16',
+            boxShadow: '0 25px 60px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            overflow: 'hidden',
+            margin: '0 auto',
+            fontFamily: 'Plus Jakarta Sans, sans-serif'
+          }}>
 
-            {/* VIEW 1: HOME DO APP */}
+            {/* Top iOS Status Bar + Dynamic Island */}
+            <div style={{
+              height: '38px',
+              background: '#090d16',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0 20px',
+              fontSize: '0.70rem',
+              fontWeight: 700,
+              zIndex: 30,
+              flexShrink: 0
+            }}>
+              <span>9:41</span>
+              {/* Dynamic Island */}
+              <div style={{
+                width: '94px',
+                height: '24px',
+                background: '#000000',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 8px',
+                boxShadow: '0 0 0 1px rgba(255,255,255,0.05)'
+              }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1e293b' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#0284c7', opacity: 0.8 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.62rem' }}>
+                <span>5G</span>
+                <span>􀙇</span>
+                <span>􀛨</span>
+              </div>
+            </div>
+
+            {/* VIEW 1: REAL PWA HOME */}
             {emulatorView === 'home' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#f8fafc', position: 'relative' }}>
                 
-                {/* App Topbar */}
-                <div style={{ paddingTop: '32px', paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px', background: settings.primary_color, color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {/* Real PWA Top Header */}
+                <div style={{
+                  background: '#ffffff',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid #e2e8f0',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 20
+                }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {settings.logo_icon_url ? (
-                      <img src={settings.logo_icon_url} alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '8px', objectFit: 'cover' }} />
+                      <img src={settings.logo_icon_url} alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
                     ) : (
-                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: settings.primary_color, color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '0.80rem' }}>
                         {settings.church_name.substring(0, 2).toUpperCase()}
                       </div>
                     )}
-                    <span style={{ fontWeight: 800, fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
-                      {settings.church_name}
-                    </span>
-                  </div>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
-                </div>
-
-                {/* Banner / Boas-Vindas */}
-                <div style={{ padding: '14px 16px' }}>
-                  <div style={{ width: '100%', height: '110px', borderRadius: '16px', background: settings.banner_url ? `url(${settings.banner_url}) center/cover` : `linear-gradient(135deg, ${settings.primary_color} 0%, #0369a1 100%)`, color: '#ffffff', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', zIndex: 2 }}>
-                      <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', padding: '2px 6px', background: 'rgba(0,0,0,0.4)', borderRadius: '4px' }}>
-                        Bem-vindo(a)
-                      </span>
-                      <div style={{ fontWeight: 800, fontSize: '0.92rem', marginTop: '4px' }}>
-                        {settings.tagline || 'Cultos, Devocionais e Células'}
+                    <div>
+                      <div style={{ fontWeight: 900, fontSize: '0.84rem', color: '#0f172a', lineHeight: 1.1, maxWidth: '160px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {settings.church_name}
                       </div>
+                      <div style={{ fontSize: '0.64rem', color: '#64748b', fontWeight: 600 }}>📍 Sede • PWA Ativo</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.80rem', position: 'relative' }}>
+                      🔔
+                      <span style={{ position: 'absolute', top: '2px', right: '2px', width: '6px', height: '6px', background: '#ef4444', borderRadius: '50%' }} />
+                    </div>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.70rem', fontWeight: 800 }}>
+                      M
                     </div>
                   </div>
                 </div>
 
-                {/* Quick App Modules Grid */}
-                <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center', marginBottom: '14px' }}>
+                {/* Main Scrollable Content */}
+                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  
+                  {/* Greeting & Campus Row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.90rem', fontWeight: 900, color: '#0f172a' }}>✨ Olá, Membro!</div>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>Explore nossa comunidade</div>
+                    </div>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '4px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>🏛️ Sede ▾</span>
+                    </div>
+                  </div>
+
+                  {/* Hero Banner Card */}
+                  <div style={{
+                    width: '100%',
+                    height: '140px',
+                    borderRadius: '18px',
+                    background: settings.banner_url ? `url(${settings.banner_url}) center/cover` : `linear-gradient(135deg, ${settings.primary_color} 0%, #0369a1 100%)`,
+                    color: '#ffffff',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.15)'
+                  }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
+                    
+                    <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.60rem', fontWeight: 900, textTransform: 'uppercase', padding: '2px 6px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(6px)', borderRadius: '6px', letterSpacing: '0.04em' }}>
+                        APLICATIVO OFICIAL
+                      </span>
+                      <span style={{ fontSize: '0.58rem', fontWeight: 800, background: '#ef4444', color: '#ffffff', padding: '2px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        ● AO VIVO
+                      </span>
+                    </div>
+
+                    <div style={{ position: 'relative', zIndex: 2 }}>
+                      <div style={{ fontWeight: 900, fontSize: '0.96rem', lineHeight: 1.15 }}>
+                        {settings.church_name}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', opacity: 0.9, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {settings.tagline || 'Cultos, Devocionais e Células'}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                        <button type="button" style={{ background: '#ffffff', color: '#0f172a', border: 'none', padding: '4px 10px', borderRadius: '8px', fontSize: '0.66rem', fontWeight: 800, cursor: 'pointer' }}>
+                          ▶ Assistir Culto
+                        </button>
+                        <button type="button" style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '8px', fontSize: '0.66rem', fontWeight: 700, cursor: 'pointer' }}>
+                          📖 Bíblia
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 8 Serviços Ministeriais em 4 Colunas */}
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                      Serviços & Comunidade
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', textAlign: 'center' }}>
+                      {[
+                        { label: 'Cultos', icon: '🔴', bg: 'rgba(239, 68, 68, 0.1)' },
+                        { label: 'Palavra', icon: '📖', bg: 'rgba(2, 132, 199, 0.1)' },
+                        { label: 'Células', icon: '📍', bg: 'rgba(15, 118, 110, 0.1)' },
+                        { label: 'Cantina', icon: '🛍️', bg: 'rgba(5, 150, 105, 0.1)' },
+                        { label: 'Dízimos', icon: '💜', bg: 'rgba(147, 51, 234, 0.1)' },
+                        { label: 'Eventos', icon: '🎟️', bg: 'rgba(234, 88, 12, 0.1)' },
+                        { label: 'Bíblia', icon: '📜', bg: 'rgba(71, 85, 105, 0.1)' },
+                        { label: 'Oração', icon: '🙏', bg: 'rgba(79, 70, 229, 0.1)' },
+                      ].map((item, idx) => (
+                        <div key={idx} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '8px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.90rem' }}>
+                            {item.icon}
+                          </div>
+                          <span style={{ fontSize: '0.60rem', fontWeight: 800, color: '#1e293b' }}>{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Devocional do Dia Card */}
+                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 900, color: settings.primary_color, textTransform: 'uppercase' }}>
+                        Palavra de Hoje
+                      </span>
+                      <span style={{ fontSize: '0.60rem', color: '#94a3b8' }}>Hoje</span>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: '0.78rem', color: '#0f172a', marginBottom: '2px' }}>
+                      O Cuidado de Deus em Cada Detalhe
+                    </div>
+                    <div style={{ fontSize: '0.66rem', color: '#64748b', lineHeight: 1.3 }}>
+                      "O Senhor é o meu pastor e nada me faltará..." (Salmos 23:1)
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Real iOS Bottom Navigation Bar */}
+                <div style={{
+                  marginTop: 'auto',
+                  borderTop: '1px solid #e2e8f0',
+                  padding: '8px 12px 14px 12px',
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  background: '#ffffff',
+                  position: 'sticky',
+                  bottom: 0,
+                  zIndex: 20
+                }}>
                   {[
-                    { label: 'Cultos', icon: '🔴' },
-                    { label: 'Células', icon: '📍' },
-                    { label: 'Cursos', icon: '🎟️' },
-                    { label: 'Palavra', icon: '📖' },
-                  ].map((m, i) => (
-                    <div key={i} style={{ background: '#f8fafc', padding: '8px 4px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
-                      <div style={{ fontSize: '1rem', marginBottom: '2px' }}>{m.icon}</div>
-                      <div style={{ fontSize: '0.64rem', fontWeight: 700, color: 'var(--text-main)' }}>{m.label}</div>
+                    { label: 'Início', icon: '🏠', active: true },
+                    { label: 'Ensino', icon: '📖', active: false },
+                    { label: 'Células', icon: '👥', active: false },
+                    { label: 'Loja', icon: '🛍️', active: false },
+                    { label: 'Perfil', icon: '👤', active: false },
+                  ].map((tab, idx) => (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{tab.icon}</span>
+                      <span style={{ fontSize: '0.58rem', fontWeight: tab.active ? 900 : 600, color: tab.active ? settings.primary_color : '#94a3b8' }}>
+                        {tab.label}
+                      </span>
+                      {tab.active && (
+                        <div style={{ width: '12px', height: '2px', background: settings.primary_color, borderRadius: '2px', marginTop: '1px' }} />
+                      )}
                     </div>
                   ))}
                 </div>
 
-                {/* Devocional do Dia Card */}
-                <div style={{ padding: '0 16px', marginBottom: '14px' }}>
-                  <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px' }}>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: settings.primary_color, textTransform: 'uppercase', marginBottom: '4px' }}>
-                      Palavra de Hoje
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: '0.80rem', color: 'var(--text-main)', marginBottom: '4px' }}>
-                      O Cuidado de Deus em Cada Detalhe
-                    </div>
-                    <div style={{ fontSize: '0.70rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
-                      "O Senhor é o meu pastor e nada me faltará..."
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Bar Simulator */}
-                <div style={{ marginTop: 'auto', borderTop: '1px solid var(--panel-border)', padding: '10px 16px', display: 'flex', justifyContent: 'space-around', background: '#ffffff' }}>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: settings.primary_color }}>Home</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Ensino</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Cantina</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Perfil</span>
+                {/* iOS Bottom Home Indicator */}
+                <div style={{ height: '14px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: '80px', height: '3px', background: '#0f172a', borderRadius: '2px' }} />
                 </div>
 
               </div>
             )}
 
-            {/* VIEW 2: SPLASH SCREEN */}
+            {/* VIEW 2: DEVOCIONAIS & ENSINO */}
+            {emulatorView === 'devotionals' && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f8fafc', overflowY: 'auto' }}>
+                <div style={{ background: settings.primary_color, color: '#ffffff', padding: '16px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '1.1rem' }}>📖</span>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: '0.86rem' }}>Palavra & Devocionais</div>
+                    <div style={{ fontSize: '0.64rem', opacity: 0.9 }}>Alimento diário para sua fé</div>
+                  </div>
+                </div>
+
+                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[
+                    { title: 'Permanecendo Firmes na Promessa', date: 'Hoje', author: 'Pr. Titular', verse: 'Hebreus 10:23' },
+                    { title: 'A Paz que Excede Todo Entendimento', date: 'Ontem', author: 'Pastoral', verse: 'Filipenses 4:7' },
+                    { title: 'Caminhando em Comunhão e Graça', date: '15 Ago', author: 'Liderança', verse: '1 João 1:7' }
+                  ].map((dev, i) => (
+                    <div key={i} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.60rem', fontWeight: 800, color: settings.primary_color, background: 'rgba(15,118,110,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{dev.verse}</span>
+                        <span style={{ fontSize: '0.60rem', color: '#94a3b8' }}>{dev.date}</span>
+                      </div>
+                      <div style={{ fontWeight: 900, fontSize: '0.80rem', color: '#0f172a' }}>{dev.title}</div>
+                      <div style={{ fontSize: '0.66rem', color: '#64748b' }}>Por {dev.author} • 3 min de leitura</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Bottom Nav Bar */}
+                <div style={{ marginTop: 'auto', borderTop: '1px solid #e2e8f0', padding: '8px 12px 14px 12px', display: 'flex', justifyContent: 'space-around', background: '#ffffff' }}>
+                  {[
+                    { label: 'Início', icon: '🏠', active: false },
+                    { label: 'Ensino', icon: '📖', active: true },
+                    { label: 'Células', icon: '👥', active: false },
+                    { label: 'Loja', icon: '🛍️', active: false },
+                    { label: 'Perfil', icon: '👤', active: false },
+                  ].map((tab, idx) => (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{tab.icon}</span>
+                      <span style={{ fontSize: '0.58rem', fontWeight: tab.active ? 900 : 600, color: tab.active ? settings.primary_color : '#94a3b8' }}>
+                        {tab.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 3: SPLASH SCREEN */}
             {emulatorView === 'splash' && (
               <div style={{ flex: 1, background: settings.pwa_splash_bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', color: '#ffffff', textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: settings.primary_color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+                <div style={{ width: '84px', height: '84px', borderRadius: '24px', background: settings.primary_color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', boxShadow: '0 12px 30px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
                   {settings.logo_icon_url ? (
                     <img src={settings.logo_icon_url} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
@@ -1060,36 +1278,40 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                     </span>
                   )}
                 </div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em' }}>
                   {settings.church_name}
                 </h3>
-                <p style={{ fontSize: '0.74rem', opacity: 0.7, marginTop: '6px', maxWidth: '220px' }}>
+                <p style={{ fontSize: '0.74rem', opacity: 0.75, marginTop: '6px', maxWidth: '220px' }}>
                   {settings.pwa_short_name || 'Carregando seu espaço de fé...'}
                 </p>
+
+                <div style={{ width: '32px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', marginTop: '24px', overflow: 'hidden' }}>
+                  <div style={{ width: '60%', height: '100%', background: settings.primary_color, borderRadius: '2px' }} />
+                </div>
               </div>
             )}
 
-            {/* VIEW 3: QR CODE DE INSTALAÇÃO */}
+            {/* VIEW 4: QR CODE DE INSTALAÇÃO */}
             {emulatorView === 'qr' && (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center', background: '#f8fafc' }}>
-                <div style={{ background: '#ffffff', padding: '14px', borderRadius: '20px', boxShadow: 'var(--shadow-md)', border: '1px solid var(--panel-border)', marginBottom: '10px' }}>
+                <div style={{ background: '#ffffff', padding: '16px', borderRadius: '22px', boxShadow: '0 10px 25px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
                   <img 
                     src={getQrCodeApiUrl()} 
                     alt="QR Code" 
-                    style={{ width: '130px', height: '130px', display: 'block' }}
+                    style={{ width: '140px', height: '140px', display: 'block' }}
                   />
                 </div>
-                <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '2px', wordBreak: 'break-all' }}>
+                <div style={{ fontWeight: 900, fontSize: '0.88rem', color: '#0f172a', marginBottom: '2px', wordBreak: 'break-all' }}>
                   {getPwaUrl()}
                 </div>
-                <div style={{ fontSize: '0.70rem', color: 'var(--text-secondary)', maxWidth: '220px', lineHeight: 1.3, marginBottom: '12px' }}>
+                <div style={{ fontSize: '0.70rem', color: '#64748b', maxWidth: '220px', lineHeight: 1.3, marginBottom: '14px' }}>
                   Aponte a câmera do celular para instalar o PWA oficial da sua comunidade.
                 </div>
 
                 <button 
                   type="button" 
                   className="btn-primary"
-                  style={{ padding: '6px 14px', fontSize: '0.75rem', width: '100%', justifyContent: 'center' }}
+                  style={{ padding: '8px 16px', fontSize: '0.75rem', width: '100%', justifyContent: 'center' }}
                   onClick={() => setShowExportModal(true)}
                 >
                   <DownloadIcon /> Exportar Placa QR
