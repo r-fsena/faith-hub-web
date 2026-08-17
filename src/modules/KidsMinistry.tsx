@@ -205,7 +205,11 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       const res = await fetch(`${API_URL}/kids/rooms?organization_id=${encodeURIComponent(orgId)}${campusParam}`);
       if (res.ok) {
         const json = await res.json();
-        setRooms(json.data || []);
+        const list = json.data || [];
+        setRooms(list);
+        if (list.length > 0) {
+          setQuickCheckinForm(prev => prev.room_id ? prev : { ...prev, room_id: list[0].id });
+        }
       }
     } catch (e) {
       console.error("Erro ao carregar salas do Kids:", e);
@@ -260,13 +264,14 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
     e.preventDefault();
     try {
       const headers = await getAuthHeaders();
+      const targetRoomId = quickCheckinForm.room_id || (rooms.length > 0 ? rooms[0].id : '');
       const payload = {
         child_id: selectedChildForCheckin?.id || null,
         child_name: quickCheckinForm.child_name,
         birthdate: quickCheckinForm.birthdate || null,
         allergies: quickCheckinForm.allergies || null,
         medical_notes: quickCheckinForm.medical_notes || null,
-        room_id: quickCheckinForm.room_id,
+        room_id: targetRoomId,
         parent_name: quickCheckinForm.parent_name,
         parent_phone: quickCheckinForm.parent_phone,
         parent_email: quickCheckinForm.parent_email || null,
@@ -284,8 +289,9 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         body: JSON.stringify(payload)
       });
 
+      const json = await res.json().catch(() => ({}));
+
       if (res.ok) {
-        const json = await res.json();
         setCheckinSuccessData(json.checkin);
         loadCheckins();
         loadFamilies();
@@ -297,7 +303,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
           birthdate: '',
           allergies: '',
           medical_notes: '',
-          room_id: '',
+          room_id: rooms.length > 0 ? rooms[0].id : '',
           parent_name: '',
           parent_phone: '',
           parent_email: '',
@@ -306,12 +312,11 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
           register_as_member: true
         });
       } else {
-        const errJson = await res.json();
-        alert(errJson.message || "Erro ao realizar check-in");
+        alert(json.message || "Erro ao realizar check-in");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Erro de conexão ao realizar check-in");
+      alert(err?.message || "Erro de conexão ao realizar check-in");
     }
   };
 
