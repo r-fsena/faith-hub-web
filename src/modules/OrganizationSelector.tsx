@@ -816,95 +816,164 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           MODAL: NOVA PROPOSTA COMERCIAL
           ======================================================== */}
       {isProposalModalOpen && (
-        <div className="modal-overlay-modern animate-fade-in" style={{ zIndex: 100 }}>
-          <div className="modal-content-modern" style={{ maxWidth: '580px', padding: '32px' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                  📄 Nova Proposta Comercial SaaS
-                </h3>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Preencha os dados da igreja para gerar o link da proposta interativa.
-                </p>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsProposalModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              width: '100%',
+              maxWidth: '620px',
+              maxHeight: '90vh',
+              borderRadius: '24px',
+              boxShadow: '0 30px 70px rgba(15, 23, 42, 0.35)',
+              border: '1px solid var(--panel-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '22px 28px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-primary-gradient)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 900 }}>
+                  📄
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                    Nova Proposta Comercial SaaS
+                  </h3>
+                  <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                    Emita a proposta e envie o link de contratação para o pastor.
+                  </p>
+                </div>
               </div>
+
               <button
+                type="button"
                 onClick={() => setIsProposalModalOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--panel-border)',
+                  background: '#ffffff',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                  fontWeight: 700
+                }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateProposal} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Modal Form */}
+            <form onSubmit={handleCreateProposal} style={{ padding: '24px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
               <div>
-                <label className="form-label-modern">Nome da Igreja / Denominação *</label>
+                <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                  Nome da Igreja / Denominação *
+                </label>
                 <input
                   type="text"
                   className="input-modern"
                   value={proposalForm.church_name}
                   onChange={e => setProposalForm({ ...proposalForm, church_name: e.target.value })}
-                  placeholder="Ex: Igreja Comunidade da Fé"
+                  placeholder="Ex: Igreja Batista da Aliança"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem', outline: 'none' }}
                   required
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label-modern">Nome do Pastor / Gestor *</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    Nome do Pastor / Responsável *
+                  </label>
                   <input
                     type="text"
                     className="input-modern"
                     value={proposalForm.contact_name}
                     onChange={e => setProposalForm({ ...proposalForm, contact_name: e.target.value })}
                     placeholder="Ex: Pr. Carlos Eduardo"
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem' }}
                     required
                   />
                 </div>
                 <div>
-                  <label className="form-label-modern">CNPJ / CPF</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    CNPJ / CPF
+                  </label>
                   <input
                     type="text"
                     className="input-modern"
                     value={proposalForm.cnpj_cpf}
                     onChange={e => setProposalForm({ ...proposalForm, cnpj_cpf: e.target.value })}
                     placeholder="00.000.000/0001-00"
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem' }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label-modern">E-mail de Contato *</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    E-mail do Pastor (Login de Acesso) *
+                  </label>
                   <input
                     type="email"
                     className="input-modern"
                     value={proposalForm.contact_email}
                     onChange={e => setProposalForm({ ...proposalForm, contact_email: e.target.value })}
                     placeholder="pastor@igreja.com.br"
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem' }}
                     required
                   />
                 </div>
                 <div>
-                  <label className="form-label-modern">WhatsApp</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    WhatsApp de Contato
+                  </label>
                   <input
                     type="text"
                     className="input-modern"
                     value={proposalForm.contact_phone}
                     onChange={e => setProposalForm({ ...proposalForm, contact_phone: e.target.value })}
                     placeholder="48999999999"
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem' }}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label-modern">Plano</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    Plano
+                  </label>
                   <select
                     className="input-modern"
                     value={proposalForm.plan_tier}
                     onChange={e => setProposalForm({ ...proposalForm, plan_tier: e.target.value })}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem', background: '#ffffff' }}
                   >
                     <option value="STARTER">Starter</option>
                     <option value="PRO">Pro</option>
@@ -912,21 +981,27 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   </select>
                 </div>
                 <div>
-                  <label className="form-label-modern">Mensalidade (R$)</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    Mensalidade (R$) *
+                  </label>
                   <input
                     type="number"
                     className="input-modern"
                     value={proposalForm.monthly_amount}
                     onChange={e => setProposalForm({ ...proposalForm, monthly_amount: e.target.value })}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem' }}
                     required
                   />
                 </div>
                 <div>
-                  <label className="form-label-modern">Ciclo</label>
+                  <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)' }}>
+                    Ciclo
+                  </label>
                   <select
                     className="input-modern"
                     value={proposalForm.billing_cycle}
                     onChange={e => setProposalForm({ ...proposalForm, billing_cycle: e.target.value })}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.86rem', background: '#ffffff' }}
                   >
                     <option value="MONTHLY">Mensal</option>
                     <option value="YEARLY">Anual</option>
@@ -934,12 +1009,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+              {/* Modal Footer Actions */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px', paddingTop: '16px', borderTop: '1px solid var(--panel-border)' }}>
                 <button
                   type="button"
                   onClick={() => setIsProposalModalOpen(false)}
                   className="btn-secondary"
-                  style={{ flex: 1, padding: '12px', borderRadius: '10px' }}
+                  style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700 }}
                 >
                   Cancelar
                 </button>
@@ -947,7 +1023,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   type="submit"
                   disabled={savingProposal}
                   className="btn-primary"
-                  style={{ flex: 2, padding: '12px', borderRadius: '10px' }}
+                  style={{ flex: 2, padding: '12px', borderRadius: '12px', fontWeight: 800, fontSize: '0.90rem' }}
                 >
                   {savingProposal ? 'Gerando Proposta...' : '🚀 Gerar Proposta & Criar Link'}
                 </button>
@@ -963,33 +1039,66 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           MODAL: NOVO USUÁRIO MASTER
           ======================================================== */}
       {isUserModalOpen && (
-        <div className="modal-overlay-modern animate-fade-in" style={{ zIndex: 100 }}>
-          <div className="modal-content-modern" style={{ maxWidth: '480px', padding: '30px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsUserModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              width: '100%',
+              maxWidth: '480px',
+              borderRadius: '24px',
+              boxShadow: '0 30px 70px rgba(15, 23, 42, 0.35)',
+              border: '1px solid var(--panel-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ padding: '22px 28px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>🛡️ Novo Usuário Master</h3>
-                <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Convidar administrador com privilégios globais.</p>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>🛡️ Novo Usuário Master</h3>
+                <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>Convidar administrador com privilégios globais.</p>
               </div>
-              <button onClick={() => setIsUserModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+              <button
+                type="button"
+                onClick={() => setIsUserModalOpen(false)}
+                style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: '#ffffff', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleCreateMasterUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleCreateMasterUser} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label className="form-label-modern">Nome Completo *</label>
-                <input type="text" className="input-modern" value={userFormData.name} onChange={e => setUserFormData({ ...userFormData, name: e.target.value })} required />
+                <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>Nome Completo *</label>
+                <input type="text" className="input-modern" value={userFormData.name} onChange={e => setUserFormData({ ...userFormData, name: e.target.value })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)' }} required />
               </div>
               <div>
-                <label className="form-label-modern">E-mail de Acesso *</label>
-                <input type="email" className="input-modern" value={userFormData.email} onChange={e => setUserFormData({ ...userFormData, email: e.target.value })} required />
+                <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>E-mail de Acesso *</label>
+                <input type="email" className="input-modern" value={userFormData.email} onChange={e => setUserFormData({ ...userFormData, email: e.target.value })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)' }} required />
               </div>
               <div>
-                <label className="form-label-modern">WhatsApp</label>
-                <input type="text" className="input-modern" value={userFormData.phone} onChange={e => setUserFormData({ ...userFormData, phone: e.target.value })} />
+                <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>WhatsApp</label>
+                <input type="text" className="input-modern" value={userFormData.phone} onChange={e => setUserFormData({ ...userFormData, phone: e.target.value })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)' }} />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => setIsUserModalOpen(false)} className="btn-secondary" style={{ flex: 1, padding: '12px' }}>Cancelar</button>
-                <button type="submit" disabled={savingUser} className="btn-primary" style={{ flex: 2, padding: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px', paddingTop: '14px', borderTop: '1px solid var(--panel-border)' }}>
+                <button type="button" onClick={() => setIsUserModalOpen(false)} className="btn-secondary" style={{ flex: 1, padding: '12px', borderRadius: '12px' }}>Cancelar</button>
+                <button type="submit" disabled={savingUser} className="btn-primary" style={{ flex: 2, padding: '12px', borderRadius: '12px', fontWeight: 800 }}>
                   {savingUser ? 'Enviando...' : '🛡️ Enviar Convite Master'}
                 </button>
               </div>
@@ -1002,25 +1111,58 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           MODAL: NOVA ORGANIZAÇÃO MANUAL
           ======================================================== */}
       {isOrgModalOpen && (
-        <div className="modal-overlay-modern animate-fade-in" style={{ zIndex: 100 }}>
-          <div className="modal-content-modern" style={{ maxWidth: '480px', padding: '30px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>Nova Rede / Denominação</h3>
-              <button onClick={() => setIsOrgModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsOrgModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              width: '100%',
+              maxWidth: '480px',
+              borderRadius: '24px',
+              boxShadow: '0 30px 70px rgba(15, 23, 42, 0.35)',
+              border: '1px solid var(--panel-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ padding: '22px 28px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>Nova Rede / Denominação</h3>
+              <button
+                type="button"
+                onClick={() => setIsOrgModalOpen(false)}
+                style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: '#ffffff', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleCreateOrg} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleCreateOrg} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label className="form-label-modern">Nome da Igreja *</label>
-                <input type="text" className="input-modern" value={orgFormData.name} onChange={e => setOrgFormData({ ...orgFormData, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-') })} required />
+                <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>Nome da Igreja *</label>
+                <input type="text" className="input-modern" value={orgFormData.name} onChange={e => setOrgFormData({ ...orgFormData, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-') })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)' }} required />
               </div>
               <div>
-                <label className="form-label-modern">Slug do PWA (app.faithhubs.com/slug)</label>
-                <input type="text" className="input-modern" value={orgFormData.slug} onChange={e => setOrgFormData({ ...orgFormData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} required />
+                <label className="form-label-modern" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>Slug do PWA (app.faithhubs.com/slug)</label>
+                <input type="text" className="input-modern" value={orgFormData.slug} onChange={e => setOrgFormData({ ...orgFormData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)' }} required />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => setIsOrgModalOpen(false)} className="btn-secondary" style={{ flex: 1, padding: '12px' }}>Cancelar</button>
-                <button type="submit" disabled={savingOrg} className="btn-primary" style={{ flex: 2, padding: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px', paddingTop: '14px', borderTop: '1px solid var(--panel-border)' }}>
+                <button type="button" onClick={() => setIsOrgModalOpen(false)} className="btn-secondary" style={{ flex: 1, padding: '12px', borderRadius: '12px' }}>Cancelar</button>
+                <button type="submit" disabled={savingOrg} className="btn-primary" style={{ flex: 2, padding: '12px', borderRadius: '12px', fontWeight: 800 }}>
                   {savingOrg ? 'Criando...' : 'Criar Igreja'}
                 </button>
               </div>
