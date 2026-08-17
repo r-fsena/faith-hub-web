@@ -30,11 +30,26 @@ export interface KidsChild {
   parent_name: string;
   parent_phone: string;
   parent_email?: string;
+  parent_member_id?: string;
+  is_visitor?: boolean;
+  member_parent_name?: string;
+  member_parent_phone?: string;
   emergency_contact?: string;
   emergency_phone?: string;
   photo_url?: string;
   organization_id: string;
   campus_id?: string;
+}
+
+export interface FamilyMember {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  avatar_url?: string;
+  campus_id?: string;
+  children: KidsChild[];
 }
 
 export interface KidsCheckin {
@@ -47,6 +62,8 @@ export interface KidsCheckin {
   room_icon?: string;
   parent_name: string;
   parent_phone: string;
+  parent_member_id?: string;
+  is_visitor?: boolean;
   security_code: string;
   status: 'CHECKED_IN' | 'CALLING_PARENTS' | 'CHECKED_OUT';
   call_reason?: string;
@@ -82,6 +99,9 @@ const ShieldCheckIcon = () => (
 const CheckIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 );
+const UsersIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+);
 
 interface KidsMinistryProps {
   selectedCampusId?: string;
@@ -92,16 +112,21 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
   const orgId = selectedOrganization?.id || 'org_default';
 
   // Navigation Subtabs
-  const [activeTab, setActiveTab] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'criancas' | 'config_salas'>('salas');
+  const [activeTab, setActiveTab] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas'>('salas');
   
   // Data States
   const [rooms, setRooms] = useState<KidsRoom[]>([]);
   const [checkins, setCheckins] = useState<KidsCheckin[]>([]);
-  const [childrenList, setChildrenList] = useState<KidsChild[]>([]);
+  const [families, setFamilies] = useState<FamilyMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Totem Check-in Mode: 'MEMBER' | 'VISITOR'
+  const [checkinMode, setCheckinMode] = useState<'MEMBER' | 'VISITOR'>('MEMBER');
+  const [selectedFamilyMember, setSelectedFamilyMember] = useState<FamilyMember | null>(null);
+  const [selectedChildForCheckin, setSelectedChildForCheckin] = useState<KidsChild | null>(null);
+  
   // Modals States
   const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
@@ -120,7 +145,6 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
   const [callingSaving, setCallingSaving] = useState(false);
 
   // Quick Check-in Form State
-  const [selectedChildForCheckin, setSelectedChildForCheckin] = useState<KidsChild | null>(null);
   const [quickCheckinForm, setQuickCheckinForm] = useState({
     child_name: '',
     birthdate: '',
@@ -129,11 +153,14 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
     room_id: '',
     parent_name: '',
     parent_phone: '',
-    parent_email: ''
+    parent_email: '',
+    parent_member_id: '',
+    is_visitor: false,
+    register_as_member: true
   });
   const [checkinSuccessData, setCheckinSuccessData] = useState<any | null>(null);
 
-  // Child Form State (Cadastro/Edição)
+  // Child Form State (Cadastro/Edição com Vínculo ao Membro)
   const [childForm, setChildForm] = useState<Partial<KidsChild>>({
     name: '',
     birthdate: '',
@@ -144,6 +171,8 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
     parent_name: '',
     parent_phone: '',
     parent_email: '',
+    parent_member_id: '',
+    is_visitor: false,
     emergency_contact: '',
     emergency_phone: ''
   });
@@ -200,29 +229,29 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
     }
   };
 
-  // Load Children List
-  const loadChildren = async (query = '') => {
+  // Load Families (Membros e filhos integrados)
+  const loadFamilies = async (query = '') => {
     try {
       const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
-      const res = await fetch(`${API_URL}/kids/children?organization_id=${encodeURIComponent(orgId)}${campusParam}${searchParam}`);
+      const res = await fetch(`${API_URL}/kids/families?organization_id=${encodeURIComponent(orgId)}${campusParam}${searchParam}`);
       if (res.ok) {
         const json = await res.json();
-        setChildrenList(json.data || []);
+        setFamilies(json.data || []);
       }
     } catch (e) {
-      console.error("Erro ao carregar crianças:", e);
+      console.error("Erro ao carregar famílias:", e);
     }
   };
 
   useEffect(() => {
     loadRooms();
     loadCheckins();
-    loadChildren();
+    loadFamilies();
 
     const interval = setInterval(() => {
       loadCheckins();
-    }, 10000); // Polling a cada 10 segundos para chamadas de pais
+    }, 10000);
     return () => clearInterval(interval);
   }, [orgId, selectedCampusId]);
 
@@ -241,6 +270,9 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         parent_name: quickCheckinForm.parent_name,
         parent_phone: quickCheckinForm.parent_phone,
         parent_email: quickCheckinForm.parent_email || null,
+        parent_member_id: quickCheckinForm.parent_member_id || null,
+        is_visitor: quickCheckinForm.is_visitor,
+        register_as_member: quickCheckinForm.register_as_member,
         organization_id: orgId,
         campus_id: selectedCampusId !== 'all' ? selectedCampusId : null,
         checked_in_by: 'Equipe Kids'
@@ -256,9 +288,10 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         const json = await res.json();
         setCheckinSuccessData(json.checkin);
         loadCheckins();
-        loadChildren();
+        loadFamilies();
         // Reset form
         setSelectedChildForCheckin(null);
+        setSelectedFamilyMember(null);
         setQuickCheckinForm({
           child_name: '',
           birthdate: '',
@@ -267,7 +300,10 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
           room_id: '',
           parent_name: '',
           parent_phone: '',
-          parent_email: ''
+          parent_email: '',
+          parent_member_id: '',
+          is_visitor: false,
+          register_as_member: true
         });
       } else {
         const errJson = await res.json();
@@ -375,7 +411,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
 
       if (res.ok) {
         setIsChildModalOpen(false);
-        loadChildren();
+        loadFamilies();
       } else {
         alert("Erro ao salvar cadastro da criança.");
       }
@@ -450,7 +486,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                 Ministério Infantil (Faith Kids)
               </h2>
               <p style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: '0.86rem' }}>
-                Check-in expresso, crachás de segurança, painel de salas e chamador de pais em tempo real.
+                Check-in integrado aos membros, crachás de segurança, painel de salas e chamador de pais.
               </p>
             </div>
           </div>
@@ -484,19 +520,8 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
             type="button" 
             className="btn-primary"
             onClick={() => {
-              setSelectedChildForCheckin(null);
-              setQuickCheckinForm({
-                child_name: '',
-                birthdate: '',
-                allergies: '',
-                medical_notes: '',
-                room_id: rooms[0]?.id || '',
-                parent_name: '',
-                parent_phone: '',
-                parent_email: ''
-              });
+              setActiveTab('checkin_rapido');
               setCheckinSuccessData(null);
-              setIsCheckinModalOpen(true);
             }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.84rem', padding: '9px 16px' }}
           >
@@ -565,10 +590,10 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
         </button>
 
         <button
-          onClick={() => setActiveTab('criancas')}
+          onClick={() => setActiveTab('familias')}
           style={{
-            background: activeTab === 'criancas' ? 'var(--accent-primary)' : '#ffffff',
-            color: activeTab === 'criancas' ? '#ffffff' : 'var(--text-main)',
+            background: activeTab === 'familias' ? 'var(--accent-primary)' : '#ffffff',
+            color: activeTab === 'familias' ? '#ffffff' : 'var(--text-main)',
             border: '1px solid var(--panel-border)',
             padding: '8px 16px',
             borderRadius: 10,
@@ -580,7 +605,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
             cursor: 'pointer'
           }}
         >
-          <span>📋</span> Base de Crianças & Famílias ({childrenList.length})
+          <span>👨‍👩‍👧‍👦</span> Base de Famílias & Membros ({families.length})
         </button>
 
         <button
@@ -695,17 +720,14 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
               <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>👶</div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Nenhuma criança presente no momento</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4, maxWidth: 380, margin: '6px auto 16px auto' }}>
-                Utilize o botão de check-in rápido na recepção ou totem para registrar a entrada dos pequenos no Ministério Infantil.
+                Utilize o totem de check-in expresso para registrar a entrada dos pequenos no Ministério Infantil.
               </p>
               <button 
                 type="button" 
                 className="btn-primary"
-                onClick={() => {
-                  setSelectedChildForCheckin(null);
-                  setIsCheckinModalOpen(true);
-                }}
+                onClick={() => setActiveTab('checkin_rapido')}
               >
-                <PlusIcon /> Fazer Primeiro Check-in
+                <PlusIcon /> Fazer Check-in no Totem
               </button>
             </div>
           ) : (
@@ -759,6 +781,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span>{item.room_name}</span>
                             {age !== null && <span>• {age} anos</span>}
+                            {item.is_visitor && <span style={{ background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: 4, fontWeight: 800 }}>Visitante</span>}
                           </div>
                         </div>
                       </div>
@@ -771,7 +794,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                         borderRadius: 8,
                         textAlign: 'right'
                       }}>
-                        <div style={{ fontSize: '0.60rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>PIN de Segurança</div>
+                        <div style={{ fontSize: '0.60rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>PIN de Retirada</div>
                         <div style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--accent-primary)', letterSpacing: '0.05em' }}>{item.security_code}</div>
                       </div>
                     </div>
@@ -816,7 +839,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
 
                       {/* Informações dos Pais */}
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.4 }}>
-                        <div><strong>Responsável:</strong> {item.parent_name}</div>
+                        <div><strong>Responsável:</strong> {item.parent_name} {item.parent_member_id && <span style={{ color: 'var(--accent-primary)', fontWeight: 800 }}>✓ Membro</span>}</div>
                         <div><strong>WhatsApp:</strong> {item.parent_phone}</div>
                         <div><strong>Entrada:</strong> {new Date(item.checkin_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
@@ -885,74 +908,209 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       )}
 
       {/* ========================================================
-          TAB 2: TOTEM DE CHECK-IN EXPRESSO
+          TAB 2: TOTEM DE CHECK-IN EXPRESSO (INTEGRADO COM MEMBROS)
           ======================================================== */}
       {activeTab === 'checkin_rapido' && (
-        <div className="animate-fade-in" style={{ maxWidth: 840, margin: '0 auto' }}>
+        <div className="animate-fade-in" style={{ maxWidth: 880, margin: '0 auto' }}>
           <div className="portal-card" style={{ padding: 24 }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', marginBottom: 6 }}>
-              🏷️ Totem de Recepção & Check-in Kids
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginBottom: 20 }}>
-              Busque uma criança cadastrada ou preencha os dados para gerar o crachá de segurança do dia.
-            </p>
-
-            {/* Caixa de Busca Rápida */}
-            <div style={{ marginBottom: 20 }}>
-              <label className="form-label-modern">Buscar Criança ou Pai Cadastrado</label>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <input 
-                  type="text" 
-                  className="input-modern"
-                  placeholder="Digite o nome da criança ou telefone do pai..."
-                  onChange={e => loadChildren(e.target.value)}
-                />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                  🏷️ Totem de Check-in Expresso Kids
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 2 }}>
+                  Selecione se o responsável é membro cadastrado da igreja ou visitante.
+                </p>
               </div>
 
-              {childrenList.length > 0 && (
-                <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 150, overflowY: 'auto' }}>
-                  {childrenList.slice(0, 10).map(ch => (
-                    <button
-                      key={ch.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedChildForCheckin(ch);
-                        const age = calculateAge(ch.birthdate);
-                        setQuickCheckinForm({
-                          child_name: ch.name,
-                          birthdate: ch.birthdate || '',
-                          allergies: ch.allergies || '',
-                          medical_notes: ch.medical_notes || '',
-                          room_id: getSuggestedRoomForAge(age),
-                          parent_name: ch.parent_name,
-                          parent_phone: ch.parent_phone,
-                          parent_email: ch.parent_email || ''
-                        });
-                      }}
-                      style={{
-                        background: selectedChildForCheckin?.id === ch.id ? 'var(--accent-primary-light)' : '#f8fafc',
-                        border: selectedChildForCheckin?.id === ch.id ? '1px solid var(--accent-primary)' : '1px solid #e2e8f0',
-                        borderRadius: 8,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6
-                      }}
-                    >
-                      <span>👶 {ch.name}</span>
-                      <span style={{ color: '#64748b', fontSize: '0.70rem' }}>({ch.parent_name})</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Toggle de Modo: Membro vs Visitante */}
+              <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckinMode('MEMBER');
+                    setQuickCheckinForm(prev => ({ ...prev, is_visitor: false }));
+                  }}
+                  style={{
+                    background: checkinMode === 'MEMBER' ? 'var(--accent-primary)' : 'transparent',
+                    color: checkinMode === 'MEMBER' ? '#ffffff' : '#64748b',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '6px 14px',
+                    fontWeight: 800,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  👤 Membro da Igreja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckinMode('VISITOR');
+                    setSelectedFamilyMember(null);
+                    setSelectedChildForCheckin(null);
+                    setQuickCheckinForm(prev => ({ ...prev, is_visitor: true, parent_member_id: '' }));
+                  }}
+                  style={{
+                    background: checkinMode === 'VISITOR' ? 'var(--accent-primary)' : 'transparent',
+                    color: checkinMode === 'VISITOR' ? '#ffffff' : '#64748b',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '6px 14px',
+                    fontWeight: 800,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  👋 Visitante / Novo
+                </button>
+              </div>
             </div>
+
+            {/* MODO MEMBRO: Busca Inteligente na Base de Membros */}
+            {checkinMode === 'MEMBER' && (
+              <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                <label className="form-label-modern" style={{ fontSize: '0.80rem', fontWeight: 800 }}>
+                  🔍 1. Buscar Pai / Mãe na Lista de Membros:
+                </label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    placeholder="Digite o nome, WhatsApp ou e-mail do membro..."
+                    onChange={e => loadFamilies(e.target.value)}
+                  />
+                </div>
+
+                {/* Lista de Membros Encontrados */}
+                {families.length > 0 && (
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
+                    {families.slice(0, 6).map(fam => {
+                      const isSelected = selectedFamilyMember?.id === fam.id;
+                      return (
+                        <div
+                          key={fam.id}
+                          onClick={() => {
+                            setSelectedFamilyMember(fam);
+                            setSelectedChildForCheckin(null);
+                            setQuickCheckinForm({
+                              ...quickCheckinForm,
+                              parent_name: fam.name,
+                              parent_phone: fam.phone || '',
+                              parent_email: fam.email || '',
+                              parent_member_id: fam.id,
+                              is_visitor: false
+                            });
+                          }}
+                          style={{
+                            background: isSelected ? 'var(--accent-primary-light)' : '#ffffff',
+                            border: isSelected ? '1.5px solid var(--accent-primary)' : '1px solid #e2e8f0',
+                            borderRadius: 10,
+                            padding: '8px 12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary-gradient)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem' }}>
+                              {fam.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-main)' }}>{fam.name}</div>
+                              <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>{fam.phone || fam.email} • {fam.role}</div>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: '0.74rem', fontWeight: 800, color: fam.children.length > 0 ? 'var(--accent-primary)' : '#94a3b8' }}>
+                            {fam.children.length > 0 ? `👶 ${fam.children.length} filho(s) cadastrado(s)` : 'Sem filhos vinculados'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Seleção de Filhos do Membro Selecionado */}
+                {selectedFamilyMember && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>
+                      👶 2. Selecione o filho de <strong>{selectedFamilyMember.name}</strong> para check-in:
+                    </div>
+
+                    {selectedFamilyMember.children.length === 0 ? (
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', background: '#ffffff', padding: '10px 14px', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
+                        Nenhum filho cadastrado para este membro ainda. Preencha o formulário abaixo para registrar e vincular o filho a {selectedFamilyMember.name}!
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {selectedFamilyMember.children.map(ch => {
+                          const isChildSelected = selectedChildForCheckin?.id === ch.id;
+                          const age = calculateAge(ch.birthdate);
+                          return (
+                            <button
+                              key={ch.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedChildForCheckin(ch);
+                                setQuickCheckinForm({
+                                  ...quickCheckinForm,
+                                  child_name: ch.name,
+                                  birthdate: ch.birthdate || '',
+                                  allergies: ch.allergies || '',
+                                  medical_notes: ch.medical_notes || '',
+                                  room_id: getSuggestedRoomForAge(age),
+                                  parent_name: selectedFamilyMember.name,
+                                  parent_phone: selectedFamilyMember.phone || '',
+                                  parent_email: selectedFamilyMember.email || '',
+                                  parent_member_id: selectedFamilyMember.id,
+                                  is_visitor: false
+                                });
+                              }}
+                              style={{
+                                background: isChildSelected ? 'var(--accent-primary)' : '#ffffff',
+                                color: isChildSelected ? '#ffffff' : 'var(--text-main)',
+                                border: isChildSelected ? '1px solid var(--accent-primary)' : '1px solid #cbd5e1',
+                                borderRadius: 10,
+                                padding: '8px 14px',
+                                fontWeight: 800,
+                                fontSize: '0.80rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6
+                              }}
+                            >
+                              <span>👶 {ch.name}</span>
+                              <span style={{ fontSize: '0.70rem', opacity: 0.8 }}>({age !== null ? `${age} anos` : 'Idade N/I'})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MODO VISITANTE: Banner Informativo */}
+            {checkinMode === 'VISITOR' && (
+              <div style={{ marginBottom: 16, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: '1.4rem' }}>👋</span>
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#b45309' }}>Check-in de Visitante / Família Nova</div>
+                  <div style={{ fontSize: '0.74rem', color: '#92400e' }}>
+                    O check-in funciona normalmente com geração do PIN de segurança. Opcionalmente você pode salvá-lo como membro/visitante no sistema.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Formulário de Check-in */}
             <form onSubmit={handlePerformCheckin}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div>
                   <label className="form-label-modern">Nome Completo da Criança *</label>
                   <input 
@@ -960,7 +1118,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                     className="input-modern"
                     value={quickCheckinForm.child_name} 
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, child_name: e.target.value })}
-                    placeholder="Ex: Pedro Henrique Silva"
+                    placeholder="Ex: Lucas Gabriel"
                     required
                   />
                 </div>
@@ -984,7 +1142,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div>
                   <label className="form-label-modern">Sala / Turma Destino *</label>
                   <select 
@@ -1014,7 +1172,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div>
                   <label className="form-label-modern">Nome do Responsável *</label>
                   <input 
@@ -1022,7 +1180,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                     className="input-modern"
                     value={quickCheckinForm.parent_name} 
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_name: e.target.value })}
-                    placeholder="Ex: Ana Paula Silva (Mãe)"
+                    placeholder="Ex: Mariana Silva"
                     required
                   />
                 </div>
@@ -1039,6 +1197,22 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                   />
                 </div>
               </div>
+
+              {/* Opção para Visitantes: Salvar no cadastro permanente de membros */}
+              {checkinMode === 'VISITOR' && (
+                <div style={{ marginBottom: 16, background: '#f8fafc', padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input 
+                    type="checkbox"
+                    id="reg_member"
+                    checked={quickCheckinForm.register_as_member}
+                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, register_as_member: e.target.checked })}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <label htmlFor="reg_member" style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer' }}>
+                    Salvar automaticamente os dados deste visitante na base de membros/visitantes para os próximos cultos
+                  </label>
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                 <button type="submit" className="btn-primary" style={{ padding: '10px 24px', fontSize: '0.90rem' }}>
@@ -1058,12 +1232,12 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                 </h2>
                 <div style={{ display: 'inline-block', background: '#ffffff', border: '2px solid #059669', padding: '10px 24px', borderRadius: 12, marginBottom: 12 }}>
                   <div style={{ fontSize: '0.70rem', fontWeight: 800, color: '#64748b' }}>CÓDIGO DE SEGURANÇA (PIN)</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 900, color: '#059669', letterSpacing: '0.08em' }}>
+                  <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#059669', letterSpacing: '0.08em' }}>
                     {checkinSuccessData.security_code}
                   </div>
                 </div>
                 <p style={{ fontSize: '0.82rem', color: '#065f46', margin: 0 }}>
-                  Sala: <strong>{checkinSuccessData.room_name}</strong> • Responsável: <strong>{checkinSuccessData.parent_name}</strong>
+                  Sala: <strong>{checkinSuccessData.room_name}</strong> • Responsável: <strong>{checkinSuccessData.parent_name}</strong> {checkinSuccessData.parent_member_id && '✓ Membro'}
                 </p>
                 <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 10 }}>
                   <button 
@@ -1187,119 +1361,181 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       )}
 
       {/* ========================================================
-          TAB 4: BASE DE CRIANÇAS & FAMÍLIAS
+          TAB 4: BASE DE FAMÍLIAS & MEMBROS INTEGRADOS
           ======================================================== */}
-      {activeTab === 'criancas' && (
+      {activeTab === 'familias' && (
         <div className="animate-fade-in">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
             <div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                📋 Cadastro de Crianças & Famílias
+                👨‍👩‍👧‍👦 Famílias & Membros Vinculados
               </h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
-                Base permanente de crianças, dados médicos e contatos de emergência.
+                Visualize as crianças agrupadas diretamente por seus pais cadastrados na base de membros.
               </p>
             </div>
 
-            <button 
-              type="button" 
-              className="btn-primary"
-              onClick={() => {
-                setChildForm({
-                  name: '',
-                  birthdate: '',
-                  gender: 'M',
-                  allergies: '',
-                  medical_notes: '',
-                  general_notes: '',
-                  parent_name: '',
-                  parent_phone: '',
-                  parent_email: '',
-                  emergency_contact: '',
-                  emergency_phone: ''
-                });
-                setIsChildModalOpen(true);
-              }}
-            >
-              <PlusIcon /> Nova Criança
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div className="search-pill" style={{ width: 260 }}>
+                <SearchIcon />
+                <input 
+                  type="text" 
+                  placeholder="Buscar família ou membro..." 
+                  onChange={e => loadFamilies(e.target.value)}
+                />
+              </div>
+
+              <button 
+                type="button" 
+                className="btn-primary"
+                onClick={() => {
+                  setChildForm({
+                    name: '',
+                    birthdate: '',
+                    gender: 'M',
+                    allergies: '',
+                    medical_notes: '',
+                    general_notes: '',
+                    parent_name: '',
+                    parent_phone: '',
+                    parent_email: '',
+                    parent_member_id: '',
+                    is_visitor: false
+                  });
+                  setIsChildModalOpen(true);
+                }}
+              >
+                <PlusIcon /> Vincular Criança
+              </button>
+            </div>
           </div>
 
-          <div className="members-table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Criança</th>
-                  <th>Idade / Nascimento</th>
-                  <th>Responsáveis</th>
-                  <th>Alergias & Cuidados</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {childrenList.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-                      Nenhuma criança cadastrada ainda nesta congregação.
-                    </td>
-                  </tr>
-                ) : (
-                  childrenList.map(ch => {
-                    const age = calculateAge(ch.birthdate);
-                    return (
-                      <tr key={ch.id}>
-                        <td>
-                          <div className="user-cell">
-                            <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
-                              {ch.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="member-meta-title">{ch.name}</div>
-                              <div className="member-meta-sub">{ch.gender === 'F' ? 'Menina' : 'Menino'}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                            {age !== null ? `${age} anos` : 'Não informada'}
-                          </div>
-                          {ch.birthdate && (
-                            <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>
-                              {new Date(ch.birthdate).toLocaleDateString('pt-BR')}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{ch.parent_name}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{ch.parent_phone}</div>
-                        </td>
-                        <td>
-                          {ch.allergies ? (
-                            <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 800 }}>
-                              ⚠️ {ch.allergies}
-                            </span>
-                          ) : (
-                            <span style={{ color: '#64748b', fontSize: '0.74rem' }}>Nenhuma restrição</span>
-                          )}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="link-btn"
-                            onClick={() => {
-                              setChildForm(ch);
-                              setIsChildModalOpen(true);
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {families.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, background: '#ffffff', borderRadius: 14, border: '1px dashed var(--panel-border)', color: 'var(--text-muted)' }}>
+                Nenhum membro encontrado com os filtros atuais.
+              </div>
+            ) : (
+              families.map(fam => (
+                <div 
+                  key={fam.id}
+                  className="portal-card"
+                  style={{
+                    margin: 0,
+                    padding: 16,
+                    background: '#ffffff',
+                    border: '1px solid var(--panel-border)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: 'var(--accent-primary-gradient)',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 900,
+                        fontSize: '1.1rem'
+                      }}>
+                        {fam.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-main)' }}>{fam.name}</span>
+                          <span style={{ fontSize: '0.70rem', background: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: 6, fontWeight: 800 }}>
+                            {fam.role}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          📱 {fam.phone || 'Sem telefone'} • ✉️ {fam.email}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => {
+                        setChildForm({
+                          name: '',
+                          birthdate: '',
+                          gender: 'M',
+                          allergies: '',
+                          medical_notes: '',
+                          general_notes: '',
+                          parent_name: fam.name,
+                          parent_phone: fam.phone || '',
+                          parent_email: fam.email || '',
+                          parent_member_id: fam.id,
+                          is_visitor: false
+                        });
+                        setIsChildModalOpen(true);
+                      }}
+                      style={{ fontSize: '0.78rem', fontWeight: 800 }}
+                    >
+                      + Adicionar Filho a {fam.name.split(' ')[0]}
+                    </button>
+                  </div>
+
+                  {/* Lista de Filhos Desta Família */}
+                  {fam.children.length === 0 ? (
+                    <div style={{ fontSize: '0.76rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                      Nenhuma criança vinculada a esta família ainda.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                      {fam.children.map(ch => {
+                        const age = calculateAge(ch.birthdate);
+                        return (
+                          <div 
+                            key={ch.id}
+                            style={{
+                              background: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: 10,
+                              padding: '10px 12px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
                             }}
                           >
-                            Editar
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-main)' }}>
+                                👶 {ch.name}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                {age !== null ? `${age} anos` : 'Idade N/I'} {ch.allergies ? `• ⚠️ ${ch.allergies}` : ''}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="link-btn"
+                              onClick={() => {
+                                setChildForm({
+                                  ...ch,
+                                  parent_name: fam.name,
+                                  parent_phone: fam.phone,
+                                  parent_email: fam.email,
+                                  parent_member_id: fam.id
+                                });
+                                setIsChildModalOpen(true);
+                              }}
+                              style={{ fontSize: '0.72rem' }}
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -1381,124 +1617,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       )}
 
       {/* ========================================================
-          MODAL 1: CHECK-IN RÁPIDO MODAL
-          ======================================================== */}
-      {isCheckinModalOpen && createPortal(
-        <div className="modal-overlay animate-fade-in" onClick={() => setIsCheckinModalOpen(false)}>
-          <form className="modal-studio-container" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()} onSubmit={handlePerformCheckin}>
-            <div className="modal-studio-header">
-              <div className="modal-studio-header-left">
-                <div className="modal-studio-header-icon" style={{ background: 'var(--accent-primary-light)', color: 'var(--accent-primary)' }}>
-                  <BabyIcon />
-                </div>
-                <div>
-                  <h2 className="modal-studio-title">Check-in de Criança (Kids)</h2>
-                  <p className="modal-studio-subtitle">Alocação de sala e geração do código PIN de segurança.</p>
-                </div>
-              </div>
-              <button type="button" className="modal-close-circle" onClick={() => setIsCheckinModalOpen(false)}>✕</button>
-            </div>
-
-            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="form-label-modern">Nome da Criança *</label>
-                  <input 
-                    type="text" 
-                    className="input-modern"
-                    value={quickCheckinForm.child_name} 
-                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, child_name: e.target.value })}
-                    placeholder="Nome completo"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label-modern">Data de Nascimento</label>
-                  <input 
-                    type="date" 
-                    className="input-modern"
-                    value={quickCheckinForm.birthdate} 
-                    onChange={e => {
-                      const bdate = e.target.value;
-                      const age = calculateAge(bdate);
-                      setQuickCheckinForm({ 
-                        ...quickCheckinForm, 
-                        birthdate: bdate,
-                        room_id: getSuggestedRoomForAge(age)
-                      });
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="form-label-modern">Sala Destino *</label>
-                  <select 
-                    className="select-modern"
-                    value={quickCheckinForm.room_id} 
-                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, room_id: e.target.value })}
-                    required
-                  >
-                    <option value="">Selecione a Sala</option>
-                    {rooms.map(r => (
-                      <option key={r.id} value={r.id}>
-                        {r.icon} {r.name} ({r.min_age} a {r.max_age} anos)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label-modern">Alergias / Restrições (Opcional)</label>
-                  <input 
-                    type="text" 
-                    className="input-modern"
-                    value={quickCheckinForm.allergies} 
-                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, allergies: e.target.value })}
-                    placeholder="Ex: Lactose, glúten..."
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="form-label-modern">Nome do Pai / Mãe *</label>
-                  <input 
-                    type="text" 
-                    className="input-modern"
-                    value={quickCheckinForm.parent_name} 
-                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_name: e.target.value })}
-                    placeholder="Nome do responsável"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label-modern">WhatsApp do Responsável *</label>
-                  <input 
-                    type="text" 
-                    className="input-modern"
-                    value={quickCheckinForm.parent_phone} 
-                    onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_phone: e.target.value })}
-                    placeholder="(00) 00000-0000"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-studio-footer">
-              <button type="button" className="btn-secondary" onClick={() => setIsCheckinModalOpen(false)}>Cancelar</button>
-              <button type="submit" className="btn-primary">
-                <CheckIcon /> Concluir Check-in
-              </button>
-            </div>
-          </form>
-        </div>,
-        document.body
-      )}
-
-      {/* ========================================================
-          MODAL 2: CHAMAR PAIS (ALERTA NO APP & WHATSAPP)
+          MODAL: CHAMAR PAIS (ALERTA NO APP & WHATSAPP)
           ======================================================== */}
       {isCallModalOpen && selectedCheckinForAction && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setIsCallModalOpen(false)}>
@@ -1604,7 +1723,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       )}
 
       {/* ========================================================
-          MODAL 3: CHECKOUT COM VALIDAÇÃO DE SEGURANÇA (PIN)
+          MODAL: CHECKOUT COM VALIDAÇÃO DE SEGURANÇA (PIN)
           ======================================================== */}
       {isCheckoutModalOpen && selectedCheckinForAction && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setIsCheckoutModalOpen(false)}>
@@ -1668,7 +1787,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       )}
 
       {/* ========================================================
-          MODAL 4: CADASTRO / EDIÇÃO DE CRIANÇA
+          MODAL: CADASTRO / EDIÇÃO DE CRIANÇA (VÍNCULO AO MEMBRO)
           ======================================================== */}
       {isChildModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setIsChildModalOpen(false)}>
@@ -1679,8 +1798,8 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                   <BabyIcon />
                 </div>
                 <div>
-                  <h2 className="modal-studio-title">{childForm.id ? 'Editar Criança' : 'Cadastrar Criança'}</h2>
-                  <p className="modal-studio-subtitle">Dados cadastrais, médicos e vínculos familiares.</p>
+                  <h2 className="modal-studio-title">{childForm.id ? 'Editar Criança' : 'Cadastrar Criança & Vincular Família'}</h2>
+                  <p className="modal-studio-subtitle">Dados cadastrais, médicos e vínculos com a membresia.</p>
                 </div>
               </div>
               <button type="button" className="modal-close-circle" onClick={() => setIsChildModalOpen(false)}>✕</button>
@@ -1689,7 +1808,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
             <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label className="form-label-modern">Nome Completo *</label>
+                  <label className="form-label-modern">Nome Completo da Criança *</label>
                   <input 
                     type="text" 
                     className="input-modern"
@@ -1707,6 +1826,38 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
                     onChange={e => setChildForm({ ...childForm, birthdate: e.target.value })}
                   />
                 </div>
+              </div>
+
+              {/* Vínculo de Membro Responsável */}
+              <div>
+                <label className="form-label-modern">Vincular ao Membro Responsável (Opcional)</label>
+                <select 
+                  className="select-modern"
+                  value={childForm.parent_member_id || ''}
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    const found = families.find(f => f.id === selectedId);
+                    if (found) {
+                      setChildForm({
+                        ...childForm,
+                        parent_member_id: found.id,
+                        parent_name: found.name,
+                        parent_phone: found.phone || childForm.parent_phone,
+                        parent_email: found.email || childForm.parent_email,
+                        is_visitor: false
+                      });
+                    } else {
+                      setChildForm({ ...childForm, parent_member_id: '' });
+                    }
+                  }}
+                >
+                  <option value="">Selecione um Membro da Igreja (ou preencha abaixo para Visitante)</option>
+                  {families.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.role}) - {f.phone || f.email}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1767,7 +1918,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({ selectedCampusId = '
       )}
 
       {/* ========================================================
-          MODAL 5: SALA / TURMA
+          MODAL: SALA / TURMA
           ======================================================== */}
       {isRoomModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setIsRoomModalOpen(false)}>
