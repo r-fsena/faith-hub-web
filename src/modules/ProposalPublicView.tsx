@@ -21,6 +21,11 @@ interface ProposalData {
   accepted_at?: string;
   created_organization_id?: string;
   asaas_payment_link?: string;
+  discount_type?: string;
+  discount_value?: number;
+  discount_duration_months?: number;
+  first_cycle_amount?: number;
+  notes_commercial?: string;
 }
 
 export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
@@ -98,9 +103,16 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Erro ao aceitar proposta');
 
-      setStep('payment');
-      if (proposal) {
-        setProposal({ ...proposal, status: 'ACCEPTED' });
+      // Se foi carência grátis (1º mês grátis), já foi provisionado na hora!
+      if (data.is_free_trial && data.provision_result) {
+        setProvisionResult(data.provision_result);
+        setStep('success');
+        if (proposal) setProposal({ ...proposal, status: 'PAID' });
+      } else {
+        setStep('payment');
+        if (proposal) {
+          setProposal({ ...proposal, status: 'ACCEPTED' });
+        }
       }
     } catch (err: any) {
       alert(err.message || 'Erro ao processar aceite da proposta.');
@@ -159,6 +171,9 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
   }
 
   const cycleLabel = proposal.billing_cycle === 'YEARLY' ? 'Anual' : (proposal.billing_cycle === 'SEMIANNUAL' ? 'Semestral' : 'Mensal');
+  const isFirstFree = proposal.discount_type === 'FIRST_FREE';
+  const hasRecurringDiscount = proposal.discount_type === 'RECURRING_MONTHS_DISCOUNT';
+  const hasFirstMonthDiscount = proposal.discount_type === 'FIRST_MONTH_DISCOUNT';
 
   return (
     <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at top, #0f172a 0%, #030712 100%)', color: '#f8fafc', padding: '32px 16px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
@@ -198,6 +213,37 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
         {step === 'view' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
+            {/* Discount Promotional Banner (Se houver desconto) */}
+            {isFirstFree && (
+              <div style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', borderRadius: '20px', padding: '20px 24px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.25)' }}>
+                <div style={{ fontSize: '2.2rem' }}>🎁</div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: '1.15rem' }}>Oferta de Boas-Vindas: 1ª Mensalidade 100% Gratuita!</div>
+                  <div style={{ fontSize: '0.82rem', opacity: 0.95 }}>Seu ambiente será ativado imediatamente sem nenhum custo hoje (30 dias de carência para implantação).</div>
+                </div>
+              </div>
+            )}
+
+            {hasRecurringDiscount && (
+              <div style={{ background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)', borderRadius: '20px', padding: '20px 24px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.25)' }}>
+                <div style={{ fontSize: '2.2rem' }}>⏳</div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: '1.15rem' }}>Condição Especial: R$ {proposal.discount_value} de Desconto nos Primeiros {proposal.discount_duration_months} Meses!</div>
+                  <div style={{ fontSize: '0.82rem', opacity: 0.95 }}>De R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')} por apenas <strong>R$ {Number(proposal.first_cycle_amount).toFixed(2).replace('.', ',')}/mês</strong> durante os primeiros {proposal.discount_duration_months} meses.</div>
+                </div>
+              </div>
+            )}
+
+            {hasFirstMonthDiscount && (
+              <div style={{ background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)', borderRadius: '20px', padding: '20px 24px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.25)' }}>
+                <div style={{ fontSize: '2.2rem' }}>🏷️</div>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: '1.15rem' }}>Desconto Especial na 1ª Mensalidade: R$ {proposal.discount_value} OFF!</div>
+                  <div style={{ fontSize: '0.82rem', opacity: 0.95 }}>1º Mês por apenas <strong>R$ {Number(proposal.first_cycle_amount).toFixed(2).replace('.', ',')}</strong>. A partir do 2º mês: R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}/mês.</div>
+                </div>
+              </div>
+            )}
+
             {/* Header Hero da Igreja */}
             <div style={{ background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '24px', padding: '32px', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
               <div style={{ position: 'absolute', top: 0, right: 0, width: '260px', height: '260px', background: 'radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
@@ -221,16 +267,40 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
               
               {/* Card Plano & Mensalidade */}
-              <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius: '20px', padding: '24px', color: '#ffffff', boxShadow: '0 10px 25px rgba(2, 132, 199, 0.25)' }}>
+              <div style={{ background: isFirstFree ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius: '20px', padding: '24px', color: '#ffffff', boxShadow: isFirstFree ? '0 10px 25px rgba(5, 150, 105, 0.25)' : '0 10px 25px rgba(2, 132, 199, 0.25)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.9 }}>
                   PLANO RECOMENDADO • {proposal.plan_tier}
                 </span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', margin: '10px 0 4px 0' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 700 }}>R$</span>
-                  <span style={{ fontSize: '2.4rem', fontWeight: 900, lineHeight: 1 }}>{Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}</span>
-                  <span style={{ fontSize: '0.84rem', opacity: 0.85 }}>/mês</span>
-                </div>
-                <div style={{ fontSize: '0.76rem', opacity: 0.9 }}>
+
+                {isFirstFree ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', margin: '8px 0 2px 0' }}>
+                      <span style={{ fontSize: '2.2rem', fontWeight: 900, lineHeight: 1 }}>R$ 0,00</span>
+                      <span style={{ fontSize: '0.82rem', opacity: 0.9 }}>no 1º mês</span>
+                    </div>
+                    <div style={{ fontSize: '0.76rem', opacity: 0.9, marginTop: '4px' }}>
+                      A partir do 2º mês: <strong>R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>
+                    </div>
+                  </div>
+                ) : hasRecurringDiscount ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', margin: '8px 0 2px 0' }}>
+                      <span style={{ fontSize: '2.2rem', fontWeight: 900, lineHeight: 1 }}>R$ {Number(proposal.first_cycle_amount).toFixed(2).replace('.', ',')}</span>
+                      <span style={{ fontSize: '0.82rem', opacity: 0.9 }}>/mês</span>
+                    </div>
+                    <div style={{ fontSize: '0.74rem', opacity: 0.9, marginTop: '4px' }}>
+                      (Desconto por {proposal.discount_duration_months} meses. Após: R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}/mês)
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', margin: '10px 0 4px 0' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 700 }}>R$</span>
+                    <span style={{ fontSize: '2.4rem', fontWeight: 900, lineHeight: 1 }}>{Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}</span>
+                    <span style={{ fontSize: '0.84rem', opacity: 0.85 }}>/mês</span>
+                  </div>
+                )}
+
+                <div style={{ fontSize: '0.74rem', opacity: 0.85, marginTop: '8px' }}>
                   Faturamento Recorrente: <strong>{cycleLabel}</strong>
                 </div>
               </div>
@@ -273,7 +343,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
               </h3>
               
               <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '14px', padding: '16px', maxHeight: '130px', overflowY: 'auto', fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '16px' }}>
-                Ao aceitar esta proposta, a <strong>{proposal.church_name}</strong> contrata o licenciamento de uso do ecossistema <strong>Faith-Hub</strong> pelo valor acordado de R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}/{cycleLabel.toLowerCase()}. A assinatura pode ser cancelada a qualquer momento sem fidelidade ou multas rescisórias. O provisionamento do aplicativo e painel de gestão é liberado instantaneamente após a confirmação do pagamento.
+                Ao aceitar esta proposta, a <strong>{proposal.church_name}</strong> contrata o licenciamento de uso do ecossistema <strong>Faith-Hub</strong> pelo valor acordado de R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}/{cycleLabel.toLowerCase()}. A assinatura pode ser cancelada a qualquer momento sem fidelidade ou multas rescisórias. {isFirstFree ? 'Por contar com a 1ª Mensalidade Grátis, seu acesso é liberado imediatamente no aceite eletrônico.' : 'O provisionamento do aplicativo e painel de gestão é liberado instantaneamente após a confirmação do pagamento.'}
               </div>
 
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.84rem', color: '#e2e8f0' }}>
@@ -293,7 +363,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
                 style={{
                   width: '100%',
                   marginTop: '20px',
-                  background: termsAccepted ? 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)' : '#334155',
+                  background: !termsAccepted ? '#334155' : isFirstFree ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
                   color: '#ffffff',
                   border: 'none',
                   padding: '16px 24px',
@@ -305,7 +375,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
                   transition: 'all 0.2s ease'
                 }}
               >
-                {submitting ? 'Processando Aceite...' : '🤝 Aceitar Proposta e Continuar para Pagamento'}
+                {submitting ? 'Processando Aceite...' : isFirstFree ? '🚀 Aceitar Proposta & Ativar Meu Aplicativo Grátis Agora' : '🤝 Aceitar Proposta e Continuar para Pagamento'}
               </button>
             </div>
 
@@ -322,7 +392,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
                 Assinatura Recorrente Asaas
               </h2>
               <p style={{ fontSize: '0.80rem', color: '#94a3b8', margin: 0 }}>
-                {proposal.church_name} • R$ {Number(proposal.monthly_amount).toFixed(2).replace('.', ',')}/{cycleLabel.toLowerCase()}
+                {proposal.church_name} • R$ {Number(proposal.first_cycle_amount || proposal.monthly_amount).toFixed(2).replace('.', ',')}/{cycleLabel.toLowerCase()}
               </p>
             </div>
 
@@ -381,104 +451,123 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`00020126580014br.gov.bcb.pix0136faithhub-${proposal.id}5204000053039865802BR5913Faith Hub SaaS6009Sao Paulo62070503***6304ABCD`);
+                    navigator.clipboard.writeText(`00020126580014BR.GOV.BCB.PIX0136${proposal.id}5204000053039865405297.005802BR5913FAITHHUB SAAS6009SAO PAULO62070503***6304E8A1`);
                     setPixCopied(true);
                     setTimeout(() => setPixCopied(false), 3000);
                   }}
-                  style={{ background: '#1e293b', color: '#38bdf8', border: '1px solid #334155', padding: '10px 18px', borderRadius: '12px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer' }}
+                  style={{ background: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '10px 18px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', marginBottom: '14px' }}
                 >
                   {pixCopied ? '✓ Código PIX Copiado!' : '📋 Copiar Código PIX Copia e Cola'}
                 </button>
+
+                {/* Botão de Simulação de Pagamento para Teste */}
+                <div style={{ borderTop: '1px dashed #1e293b', paddingTop: '16px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleSimulatePayment}
+                    disabled={activating}
+                    style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '10px 16px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', width: '100%' }}
+                  >
+                    {activating ? 'Provisionando na AWS...' : '⚡ Confirmar Pagamento & Provisionar Agora (Modo Simulação)'}
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Opção Cartão de Crédito */}
             {billingType === 'CREDIT_CARD' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <form onSubmit={(e) => { e.preventDefault(); handleSimulatePayment(); }} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Nome Impresso no Cartão</label>
-                  <input type="text" value={cardHolder} onChange={e => setCardHolder(e.target.value)} placeholder="Como no cartão" style={{ width: '100%', background: '#090d16', border: '1px solid #334155', borderRadius: '10px', padding: '10px 12px', color: '#ffffff', fontSize: '0.84rem' }} />
+                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px' }}>Nome Impresso no Cartão</label>
+                  <input type="text" value={cardHolder} onChange={e => setCardHolder(e.target.value)} placeholder="Ex: CARLOS E SILVA" style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #334155', background: '#090d16', color: '#ffffff', fontSize: '0.84rem' }} required />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Número do Cartão</label>
-                  <input type="text" value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="0000 0000 0000 0000" style={{ width: '100%', background: '#090d16', border: '1px solid #334155', borderRadius: '10px', padding: '10px 12px', color: '#ffffff', fontSize: '0.84rem' }} />
+                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px' }}>Número do Cartão</label>
+                  <input type="text" value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="0000 0000 0000 0000" style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #334155', background: '#090d16', color: '#ffffff', fontSize: '0.84rem' }} required />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Validade (MM/AA)</label>
-                    <input type="text" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} placeholder="MM/AA" style={{ width: '100%', background: '#090d16', border: '1px solid #334155', borderRadius: '10px', padding: '10px 12px', color: '#ffffff', fontSize: '0.84rem' }} />
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px' }}>Validade (MM/AA)</label>
+                    <input type="text" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} placeholder="12/28" style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #334155', background: '#090d16', color: '#ffffff', fontSize: '0.84rem' }} required />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>CVV</label>
-                    <input type="text" value={cardCvv} onChange={e => setCardCvv(e.target.value)} placeholder="123" style={{ width: '100%', background: '#090d16', border: '1px solid #334155', borderRadius: '10px', padding: '10px 12px', color: '#ffffff', fontSize: '0.84rem' }} />
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px' }}>CVV</label>
+                    <input type="text" value={cardCvv} onChange={e => setCardCvv(e.target.value)} placeholder="123" style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #334155', background: '#090d16', color: '#ffffff', fontSize: '0.84rem' }} required />
                   </div>
                 </div>
-              </div>
+
+                <button
+                  type="submit"
+                  disabled={activating}
+                  style={{ width: '100%', marginTop: '10px', background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', color: '#ffffff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 900, fontSize: '0.90rem', cursor: 'pointer' }}
+                >
+                  {activating ? 'Processando Assinatura...' : '🔒 Assinar e Ativar Ambiente'}
+                </button>
+              </form>
             )}
 
-            {/* Botão de Simulação Instantânea de Pagamento para Homologação */}
-            <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={handleSimulatePayment}
-                disabled={activating}
-                style={{
-                  width: '100%',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '14px',
-                  borderRadius: '14px',
-                  fontWeight: 900,
-                  fontSize: '0.90rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)'
-                }}
-              >
-                {activating ? 'Provisionando Ambiente...' : '⚡ Confirmar Pagamento & Liberar Acesso Imediato'}
-              </button>
-              <span style={{ fontSize: '0.70rem', color: '#64748b', display: 'block', marginTop: '6px' }}>
-                O Webhook Asaas provisionará a igreja instantaneamente após a confirmação.
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setStep('view')}
+              style={{ width: '100%', marginTop: '14px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.78rem', cursor: 'pointer' }}
+            >
+              ← Voltar para detalhes da proposta
+            </button>
 
           </div>
         )}
 
-        {/* STEP 3: AMBIENTE LIBERADO COM SUCESSO! */}
+        {/* STEP 3: AMBIENTE ATIVADO COM SUCESSO! */}
         {step === 'success' && (
-          <div style={{ background: '#0f172a', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '28px', padding: '40px 32px', textAlign: 'center', maxWidth: '600px', margin: '0 auto', boxShadow: '0 25px 50px rgba(0,0,0,0.6)' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px auto' }}>
-              ✓
+          <div style={{ background: '#0f172a', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '28px', padding: '40px', textAlign: 'center', boxShadow: '0 25px 60px rgba(0,0,0,0.6)', maxWidth: '640px', margin: '0 auto' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px auto', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              🎉
             </div>
 
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffffff', margin: 0 }}>
-              Parabéns! Ambiente Liberado! 🎉
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#ffffff', margin: '0 0 6px 0' }}>
+              Parabéns! O ambiente da sua igreja está ativo!
             </h2>
-            <p style={{ fontSize: '0.86rem', color: '#94a3b8', marginTop: '8px', lineHeight: 1.5 }}>
-              A assinatura da <strong>{proposal.church_name}</strong> foi confirmada com sucesso no Asaas e seu ecossistema digital já está no ar.
+            <p style={{ fontSize: '0.86rem', color: '#94a3b8', margin: '0 0 24px 0', lineHeight: 1.5 }}>
+              Tudo foi provisionado com sucesso na nuvem AWS. Os acessos administrativos e o link do aplicativo foram gerados.
             </p>
 
-            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '18px', padding: '20px', margin: '24px 0', textAlign: 'left' }}>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
-                DADOS DE ACESSO AO ECOSSISTEMA
+            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '18px', padding: '20px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+              <div>
+                <span style={{ fontSize: '0.70rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Igreja Contratante</span>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>{proposal.church_name}</div>
               </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
-                <div>🌐 <strong>Portal Web Studio:</strong> <a href="https://studio.faithhubs.com" style={{ color: '#38bdf8', textDecoration: 'none' }}>https://studio.faithhubs.com</a></div>
-                <div>📱 <strong>Aplicativo PWA:</strong> <a href={provisionResult?.pwa_url || `https://app.faithhubs.com/${proposal.suggested_slug || 'sua-igreja'}`} style={{ color: '#10b981', textDecoration: 'none' }}>{provisionResult?.pwa_url || `https://app.faithhubs.com/${proposal.suggested_slug || 'sua-igreja'}`}</a></div>
-                <div>👤 <strong>Usuário Administrador:</strong> <span style={{ color: '#f8fafc' }}>{proposal.contact_email}</span></div>
+
+              <div>
+                <span style={{ fontSize: '0.70rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>E-mail do Administrador (Login)</span>
+                <div style={{ fontSize: '0.90rem', fontWeight: 800, color: '#38bdf8' }}>{proposal.contact_email}</div>
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Um e-mail de boas-vindas com a senha provisória foi enviado para esta caixa postal.</span>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.70rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Link do Aplicativo dos Membros (PWA)</span>
+                <div style={{ fontSize: '0.90rem', fontWeight: 800, color: '#10b981' }}>
+                  {provisionResult?.pwa_url || `https://app.faithhubs.com/${proposal.suggested_slug || 'sua-igreja'}`}
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
               <a
                 href="https://studio.faithhubs.com"
-                style={{ flex: 1, background: '#0ea5e9', color: '#ffffff', textDecoration: 'none', padding: '14px', borderRadius: '14px', fontWeight: 900, fontSize: '0.88rem' }}
+                style={{ flex: 1, padding: '14px', borderRadius: '12px', background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', color: '#ffffff', textDecoration: 'none', fontWeight: 800, fontSize: '0.90rem', textAlign: 'center' }}
               >
-                Acessar Portal Web Studio ➔
+                💻 Entrar no Web Studio
+              </a>
+              <a
+                href={provisionResult?.pwa_url || `https://app.faithhubs.com/${proposal.suggested_slug || ''}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ flex: 1, padding: '14px', borderRadius: '12px', background: '#1e293b', color: '#ffffff', textDecoration: 'none', fontWeight: 800, fontSize: '0.90rem', textAlign: 'center', border: '1px solid #334155' }}
+              >
+                📱 Abrir Aplicativo
               </a>
             </div>
+
           </div>
         )}
 
@@ -487,3 +576,5 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
     </div>
   );
 };
+
+export default ProposalPublicView;

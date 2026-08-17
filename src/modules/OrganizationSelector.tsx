@@ -36,6 +36,11 @@ export interface Proposal {
   features_included?: string[];
   proposal_url?: string;
   created_at?: string;
+  discount_type?: string;
+  discount_value?: number;
+  discount_duration_months?: number;
+  first_cycle_amount?: number;
+  notes_commercial?: string;
 }
 
 export interface Subscription {
@@ -107,7 +112,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     setup_fee: '0',
     suggested_slug: '',
     expires_days: '15',
-    notes: ''
+    notes: '',
+    discount_type: 'NONE',
+    discount_value: '100',
+    discount_duration_months: '6',
+    notes_commercial: ''
   });
 
   // Subscriptions State
@@ -239,13 +248,14 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     e.preventDefault();
     setSavingProposal(true);
     try {
-      // Pega os recursos do plano selecionado se disponível
       const selectedPlan = availablePlans.find(p => p.id === proposalForm.plan_tier);
       const res = await fetch(`${API_URL}/proposals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...proposalForm,
+          discount_value: Number(proposalForm.discount_value || 0),
+          discount_duration_months: Number(proposalForm.discount_duration_months || 0),
           features_included: selectedPlan?.features || undefined,
           created_by: userName
         })
@@ -265,7 +275,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           setup_fee: '0',
           suggested_slug: '',
           expires_days: '15',
-          notes: ''
+          notes: '',
+          discount_type: 'NONE',
+          discount_value: '100',
+          discount_duration_months: '6',
+          notes_commercial: ''
         });
         fetchProposals();
         alert(`✓ Proposta comercial gerada com sucesso!\nLink: ${data.proposal.proposal_url}`);
@@ -720,6 +734,28 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                             </div>
                           </div>
 
+                          {/* Discount Badge if any */}
+                          {prop.discount_type && prop.discount_type !== 'NONE' && (
+                            <div style={{
+                              background: prop.discount_type === 'FIRST_FREE' ? '#ecfdf5' : '#eff6ff',
+                              border: prop.discount_type === 'FIRST_FREE' ? '1px solid #a7f3d0' : '1px solid #bfdbfe',
+                              color: prop.discount_type === 'FIRST_FREE' ? '#065f46' : '#1e40af',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              marginBottom: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {prop.discount_type === 'FIRST_FREE' && '🎁 1ª Mensalidade 100% Gratuita (Carência 30d)'}
+                              {prop.discount_type === 'RECURRING_MONTHS_DISCOUNT' && `⏳ Desconto de R$ ${prop.discount_value}/mês por ${prop.discount_duration_months} meses`}
+                              {prop.discount_type === 'FIRST_MONTH_DISCOUNT' && `🏷️ Desconto de R$ ${prop.discount_value} na 1ª mensalidade`}
+                              {prop.discount_type === 'PERMANENT_DISCOUNT' && `💎 Desconto de R$ ${prop.discount_value}/mês permanente`}
+                            </div>
+                          )}
+
                           <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '16px' }}>
                             <div>✉️ {prop.contact_email}</div>
                             {prop.contact_phone && <div>📱 {prop.contact_phone}</div>}
@@ -1088,7 +1124,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    Mensalidade (R$) *
+                    Mensalidade Padrão (R$) *
                   </label>
                   <input
                     type="number"
@@ -1111,6 +1147,79 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                     <option value="YEARLY">Anual</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Commercial Conditions & Discounts Section */}
+              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '1rem' }}>🏷️</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f172a' }}>Condição Comercial Especial & Desconto</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' ? '1.2fr 1fr 1fr' : (proposalForm.discount_type === 'FIRST_MONTH_DISCOUNT' || proposalForm.discount_type === 'PERMANENT_DISCOUNT') ? '1.2fr 1fr' : '1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '4px', color: '#64748b' }}>Regra de Desconto</label>
+                    <select
+                      value={proposalForm.discount_type}
+                      onChange={e => setProposalForm({ ...proposalForm, discount_type: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
+                    >
+                      <option value="NONE">Sem desconto (Preço Cheio Padrão)</option>
+                      <option value="FIRST_FREE">🎁 1ª Mensalidade Grátis (30 Dias Carência)</option>
+                      <option value="FIRST_MONTH_DISCOUNT">🏷️ Desconto na 1ª Mensalidade</option>
+                      <option value="RECURRING_MONTHS_DISCOUNT">⏳ Desconto Temporário por N Meses</option>
+                      <option value="PERMANENT_DISCOUNT">💎 Desconto Permanente</option>
+                    </select>
+                  </div>
+
+                  {(proposalForm.discount_type === 'FIRST_MONTH_DISCOUNT' || proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' || proposalForm.discount_type === 'PERMANENT_DISCOUNT') && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '4px', color: '#64748b' }}>Valor do Desconto (R$)</label>
+                      <input
+                        type="number"
+                        value={proposalForm.discount_value}
+                        onChange={e => setProposalForm({ ...proposalForm, discount_value: e.target.value })}
+                        placeholder="Ex: 100"
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  )}
+
+                  {proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '4px', color: '#64748b' }}>Duração em Meses</label>
+                      <select
+                        value={proposalForm.discount_duration_months}
+                        onChange={e => setProposalForm({ ...proposalForm, discount_duration_months: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
+                      >
+                        <option value="2">2 meses</option>
+                        <option value="3">3 meses</option>
+                        <option value="6">6 meses</option>
+                        <option value="12">12 meses (1 ano)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Preview Box */}
+                {proposalForm.discount_type === 'FIRST_FREE' && (
+                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 12px', borderRadius: '10px', fontSize: '0.76rem', color: '#065f46', fontWeight: 700 }}>
+                    🎁 <strong>Oferta Ativa:</strong> 1º Mês <strong>R$ 0,00</strong> (Provisionamento Imediato no Aceite). A partir do 2º mês: <strong>R$ {Number(proposalForm.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>.
+                  </div>
+                )}
+
+                {proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' && (
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 12px', borderRadius: '10px', fontSize: '0.76rem', color: '#1e40af', fontWeight: 700 }}>
+                    ⏳ <strong>Oferta Ativa:</strong> Meses 1 a {proposalForm.discount_duration_months}: <strong>R$ {Math.max(0, Number(proposalForm.monthly_amount) - Number(proposalForm.discount_value)).toFixed(2).replace('.', ',')}/mês</strong>. A partir do mês {Number(proposalForm.discount_duration_months) + 1}: <strong>R$ {Number(proposalForm.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>.
+                  </div>
+                )}
+
+                {proposalForm.discount_type === 'FIRST_MONTH_DISCOUNT' && (
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 12px', borderRadius: '10px', fontSize: '0.76rem', color: '#1e40af', fontWeight: 700 }}>
+                    🏷️ <strong>Oferta Ativa:</strong> 1º Mês: <strong>R$ {Math.max(0, Number(proposalForm.monthly_amount) - Number(proposalForm.discount_value)).toFixed(2).replace('.', ',')}</strong>. A partir do 2º mês: <strong>R$ {Number(proposalForm.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>.
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer Actions */}
