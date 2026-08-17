@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import './Broadcasts.css';
 
@@ -531,7 +532,7 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
       {/* ========================================================
           WORKSPACE MODAL DA CÉLULA (PAINEL DE ADMINISTRAÇÃO DO GRUPO)
           ======================================================== */}
-      {selectedCell && (
+      {selectedCell && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setSelectedCell(null)}>
           <div 
             className="modal-studio-container" 
@@ -1189,13 +1190,14 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
 
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================
           MODAL DE CRIAR NOVA CÉLULA
           ======================================================== */}
-      {showCreateModal && (
+      {showCreateModal && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setShowCreateModal(false)}>
           <form className="modal-studio-container" style={{ maxWidth: 740 }} onClick={e => e.stopPropagation()} onSubmit={handleSave}>
             <div className="modal-studio-header">
@@ -1339,13 +1341,14 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================
           MODAL DE NOVO ITEM DE ESCALA DE LANCHE (PARTILHA)
           ======================================================== */}
-      {showNewPartilhaModal && (
+      {showNewPartilhaModal && createPortal(
         <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100 }} onClick={() => setShowNewPartilhaModal(false)}>
           <form className="modal-studio-container" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()} onSubmit={handleCreatePartilha}>
             <div className="modal-studio-header">
@@ -1416,7 +1419,8 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

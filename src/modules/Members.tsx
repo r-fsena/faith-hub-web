@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import './Members.css';
 
 // Icons used in Members module
@@ -497,7 +498,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       {/* ========================================================
           INVITE MODAL STUDIO (Com Múltipla Seleção de Unidades)
           ======================================================== */}
-      {isInviteModalOpen && (
+      {isInviteModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setInviteModalOpen(false)}>
           <div className="modal-studio-container" style={{ maxWidth: 840 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-studio-header">
@@ -675,15 +676,16 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================
           EDIT MODAL STUDIO (Com Múltipla Seleção de Unidades)
           ======================================================== */}
-      {isEditModalOpen && memberToEdit && (
-        <div className="modal-overlay animate-fade-in" onClick={() => setEditModalOpen(false)}>
-          <form className="modal-studio-container" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()} onSubmit={submitEditProfile}>
+      {isEditModalOpen && memberToEdit && createPortal(
+        <form className="modal-overlay animate-fade-in" onClick={() => setEditModalOpen(false)} onSubmit={submitEditProfile}>
+          <div className="modal-studio-container" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
@@ -709,6 +711,11 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <input type="text" name="name" className="input-modern" defaultValue={memberToEdit.name} required />
                   </div>
 
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">E-mail (Identificador)</label>
+                    <input type="email" className="input-modern" defaultValue={memberToEdit.email} disabled style={{ opacity: 0.7 }} />
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div className="form-group-modern">
                       <label className="form-label-modern">Telefone / WhatsApp</label>
@@ -718,11 +725,6 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       <label className="form-label-modern">CPF (Opcional)</label>
                       <input type="text" name="cpf" className="input-modern" defaultValue={memberToEdit.cpf || ''} />
                     </div>
-                  </div>
-
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">E-mail de Acesso (Cognito)</label>
-                    <input type="email" className="input-modern" defaultValue={memberToEdit.email} disabled style={{ background: '#f1f5f9', cursor: 'not-allowed' }} />
                   </div>
 
                   <div className="form-group-modern">
@@ -736,29 +738,29 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         Redefinir Senha
                       </button>
                     </div>
-                    <select name="role" className="select-modern" defaultValue={memberToEdit.role}>
-                      <option value="Membro">Membro comum</option>
-                      <option value="Líder de Célula">Líder de Célula</option>
-                      <option value="Pastor de Unidade">Pastor de Unidade</option>
-                      <option value="Pastor Regional">Pastor Regional</option>
-                      <option value="Tesouraria">Tesouraria/Finanças</option>
+                    <select name="role" className="select-modern" defaultValue={memberToEdit.role || 'Membro'}>
+                      <option value="Membro">Membro Comum</option>
+                      <option value="Líder de Célula">Líder de Célula / GC</option>
+                      <option value="Pastor de Unidade">Pastor de Unidade / Filial</option>
+                      <option value="Pastor Regional">Pastor Regional / Multi-Campi</option>
+                      <option value="Tesouraria">Tesouraria / Finanças</option>
                       <option value="ADMIN">Administrador Geral</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Alocar em Célula</label>
+                    <select name="cellGroupId" className="select-modern" defaultValue={memberToEdit.cellGroup || ''}>
+                      <option value="">Nenhuma Célula</option>
+                      {cellGroups.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
                 {/* Right Column: Vínculo de Célula & Múltiplas Unidades */}
                 <div className="modal-studio-column">
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Célula / Base Ministerial</label>
-                    <select name="cellGroup" className="select-modern" defaultValue={memberToEdit.cellGroup || ''}>
-                      <option value="">Nenhum Vínculo Local</option>
-                      {cellGroups.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
                   <div className="form-group-modern">
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Unidades / Campi Autorizados</span>
@@ -775,7 +777,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '6px',
-                      maxHeight: '220px',
+                      maxHeight: '280px',
                       overflowY: 'auto'
                     }}>
                       <div 
@@ -795,7 +797,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                           <span style={{ fontSize: '1rem' }}>🌐</span>
                           <div>
                             <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>Todas as Unidades</div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Gestão Global / Pastor Regional</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Acesso Global Multi-Campi</div>
                           </div>
                         </div>
                         <input 
@@ -853,8 +855,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                 <CheckCircleIcon /> Salvar Alterações
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>,
+        document.body
       )}
     </div>
   );
