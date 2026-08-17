@@ -475,14 +475,14 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       });
 
       if (res.ok) {
-        alert(`✅ Devolução de ${targetCheckin.child_name} liberada com sucesso!`);
+        alert(`✅ Checkout de ${targetCheckin.child_name} realizado com sucesso!`);
         loadCheckins();
       } else {
         const errJson = await res.json().catch(() => ({}));
         alert(errJson.message || "Código QR inválido para esta criança.");
       }
     } catch (e) {
-      alert("Erro ao validar devolução.");
+      alert("Erro ao realizar checkout.");
     }
   };
 
@@ -636,44 +636,49 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
           TAB 1: PAINEL AO VIVO DAS SALAS & CRIANÇAS ATIVAS
           ======================================================== */}
       {activeTab === 'salas' && (
-        <div className="animate-fade-in">
+        <div>
           {/* Top Room Cards Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <div 
+              onClick={() => setSelectedRoomFilter('all')}
+              className="portal-card"
+              style={{
+                cursor: 'pointer',
+                border: selectedRoomFilter === 'all' ? '2px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                background: selectedRoomFilter === 'all' ? 'var(--accent-primary-light)' : '#ffffff',
+                padding: '16px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>Todas as Salas</span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--accent-primary)' }}>{checkins.length}</span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {rooms.length} salas ativas cadastradas
+              </div>
+            </div>
+
             {rooms.map(room => {
               const roomCheckins = checkins.filter(c => c.room_id === room.id);
               const isSelected = selectedRoomFilter === room.id;
-
               return (
                 <div 
                   key={room.id}
-                  onClick={() => setSelectedRoomFilter(isSelected ? 'all' : room.id)}
+                  onClick={() => setSelectedRoomFilter(room.id)}
+                  className="portal-card"
                   style={{
-                    background: '#ffffff',
-                    border: isSelected ? `2px solid ${room.color || 'var(--accent-primary)'}` : '1px solid var(--panel-border)',
-                    borderRadius: 14,
-                    padding: '14px 16px',
                     cursor: 'pointer',
-                    boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.02)',
-                    transition: 'all 0.2s ease',
-                    position: 'relative',
-                    overflow: 'hidden'
+                    border: isSelected ? `2px solid ${room.color || 'var(--accent-primary)'}` : '1px solid var(--panel-border)',
+                    background: isSelected ? `${room.color || 'var(--accent-primary)'}10` : '#ffffff',
+                    padding: '16px'
                   }}
                 >
-                  <div style={{ width: 4, position: 'absolute', top: 0, left: 0, bottom: 0, background: room.color || '#0f766e' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '1.2rem' }}>{room.icon || '👶'}</span>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)' }}>{room.name}</span>
-                    </div>
-                    <span style={{ 
-                      background: roomCheckins.length > 0 ? room.color || '#0f766e' : '#f1f5f9', 
-                      color: roomCheckins.length > 0 ? '#ffffff' : '#64748b',
-                      fontSize: '0.74rem', 
-                      fontWeight: 900, 
-                      padding: '2px 8px', 
-                      borderRadius: 10 
-                    }}>
-                      {roomCheckins.length} {roomCheckins.length === 1 ? 'criança' : 'crianças'}
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>{room.icon}</span> {room.name}
+                    </span>
+                    <span style={{ fontSize: '1.2rem', fontWeight: 900, color: room.color || 'var(--accent-primary)' }}>
+                      {roomCheckins.length}
                     </span>
                   </div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -729,7 +734,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                   padding: '7px 14px'
                 }}
               >
-                <span>📸</span> Escanear QR Code de Devolução
+                <span>📸</span> Realizar Checkout (Ler QR Code)
               </button>
 
               <div style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontWeight: 600 }}>
