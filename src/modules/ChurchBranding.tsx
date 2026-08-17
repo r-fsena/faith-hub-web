@@ -92,8 +92,28 @@ const COLOR_PRESETS = [
   { name: 'Charcoal Dark', hex: '#18181b', accent: '#71717a' },
 ];
 
-export default function ChurchBranding() {
-  const [settings, setSettings] = useState<ChurchBrandingSettings>(DEFAULT_SETTINGS);
+interface ChurchBrandingProps {
+  selectedOrganization?: {
+    id: string;
+    name: string;
+    slug: string;
+    primary_color?: string;
+    secondary_color?: string;
+  };
+}
+
+export default function ChurchBranding({ selectedOrganization }: ChurchBrandingProps = {}) {
+  const orgId = selectedOrganization?.id || 'org_default';
+  const orgSlug = selectedOrganization?.slug || 'faithhub';
+  const orgName = selectedOrganization?.name || 'Minha Igreja';
+
+  const [settings, setSettings] = useState<ChurchBrandingSettings>({
+    ...DEFAULT_SETTINGS,
+    church_name: orgName,
+    pwa_slug: orgSlug,
+    primary_color: selectedOrganization?.primary_color || DEFAULT_SETTINGS.primary_color,
+    secondary_color: selectedOrganization?.secondary_color || DEFAULT_SETTINGS.secondary_color,
+  });
   const [activeTab, setActiveTab] = useState<'profile' | 'visual' | 'pwa'>('profile');
   const [emulatorView, setEmulatorView] = useState<'home' | 'splash' | 'qr'>('home');
   const [saving, setSaving] = useState(false);
@@ -108,30 +128,31 @@ export default function ChurchBranding() {
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [orgId, orgSlug]);
 
   const loadSettings = async () => {
-    // 1. Carrega do cache local imediato para não piscar a tela
-    const saved = localStorage.getItem('faithhub_church_branding');
+    // 1. Carrega do cache local específico da organização
+    const cacheKey = `faithhub_church_branding_${orgId}`;
+    const saved = localStorage.getItem(cacheKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+        setSettings({ ...DEFAULT_SETTINGS, church_name: orgName, pwa_slug: orgSlug, ...parsed });
         applyDynamicTheme(parsed.primary_color);
       } catch (e) {
         console.error("Erro ao carregar branding local", e);
       }
     }
 
-    // 2. Busca as informações persistidas diretamente no banco de dados na nuvem
+    // 2. Busca as informações persistidas diretamente no banco de dados na nuvem para esta organização
     try {
-      const res = await fetch(`${API_URL}/church-settings`);
+      const res = await fetch(`${API_URL}/church-settings?organization_id=${encodeURIComponent(orgId)}&slug=${encodeURIComponent(orgSlug)}`);
       if (res.ok) {
         const backendData = await res.json();
         if (backendData && backendData.church_name) {
           const merged: ChurchBrandingSettings = {
             ...DEFAULT_SETTINGS,
-            church_name: backendData.church_name,
+            church_name: backendData.church_name || orgName,
             tagline: backendData.slogan || '',
             cnpj: backendData.cnpj || '',
             address: `${backendData.address_street || ''} ${backendData.address_number || ''}`.trim(),
@@ -145,10 +166,10 @@ export default function ChurchBranding() {
             logo_icon_url: backendData.logo_icon_url || '',
             logo_header_url: backendData.logo_header_url || '',
             banner_url: backendData.banner_url || '',
-            primary_color: backendData.primary_color || DEFAULT_SETTINGS.primary_color,
-            secondary_color: backendData.secondary_color || DEFAULT_SETTINGS.secondary_color,
-            pwa_short_name: backendData.pwa_short_name || DEFAULT_SETTINGS.pwa_short_name,
-            pwa_slug: backendData.pwa_slug || DEFAULT_SETTINGS.pwa_slug,
+            primary_color: backendData.primary_color || selectedOrganization?.primary_color || DEFAULT_SETTINGS.primary_color,
+            secondary_color: backendData.secondary_color || selectedOrganization?.secondary_color || DEFAULT_SETTINGS.secondary_color,
+            pwa_short_name: backendData.pwa_short_name || orgName.slice(0, 12),
+            pwa_slug: backendData.pwa_slug || orgSlug,
             pwa_theme_color: backendData.pwa_theme_color || backendData.primary_color || DEFAULT_SETTINGS.pwa_theme_color,
             pwa_splash_bg: backendData.pwa_splash_bg || DEFAULT_SETTINGS.pwa_splash_bg,
             pwa_description: backendData.pwa_description || DEFAULT_SETTINGS.pwa_description,
@@ -156,7 +177,7 @@ export default function ChurchBranding() {
             custom_domain: backendData.custom_domain || ''
           };
           setSettings(merged);
-          localStorage.setItem('faithhub_church_branding', JSON.stringify(merged));
+          localStorage.setItem(cacheKey, JSON.stringify(merged));
           applyDynamicTheme(merged.primary_color);
         }
       }
@@ -186,7 +207,8 @@ export default function ChurchBranding() {
     setSaveSuccess(false);
 
     try {
-      localStorage.setItem('faithhub_church_branding', JSON.stringify(settings));
+      const cacheKey = `faithhub_church_branding_${orgId}`;
+      localStorage.setItem(cacheKey, JSON.stringify(settings));
       applyDynamicTheme(settings.primary_color);
 
       // Dispara evento global para que o App.tsx atualize na hora o cabeçalho/sidebar
@@ -200,7 +222,12 @@ export default function ChurchBranding() {
         await fetch(`${API_URL}/church-settings`, {
           method: 'POST',
           headers,
-          body: JSON.stringify(settings)
+          body: JSON.stringify({
+            ...settings,
+            organization_id: orgId,
+            pwa_slug: settings.pwa_slug || orgSlug,
+            id: `settings_${orgSlug.replace(/-/g, '_')}`
+          })
         });
       } catch (backendErr) {
         console.log("Salvo localmente com sucesso.");

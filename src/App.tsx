@@ -1057,7 +1057,7 @@ function App() {
             {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
             {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
-            {activeTab === 'church_branding' && <ChurchBranding />}
+            {activeTab === 'church_branding' && <ChurchBranding selectedOrganization={selectedOrganization} />}
 
             {/* Settings View */}
             {activeTab === 'configuracoes' && (
