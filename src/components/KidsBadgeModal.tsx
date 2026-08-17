@@ -39,72 +39,27 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
   };
 
   const modalContent = (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(6px)',
-      zIndex: 999999,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 16
-    }}>
+    <div className="modal-overlay" onClick={onClose}>
       <div 
-        className="animate-scale-up"
-        style={{
-          background: '#ffffff',
-          borderRadius: 24,
-          maxWidth: 440,
-          width: '100%',
-          overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
+        className="modal-studio-container animate-scale-up"
+        onClick={e => e.stopPropagation()}
+        style={{ maxWidth: 460, width: '100%' }}
       >
         {/* Top Header */}
-        <div style={{
-          background: 'linear-gradient(135deg, var(--accent-primary, #0f766e) 0%, #0d9488 100%)',
-          color: '#ffffff',
-          padding: '18px 22px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.2)', width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
+        <div className="modal-studio-header">
+          <div className="modal-studio-header-left">
+            <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
               ✨
             </div>
             <div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 900, lineHeight: 1.2 }}>Check-in Confirmado!</div>
-              <div style={{ fontSize: '0.76rem', opacity: 0.9 }}>Crachá de Segurança & QR Code</div>
+              <div className="modal-studio-title">Check-in Confirmado!</div>
+              <div className="modal-studio-subtitle">Crachá de segurança & QR Code de retirada</div>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              border: 'none',
-              color: '#ffffff',
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 900,
-              fontSize: '0.9rem'
-            }}
-          >
+          <div className="modal-close-circle" onClick={onClose}>
             ✕
-          </button>
+          </div>
         </div>
 
         {/* Printable Card Area */}
@@ -112,9 +67,9 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
           
           {/* Room Pill */}
           <div style={{
-            background: badge.room_color ? `${badge.room_color}15` : '#f0fdfa',
-            color: badge.room_color || 'var(--accent-primary, #0f766e)',
-            border: `1px solid ${badge.room_color || 'var(--accent-primary, #0f766e)'}40`,
+            background: badge.room_color ? `${badge.room_color}18` : 'var(--accent-primary-light)',
+            color: badge.room_color || 'var(--accent-primary)',
+            border: `1px solid ${badge.room_color || 'var(--accent-primary)'}35`,
             padding: '5px 16px',
             borderRadius: 20,
             fontSize: '0.80rem',
@@ -127,12 +82,12 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
           </div>
 
           {/* Child Name */}
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-main, #0f172a)', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-main)', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
             {badge.child_name}
           </h2>
 
           {/* Parent Info */}
-          <div style={{ fontSize: '0.84rem', color: '#64748b', marginBottom: 14 }}>
+          <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
             Responsável: <strong>{badge.parent_name}</strong> • {badge.parent_phone}
           </div>
 
@@ -157,8 +112,8 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
           {/* QR Code Frame */}
           <div style={{
             background: '#ffffff',
-            border: '2px dashed #cbd5e1',
-            borderRadius: 16,
+            border: '2px dashed var(--panel-border)',
+            borderRadius: 18,
             padding: 14,
             display: 'inline-flex',
             flexDirection: 'column',
@@ -169,18 +124,18 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
             <img 
               src={qrCodeUrl} 
               alt={`QR Code ${badge.security_code}`} 
-              style={{ width: 180, height: 180, borderRadius: 8, display: 'block' }} 
+              style={{ width: 170, height: 170, borderRadius: 10, display: 'block' }} 
             />
-            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', marginTop: 8, textTransform: 'uppercase' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Apresente no checkout
             </span>
           </div>
 
           {/* Large Security PIN Box */}
           <div style={{
-            background: '#f8fafc',
-            border: '2px solid var(--accent-primary, #0f766e)',
-            borderRadius: 14,
+            background: 'var(--bg-subtle)',
+            border: '1.5px solid var(--accent-primary)',
+            borderRadius: 16,
             padding: '12px 24px',
             width: '100%',
             display: 'flex',
@@ -188,10 +143,10 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
             alignItems: 'center'
           }}>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '0.66rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Código de Retirada</div>
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>Entrada: {checkinTime}</div>
+              <div style={{ fontSize: '0.66rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Código de Retirada</div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Entrada: {checkinTime}</div>
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--accent-primary, #0f766e)', letterSpacing: '0.08em' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--accent-primary)', letterSpacing: '0.08em' }}>
               {badge.security_code}
             </div>
           </div>
@@ -217,7 +172,8 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
                   gap: 6,
                   fontWeight: 800,
                   fontSize: '0.86rem',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 8px rgba(37, 211, 102, 0.25)'
                 }}
               >
                 <span>💬</span> WhatsApp Pais
@@ -227,12 +183,9 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
             <button
               type="button"
               onClick={handlePrint}
+              className="btn-secondary"
               style={{
                 flex: 1,
-                background: '#f1f5f9',
-                color: 'var(--text-main, #0f172a)',
-                border: '1px solid #cbd5e1',
-                borderRadius: 12,
                 padding: '11px',
                 display: 'flex',
                 alignItems: 'center',
@@ -240,7 +193,8 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
                 gap: 6,
                 fontWeight: 800,
                 fontSize: '0.86rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                borderRadius: 12
               }}
             >
               <span>🖨️</span> Imprimir Crachá
@@ -252,19 +206,19 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
               <button
                 type="button"
                 onClick={onNewCheckin}
+                className="btn-secondary"
                 style={{
-                  background: 'var(--accent-primary-light, #f0fdfa)',
-                  color: 'var(--accent-primary, #0f766e)',
-                  border: '1.5px solid var(--accent-primary, #0f766e)',
                   borderRadius: 12,
                   padding: '12px',
-                  fontWeight: 900,
+                  fontWeight: 800,
                   fontSize: '0.86rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 4
+                  gap: 4,
+                  borderColor: 'var(--accent-primary)',
+                  color: 'var(--accent-primary)'
                 }}
               >
                 <span>➕</span> Novo Check-in
@@ -274,20 +228,17 @@ export const KidsBadgeModal: React.FC<KidsBadgeModalProps> = ({ isOpen, onClose,
             <button
               type="button"
               onClick={onClose}
+              className="btn-primary"
               style={{
-                background: 'var(--accent-primary, #0f766e)',
-                color: '#ffffff',
-                border: 'none',
                 borderRadius: 12,
                 padding: '12px',
-                fontWeight: 900,
+                fontWeight: 800,
                 fontSize: '0.88rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
-                boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
+                gap: 4
               }}
             >
               <span>🚪</span> Voltar às Salas

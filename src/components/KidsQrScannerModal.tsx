@@ -144,74 +144,29 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.85)',
-      backdropFilter: 'blur(8px)',
-      zIndex: 9999999,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 16
-    }}>
+    <div className="modal-overlay" onClick={onClose}>
       <div 
-        className="animate-scale-up"
-        style={{
-          background: '#ffffff',
-          borderRadius: 24,
-          maxWidth: 400,
-          width: '100%',
-          overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
+        className="modal-studio-container animate-scale-up"
+        onClick={e => e.stopPropagation()}
+        style={{ maxWidth: 420, width: '100%' }}
       >
         {/* Header */}
-        <div style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-          color: '#ffffff',
-          padding: '18px 22px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.15)', width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="modal-studio-header">
+          <div className="modal-studio-header-left">
+            <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
               📸
             </div>
             <div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 900 }}>Escanear QR Code</div>
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
-                {childName ? `Checkout de ${childName}` : 'Realizar Checkout Seguro'}
+              <div className="modal-studio-title">Realizar Checkout</div>
+              <div className="modal-studio-subtitle">
+                {childName ? `Liberando devolução de ${childName}` : 'Escanear QR Code ou PIN'}
               </div>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'rgba(255, 255, 255, 0.15)',
-              border: 'none',
-              color: '#ffffff',
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 900,
-              fontSize: '0.85rem'
-            }}
-          >
+          <div className="modal-close-circle" onClick={onClose}>
             ✕
-          </button>
+          </div>
         </div>
 
         {/* Camera Viewfinder Area */}
@@ -221,14 +176,15 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
             position: 'relative',
             width: '100%',
             maxWidth: 300,
-            height: 300,
+            height: 280,
             background: '#0f172a',
             borderRadius: 20,
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)'
+            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
+            border: '1.5px solid var(--panel-border)'
           }}>
             <video 
               ref={videoRef} 
@@ -246,8 +202,8 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                width: 200,
-                height: 200,
+                width: 190,
+                height: 190,
                 border: '2px solid rgba(255, 255, 255, 0.7)',
                 borderRadius: 18,
                 boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.35)',
@@ -259,8 +215,8 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
                 <div style={{
                   width: '90%',
                   height: '2px',
-                  background: 'linear-gradient(90deg, transparent, #22d3ee, transparent)',
-                  boxShadow: '0 0 10px #22d3ee',
+                  background: 'linear-gradient(90deg, transparent, var(--accent-primary), transparent)',
+                  boxShadow: '0 0 10px var(--accent-primary)',
                   animation: 'scanLine 2s infinite ease-in-out'
                 }} />
               </div>
@@ -274,15 +230,15 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
             )}
           </div>
 
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 12, textAlign: 'center' }}>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 12, textAlign: 'center' }}>
             Aponte a câmera para o QR Code no celular do responsável
           </div>
 
           {/* Divisor "OU" */}
           <div style={{ display: 'flex', alignItems: 'center', width: '100%', margin: '16px 0 12px 0', gap: 10 }}>
-            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-            <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Ou digite o PIN</span>
-            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+            <div style={{ flex: 1, height: '1px', background: 'var(--panel-border)' }} />
+            <span style={{ fontSize: '0.70rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ou digite o PIN</span>
+            <div style={{ flex: 1, height: '1px', background: 'var(--panel-border)' }} />
           </div>
 
           {/* Digitação Manual do PIN */}
@@ -297,9 +253,9 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
                 textAlign: 'center',
                 fontWeight: 900,
                 fontSize: '1.1rem',
-                letterSpacing: '0.05em',
+                letterSpacing: '0.08em',
                 padding: '10px 14px',
-                border: '1.5px solid #cbd5e1',
+                border: '1.5px solid var(--panel-border)',
                 borderRadius: 12,
                 outline: 'none'
               }}
@@ -307,13 +263,11 @@ export const KidsQrScannerModal: React.FC<KidsQrScannerModalProps> = ({
             <button
               type="submit"
               disabled={!manualPin.trim()}
+              className="btn-primary"
               style={{
-                background: 'var(--accent-primary, #0f766e)',
-                color: '#ffffff',
-                border: 'none',
                 borderRadius: 12,
                 padding: '10px 20px',
-                fontWeight: 900,
+                fontWeight: 800,
                 fontSize: '0.86rem',
                 cursor: manualPin.trim() ? 'pointer' : 'not-allowed',
                 opacity: manualPin.trim() ? 1 : 0.6
