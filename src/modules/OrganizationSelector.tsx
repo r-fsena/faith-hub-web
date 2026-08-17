@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { SaasPlans, type SaasPlan } from './SaasPlans';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -57,7 +58,7 @@ interface OrganizationSelectorProps {
 }
 
 export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName }) => {
-  const [activeTab, setActiveTab] = useState<'orgs' | 'proposals' | 'subscriptions' | 'master_users'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users'>('orgs');
   
   // Organizations State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -89,6 +90,9 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
   const [savingProposal, setSavingProposal] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  // Dynamic Plans State
+  const [availablePlans, setAvailablePlans] = useState<SaasPlan[]>([]);
   
   // New Proposal Form
   const [proposalForm, setProposalForm] = useState({
@@ -128,7 +132,20 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     fetchOrganizations();
     fetchProposals();
     fetchSubscriptions();
+    fetchAvailablePlans();
   }, []);
+
+  const fetchAvailablePlans = async () => {
+    try {
+      const res = await fetch(`${API_URL}/saas-plans`);
+      if (res.ok) {
+        const json = await res.json();
+        setAvailablePlans(json || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchOrganizations = async () => {
     setLoadingOrgs(true);
@@ -205,15 +222,31 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     }
   };
 
+  const handlePlanChangeInProposal = (planId: string) => {
+    const selected = availablePlans.find(p => p.id === planId);
+    if (selected) {
+      setProposalForm(prev => ({
+        ...prev,
+        plan_tier: planId,
+        monthly_amount: String(selected.monthly_price)
+      }));
+    } else {
+      setProposalForm(prev => ({ ...prev, plan_tier: planId }));
+    }
+  };
+
   const handleCreateProposal = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingProposal(true);
     try {
+      // Pega os recursos do plano selecionado se disponível
+      const selectedPlan = availablePlans.find(p => p.id === proposalForm.plan_tier);
       const res = await fetch(`${API_URL}/proposals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...proposalForm,
+          features_included: selectedPlan?.features || undefined,
           created_by: userName
         })
       });
@@ -310,25 +343,32 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
       
-      {/* Top Header do SaaS Command Center */}
-      <header style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--panel-border)',
+      {/* ========================================================
+          SIDEBAR MASTER (ESTILO WEB STUDIO)
+          ======================================================== */}
+      <aside style={{
+        width: '260px',
+        backgroundColor: '#ffffff',
+        borderRight: '1px solid var(--panel-border)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
         position: 'sticky',
         top: 0,
-        zIndex: 50
+        height: '100vh',
+        zIndex: 40,
+        boxShadow: 'var(--shadow-sm)'
       }}>
-        <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div>
+          {/* Top Brand Logo */}
+          <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: '42px',
               height: '42px',
               borderRadius: '12px',
-              background: 'var(--accent-primary-gradient)',
+              background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
@@ -340,478 +380,532 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               ✝
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h1 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
                   Faith-Hub
                 </h1>
                 <span style={{
-                  background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
-                  color: '#ffffff',
-                  fontSize: '0.70rem',
+                  background: 'rgba(15, 118, 110, 0.1)',
+                  color: '#0f766e',
+                  fontSize: '0.65rem',
                   fontWeight: 900,
-                  padding: '3px 9px',
-                  borderRadius: '6px',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
                   letterSpacing: '0.04em'
                 }}>
-                  MASTER COMMAND CENTER
+                  MASTER
                 </span>
               </div>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Gestão Global de Redes, Propostas Comerciais & Recorrência Asaas
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                SaaS Command Center
               </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ textAlign: 'right', display: 'none', md: 'block' } as any}>
-              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-main)' }}>{userName || 'Super Administrador'}</div>
-              <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 700 }}>● Acesso Global Ativo</div>
-            </div>
+          {/* Navigation Links */}
+          <nav style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {[
+              { id: 'orgs', label: 'Redes & Igrejas', icon: '🏛️', count: organizations.length },
+              { id: 'proposals', label: 'Funil de Propostas', icon: '📊', count: proposals.length },
+              { id: 'subscriptions', label: 'Assinaturas Asaas', icon: '💳', count: subscriptions.length },
+              { id: 'plans', label: 'Planos & Preços', icon: '💎', count: availablePlans.length },
+              { id: 'master_users', label: 'Equipe Master', icon: '🛡️', count: null }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: activeTab === tab.id ? 'var(--accent-primary-light)' : 'transparent',
+                  color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  fontWeight: activeTab === tab.id ? 800 : 600,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '1.1rem' }}>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </div>
+                {tab.count !== null && (
+                  <span style={{
+                    background: activeTab === tab.id ? 'var(--accent-primary)' : '#f1f5f9',
+                    color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)',
+                    fontSize: '0.70rem',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '999px'
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
 
+        {/* User Footer */}
+        <div style={{ padding: '16px', borderTop: '1px solid var(--panel-border)', background: '#f8fafc' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.90rem' }}>
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                  {userName}
+                </div>
+                <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 700 }}>● Master Global</span>
+              </div>
+            </div>
             <button
               onClick={onSignOut}
-              className="btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.80rem', borderRadius: '10px' }}
+              style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, padding: '6px' }}
+              title="Encerrar Sessão"
             >
               Sair
             </button>
           </div>
-
         </div>
+      </aside>
 
-        {/* Executive KPI Bar */}
-        <div style={{ background: '#f8fafc', borderTop: '1px solid var(--panel-border)', padding: '12px 24px' }}>
-          <div style={{ maxWidth: '1360px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+      {/* ========================================================
+          MAIN CONTENT AREA
+          ======================================================== */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        
+        {/* Top Executive KPI Bar */}
+        <header style={{ background: '#ffffff', borderBottom: '1px solid var(--panel-border)', padding: '16px 32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
             
-            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+            <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
               <div style={{ fontSize: '0.70rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>🏛️ Igrejas Ativas</div>
-              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>{organizations.length}</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>{organizations.length}</div>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+            <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
               <div style={{ fontSize: '0.70rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>💵 MRR Ativo (Asaas)</div>
-              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#059669', marginTop: '2px' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#059669', marginTop: '2px' }}>
                 R$ {Number(proposalStats.active_mrr || (organizations.length * 297)).toFixed(2).replace('.', ',')}
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
-              <div style={{ fontSize: '0.70rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>⏳ Pipeline de Propostas</div>
-              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0284c7', marginTop: '2px' }}>
+            <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
+              <div style={{ fontSize: '0.70rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>⏳ Pipeline em Propostas</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0284c7', marginTop: '2px' }}>
                 R$ {Number(proposalStats.pipeline_mrr || 0).toFixed(2).replace('.', ',')}
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '10px 14px' }}>
+            <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
               <div style={{ fontSize: '0.70rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>🎯 Taxa de Conversão</div>
-              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-main)', marginTop: '2px' }}>
                 {proposalStats.conversion_rate || 0}%
               </div>
             </div>
 
           </div>
-        </div>
+        </header>
 
-        {/* Master Navigation Tabs */}
-        <div style={{ maxWidth: '1360px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
-          {[
-            { id: 'orgs', label: `🏛️ Redes & Igrejas Ativas (${organizations.length})` },
-            { id: 'proposals', label: `📊 Funil de Propostas (${proposals.length})` },
-            { id: 'subscriptions', label: `💳 Assinaturas Asaas (${subscriptions.length})` },
-            { id: 'master_users', label: '🛡️ Equipe Master' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              style={{
-                padding: '12px 18px',
-                border: 'none',
-                borderBottom: activeTab === tab.id ? '3px solid var(--accent-primary)' : '3px solid transparent',
-                background: 'transparent',
-                color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                fontWeight: 800,
-                fontSize: '0.84rem',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </header>
+        {/* Tab Content */}
+        <main style={{ padding: '32px', flex: 1 }}>
+          
+          {/* TAB 1: REDES & IGREJAS ATIVAS */}
+          {activeTab === 'orgs' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div className="search-box-modern" style={{ width: '360px', margin: 0 }}>
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome da igreja, slug ou CNPJ..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                  />
+                </div>
 
-      {/* Main Content Area */}
-      <main style={{ maxWidth: '1360px', margin: '0 auto', padding: '28px 24px' }}>
-        
-        {/* ========================================================
-            TAB 1: REDES & IGREJAS ATIVAS
-            ======================================================== */}
-        {activeTab === 'orgs' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-              <div className="search-box-modern" style={{ width: '360px', margin: 0 }}>
-                <input
-                  type="text"
-                  placeholder="Buscar por nome da igreja, slug ou CNPJ..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
+                <button
+                  onClick={() => setIsOrgModalOpen(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '10px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)'
+                  }}
+                >
+                  + Nova Rede / Denominação
+                </button>
               </div>
 
-              <button
-                onClick={() => setIsOrgModalOpen(true)}
-                className="btn-primary"
-                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.84rem' }}
-              >
-                + Nova Organização / Rede
-              </button>
-            </div>
+              {loadingOrgs ? (
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando congregações...</div>
+              ) : filteredOrgs.length === 0 ? (
+                <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                  <h3>Nenhuma congregação encontrada</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Crie uma nova rede ou emita uma proposta comercial.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+                  {filteredOrgs.map(org => (
+                    <div
+                      key={org.id}
+                      className="portal-card animate-fade-in"
+                      style={{
+                        margin: 0,
+                        padding: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        position: 'relative',
+                        border: '1px solid var(--panel-border)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${org.primary_color || '#0f766e'} 0%, ${org.secondary_color || '#14b8a6'} 100%)` }} />
 
-            {/* Grid de Igrejas */}
-            {loadingOrgs ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando igrejas...</div>
-            ) : filteredOrgs.length === 0 ? (
-              <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
-                <h3>Nenhuma organização encontrada</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Crie uma nova rede ou emita uma proposta comercial.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-                {filteredOrgs.map(org => (
-                  <div
-                    key={org.id}
-                    className="portal-card animate-fade-in"
-                    style={{
-                      margin: 0,
-                      padding: '24px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      position: 'relative',
-                      border: '1px solid var(--panel-border)',
-                      boxShadow: 'var(--shadow-sm)'
-                    }}
-                  >
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${org.primary_color || '#0f766e'} 0%, ${org.secondary_color || '#14b8a6'} 100%)` }} />
-
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: org.primary_color || '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
-                            {org.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{org.name}</h2>
-                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>app: <strong>app.faithhubs.com/{org.slug}</strong></span>
-                          </div>
-                        </div>
-                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>{org.plan || 'PRO'}</span>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '16px', border: '1px solid var(--panel-border)' }}>
-                        <div>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{org.total_campuses ?? 1}</div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Campi / Filiais</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#059669' }}>Ativa</div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Status do SaaS</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button
-                        onClick={() => onSelectOrg(org)}
-                        className="btn-primary"
-                        style={{ flex: 1, padding: '10px', fontSize: '0.84rem', borderRadius: '10px' }}
-                      >
-                        Acessar Studio ➔
-                      </button>
-                      <a
-                        href={`https://app.faithhubs.com/${org.slug}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn-secondary"
-                        style={{ padding: '10px 14px', fontSize: '0.84rem', borderRadius: '10px', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
-                      >
-                        📱 App
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ========================================================
-            TAB 2: FUNIL DE PROPOSTAS COMERCIAIS
-            ======================================================== */}
-        {activeTab === 'proposals' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-              
-              {/* Filtros de Status */}
-              <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
-                {[
-                  { id: 'ALL', label: 'Todas' },
-                  { id: 'SENT', label: 'Enviadas' },
-                  { id: 'VIEWED', label: 'Visualizadas' },
-                  { id: 'ACCEPTED', label: 'Aceitas' },
-                  { id: 'PAID', label: 'Pagas & Ativas' }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setProposalFilter(f.id)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: proposalFilter === f.id ? '#ffffff' : 'transparent',
-                      color: proposalFilter === f.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                      fontWeight: 800,
-                      fontSize: '0.76rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setIsProposalModalOpen(true)}
-                className="btn-primary"
-                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.84rem' }}
-              >
-                + Nova Proposta Comercial
-              </button>
-            </div>
-
-            {loadingProposals ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando propostas...</div>
-            ) : filteredProposals.length === 0 ? (
-              <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📄</div>
-                <h3>Nenhuma proposta comercial encontrada</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Clique no botão acima para emitir a primeira proposta personalizada.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
-                {filteredProposals.map(prop => {
-                  const statusColors: any = {
-                    SENT: { bg: '#fef3c7', text: '#d97706', label: 'Enviada' },
-                    VIEWED: { bg: '#e0f2fe', text: '#0284c7', label: '👀 Visualizada pelo Pastor' },
-                    ACCEPTED: { bg: '#fef9c3', text: '#ca8a04', label: '✍️ Aceita (Aguardando Pagto)' },
-                    PAID: { bg: '#ecfdf5', text: '#059669', label: '✓ Paga & Provisionada' },
-                    CANCELLED: { bg: '#fee2e2', text: '#dc2626', label: 'Cancelada' }
-                  };
-                  const badge = statusColors[prop.status] || { bg: '#f1f5f9', text: '#64748b', label: prop.status };
-
-                  return (
-                    <div key={prop.id} className="portal-card animate-fade-in" style={{ margin: 0, padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--panel-border)' }}>
                       <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                          <div>
-                            <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>{prop.church_name}</h3>
-                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Responsável: {prop.contact_name}</span>
-                          </div>
-                          <span style={{ background: badge.bg, color: badge.text, padding: '4px 9px', borderRadius: '8px', fontSize: '0.70rem', fontWeight: 800 }}>
-                            {badge.label}
-                          </span>
-                        </div>
-
-                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', margin: '14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mensalidade Acordada</span>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--accent-primary)' }}>
-                              R$ {Number(prop.monthly_amount).toFixed(2).replace('.', ',')}<span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)' }}>/mês</span>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: org.primary_color || '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
+                              {org.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{org.name}</h2>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>app: <strong>app.faithhubs.com/{org.slug}</strong></span>
                             </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Plano</span>
-                            <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-main)' }}>{prop.plan_tier}</div>
+                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>{org.plan || 'PRO'}</span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '16px', border: '1px solid var(--panel-border)' }}>
+                          <div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{org.total_campuses ?? 1}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Campi / Filiais</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#059669' }}>Ativa</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Status do SaaS</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={() => onSelectOrg(org)}
+                          className="btn-primary"
+                          style={{ flex: 1, padding: '10px', fontSize: '0.84rem', borderRadius: '10px' }}
+                        >
+                          Acessar Studio ➔
+                        </button>
+                        <a
+                          href={`https://app.faithhubs.com/${org.slug}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-secondary"
+                          style={{ padding: '10px 14px', fontSize: '0.84rem', borderRadius: '10px', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+                        >
+                          📱 App
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: FUNIL DE PROPOSTAS */}
+          {activeTab === 'proposals' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+                  {[
+                    { id: 'ALL', label: 'Todas' },
+                    { id: 'SENT', label: 'Enviadas' },
+                    { id: 'VIEWED', label: 'Visualizadas' },
+                    { id: 'ACCEPTED', label: 'Aceitas' },
+                    { id: 'PAID', label: 'Pagas & Ativas' }
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setProposalFilter(f.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: proposalFilter === f.id ? '#ffffff' : 'transparent',
+                        color: proposalFilter === f.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                        fontWeight: 800,
+                        fontSize: '0.76rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setIsProposalModalOpen(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '10px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)'
+                  }}
+                >
+                  + Nova Proposta Comercial
+                </button>
+              </div>
+
+              {loadingProposals ? (
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando propostas...</div>
+              ) : filteredProposals.length === 0 ? (
+                <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📄</div>
+                  <h3>Nenhuma proposta comercial encontrada</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Clique no botão acima para emitir a primeira proposta personalizada.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
+                  {filteredProposals.map(prop => {
+                    const statusColors: any = {
+                      SENT: { bg: '#fef3c7', text: '#d97706', label: 'Enviada' },
+                      VIEWED: { bg: '#e0f2fe', text: '#0284c7', label: '👀 Visualizada pelo Pastor' },
+                      ACCEPTED: { bg: '#fef9c3', text: '#ca8a04', label: '✍️ Aceita (Aguardando Pagto)' },
+                      PAID: { bg: '#ecfdf5', text: '#059669', label: '✓ Paga & Provisionada' },
+                      CANCELLED: { bg: '#fee2e2', text: '#dc2626', label: 'Cancelada' }
+                    };
+                    const badge = statusColors[prop.status] || { bg: '#f1f5f9', text: '#64748b', label: prop.status };
+
+                    return (
+                      <div key={prop.id} className="portal-card animate-fade-in" style={{ margin: 0, padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--panel-border)' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <div>
+                              <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>{prop.church_name}</h3>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Responsável: {prop.contact_name}</span>
+                            </div>
+                            <span style={{ background: badge.bg, color: badge.text, padding: '4px 9px', borderRadius: '8px', fontSize: '0.70rem', fontWeight: 800 }}>
+                              {badge.label}
+                            </span>
+                          </div>
+
+                          <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', margin: '14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mensalidade Acordada</span>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--accent-primary)' }}>
+                                R$ {Number(prop.monthly_amount).toFixed(2).replace('.', ',')}<span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)' }}>/mês</span>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Plano</span>
+                              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-main)' }}>{prop.plan_tier}</div>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '16px' }}>
+                            <div>✉️ {prop.contact_email}</div>
+                            {prop.contact_phone && <div>📱 {prop.contact_phone}</div>}
                           </div>
                         </div>
 
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '16px' }}>
-                          <div>✉️ {prop.contact_email}</div>
-                          {prop.contact_phone && <div>📱 {prop.contact_phone}</div>}
-                        </div>
-                      </div>
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(prop.proposal_url || `https://studio.faithhubs.com/?proposta=${prop.token}`);
+                                setCopiedToken(prop.token);
+                                setTimeout(() => setCopiedToken(null), 3000);
+                              }}
+                              className="btn-secondary"
+                              style={{ flex: 1, padding: '8px', fontSize: '0.78rem', borderRadius: '8px' }}
+                            >
+                              {copiedToken === prop.token ? '✓ Link Copiado!' : '📋 Copiar Link'}
+                            </button>
 
-                      {/* Action Buttons */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(prop.proposal_url || `https://studio.faithhubs.com/?proposta=${prop.token}`);
-                              setCopiedToken(prop.token);
-                              setTimeout(() => setCopiedToken(null), 3000);
-                            }}
-                            className="btn-secondary"
-                            style={{ flex: 1, padding: '8px', fontSize: '0.78rem', borderRadius: '8px' }}
-                          >
-                            {copiedToken === prop.token ? '✓ Link Copiado!' : '📋 Copiar Link'}
-                          </button>
+                            {prop.contact_phone && (
+                              <a
+                                href={`https://wa.me/${prop.contact_phone.replace(/\D/g, '')}?text=Ol%C3%A1%20${encodeURIComponent(prop.contact_name)}!%20Segue%20a%20sua%20proposta%20exclusiva%20para%20o%20aplicativo%20da%20${encodeURIComponent(prop.church_name)}:%20${encodeURIComponent(prop.proposal_url || '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '8px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 800, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                💬 WhatsApp
+                              </a>
+                            )}
 
-                          {prop.contact_phone && (
                             <a
-                              href={`https://wa.me/${prop.contact_phone.replace(/\D/g, '')}?text=Ol%C3%A1%20${encodeURIComponent(prop.contact_name)}!%20Segue%20a%20sua%20proposta%20exclusiva%20para%20o%20aplicativo%20da%20${encodeURIComponent(prop.church_name)}:%20${encodeURIComponent(prop.proposal_url || '')}`}
+                              href={prop.proposal_url}
                               target="_blank"
                               rel="noreferrer"
-                              style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '8px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 800, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              className="btn-secondary"
+                              style={{ padding: '8px 10px', fontSize: '0.78rem', borderRadius: '8px', textDecoration: 'none' }}
                             >
-                              💬 WhatsApp
+                              👁️
                             </a>
+                          </div>
+
+                          {prop.status !== 'PAID' && (
+                            <button
+                              type="button"
+                              onClick={() => handleSimulatePayment(prop.id)}
+                              style={{ background: '#f0fdf4', color: '#16a34a', border: '1px dashed #86efac', padding: '8px', borderRadius: '8px', fontWeight: 800, fontSize: '0.74rem', cursor: 'pointer' }}
+                            >
+                              ⚡ Simular Pagamento & Ativar Agora (Teste)
+                            </button>
                           )}
-
-                          <a
-                            href={prop.proposal_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn-secondary"
-                            style={{ padding: '8px 10px', fontSize: '0.78rem', borderRadius: '8px', textDecoration: 'none' }}
-                          >
-                            👁️
-                          </a>
                         </div>
-
-                        {prop.status !== 'PAID' && (
-                          <button
-                            type="button"
-                            onClick={() => handleSimulatePayment(prop.id)}
-                            style={{ background: '#f0fdf4', color: '#16a34a', border: '1px dashed #86efac', padding: '8px', borderRadius: '8px', fontWeight: 800, fontSize: '0.74rem', cursor: 'pointer' }}
-                          >
-                            ⚡ Simular Pagamento & Ativar Agora (Teste)
-                          </button>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ========================================================
-            TAB 3: ASSINATURAS & FATURAMENTO ASAAS
-            ======================================================== */}
-        {activeTab === 'subscriptions' && (
-          <div>
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                💳 Assinaturas Recorrentes Asaas
-              </h2>
-              <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                Controle de pagamentos mensais, vencimentos e status financeiro das igrejas clientes.
-              </p>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+          )}
 
-            {loadingSubs ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando assinaturas...</div>
-            ) : subscriptions.length === 0 ? (
-              <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>💳</div>
-                <h3>Nenhuma assinatura ativa registrada</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>As assinaturas serão listadas aqui conforme as propostas forem pagas pelo Asaas.</p>
-              </div>
-            ) : (
-              <div className="portal-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.84rem' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--panel-border)', color: 'var(--text-muted)', fontSize: '0.74rem', textTransform: 'uppercase' }}>
-                      <th style={{ padding: '14px 18px' }}>Igreja / Organização</th>
-                      <th style={{ padding: '14px 18px' }}>Valor Recorrente</th>
-                      <th style={{ padding: '14px 18px' }}>Ciclo</th>
-                      <th style={{ padding: '14px 18px' }}>Status</th>
-                      <th style={{ padding: '14px 18px' }}>Próximo Vencimento</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'right' }}>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscriptions.map(sub => (
-                      <tr key={sub.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                        <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--text-main)' }}>
-                          {sub.church_name || sub.org_name || 'Igreja Cliente'}
-                        </td>
-                        <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--accent-primary)' }}>
-                          R$ {Number(sub.value || 297).toFixed(2).replace('.', ',')}
-                        </td>
-                        <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
-                          {sub.cycle === 'YEARLY' ? 'Anual' : 'Mensal'}
-                        </td>
-                        <td style={{ padding: '16px 18px' }}>
-                          <span style={{ background: sub.status === 'ACTIVE' ? '#ecfdf5' : '#fef2f2', color: sub.status === 'ACTIVE' ? '#059669' : '#dc2626', padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
-                            {sub.status === 'ACTIVE' ? '✓ Em Dia' : '● Atrasado'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
-                          {sub.next_due_date ? new Date(sub.next_due_date).toLocaleDateString('pt-BR') : 'Próximo mês'}
-                        </td>
-                        <td style={{ padding: '16px 18px', textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            onClick={() => alert(`Assinatura Asaas ID: ${sub.id}\nStatus: ${sub.status}`)}
-                            className="btn-secondary"
-                            style={{ padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}
-                          >
-                            Detalhes
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ========================================================
-            TAB 4: EQUIPE MASTER
-            ======================================================== */}
-        {activeTab === 'master_users' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
+          {/* TAB 3: ASSINATURAS ASAAS */}
+          {activeTab === 'subscriptions' && (
+            <div>
+              <div style={{ marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                  🛡️ Usuários com Acesso Master Global
+                  💳 Assinaturas Recorrentes Asaas
                 </h2>
                 <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                  Superusuários que têm permissão de criar propostas, alternar entre igrejas e gerenciar o ecossistema.
+                  Controle de pagamentos mensais, vencimentos e status financeiro das igrejas clientes.
                 </p>
               </div>
 
-              <button
-                onClick={() => setIsUserModalOpen(true)}
-                className="btn-primary"
-                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.84rem' }}
-              >
-                + Novo Usuário Master
-              </button>
-            </div>
-
-            <div className="portal-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent-primary-gradient)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem' }}>
-                  👑
+              {loadingSubs ? (
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Carregando assinaturas...</div>
+              ) : subscriptions.length === 0 ? (
+                <div className="portal-card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>💳</div>
+                  <h3>Nenhuma assinatura ativa registrada</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>As assinaturas serão listadas aqui conforme as propostas forem pagas pelo Asaas.</p>
                 </div>
+              ) : (
+                <div className="portal-card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.84rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--panel-border)', color: 'var(--text-muted)', fontSize: '0.74rem', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '14px 18px' }}>Igreja / Organização</th>
+                        <th style={{ padding: '14px 18px' }}>Valor Recorrente</th>
+                        <th style={{ padding: '14px 18px' }}>Ciclo</th>
+                        <th style={{ padding: '14px 18px' }}>Status</th>
+                        <th style={{ padding: '14px 18px' }}>Próximo Vencimento</th>
+                        <th style={{ padding: '14px 18px', textAlign: 'right' }}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subscriptions.map(sub => (
+                        <tr key={sub.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                          <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--text-main)' }}>
+                            {sub.church_name || sub.org_name || 'Igreja Cliente'}
+                          </td>
+                          <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--accent-primary)' }}>
+                            R$ {Number(sub.value || 297).toFixed(2).replace('.', ',')}
+                          </td>
+                          <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
+                            {sub.cycle === 'YEARLY' ? 'Anual' : 'Mensal'}
+                          </td>
+                          <td style={{ padding: '16px 18px' }}>
+                            <span style={{ background: sub.status === 'ACTIVE' ? '#ecfdf5' : '#fef2f2', color: sub.status === 'ACTIVE' ? '#059669' : '#dc2626', padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                              {sub.status === 'ACTIVE' ? '✓ Em Dia' : '● Atrasado'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
+                            {sub.next_due_date ? new Date(sub.next_due_date).toLocaleDateString('pt-BR') : 'Próximo mês'}
+                          </td>
+                          <td style={{ padding: '16px 18px', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={() => alert(`Assinatura Asaas ID: ${sub.id}\nStatus: ${sub.status}`)}
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}
+                            >
+                              Detalhes
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: PLANOS & PREÇOS SAAS */}
+          {activeTab === 'plans' && (
+            <SaasPlans />
+          )}
+
+          {/* TAB 5: EQUIPE MASTER */}
+          {activeTab === 'master_users' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-main)' }}>{userName || 'Super Admin'}</div>
-                  <span style={{ fontSize: '0.74rem', color: '#059669', fontWeight: 700 }}>● MASTER_ADMIN (Permissão Total)</span>
+                  <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    🛡️ Usuários com Acesso Master Global
+                  </h2>
+                  <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                    Superusuários que têm permissão de criar propostas, alternar entre igrejas e gerenciar o ecossistema.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsUserModalOpen(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '10px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)'
+                  }}
+                >
+                  + Novo Usuário Master
+                </button>
+              </div>
+
+              <div className="portal-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem' }}>
+                    👑
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-main)' }}>{userName || 'Super Admin'}</div>
+                    <span style={{ fontSize: '0.74rem', color: '#059669', fontWeight: 700 }}>● MASTER_ADMIN (Permissão Total)</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-      </main>
+        </main>
+      </div>
 
       {/* ========================================================
           MODAL: NOVA PROPOSTA COMERCIAL (PORTAL)
@@ -858,7 +952,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               color: '#0f172a'
             }}
           >
-            {/* Modal Header */}
             <div style={{ padding: '22px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 900 }}>
@@ -896,7 +989,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleCreateProposal} style={{ padding: '24px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
               <div>
@@ -972,16 +1064,26 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    Plano
+                    Plano Configurado
                   </label>
                   <select
                     value={proposalForm.plan_tier}
-                    onChange={e => setProposalForm({ ...proposalForm, plan_tier: e.target.value })}
+                    onChange={e => handlePlanChangeInProposal(e.target.value)}
                     style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
                   >
-                    <option value="STARTER">Starter</option>
-                    <option value="PRO">Pro</option>
-                    <option value="ENTERPRISE">Enterprise</option>
+                    {availablePlans.length > 0 ? (
+                      availablePlans.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} (R$ {Number(p.monthly_price).toFixed(0)}/mês)
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="STARTER">Starter</option>
+                        <option value="PRO">Pro</option>
+                        <option value="ENTERPRISE">Enterprise</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
