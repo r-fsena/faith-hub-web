@@ -166,6 +166,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
   const [checkinMode, setCheckinMode] = useState<'MEMBER' | 'VISITOR'>('MEMBER');
   const [selectedFamilyMember, setSelectedFamilyMember] = useState<FamilyMember | null>(null);
   const [selectedChildForCheckin, setSelectedChildForCheckin] = useState<KidsChild | null>(null);
+  const [memberSearchInput, setMemberSearchInput] = useState('');
   
   // Modals States
   const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
@@ -998,13 +999,13 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
           ======================================================== */}
       {activeTab === 'checkin_rapido' && (
         <div className="animate-fade-in" style={{ maxWidth: 880, margin: '0 auto' }}>
-          <div className="portal-card" style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+          <div className="portal-card" style={{ padding: 28 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
                   🏷️ Totem de Check-in Expresso Kids
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 2 }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginTop: 3 }}>
                   Selecione se o responsável é membro cadastrado da igreja ou visitante.
                 </p>
               </div>
@@ -1022,10 +1023,11 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                     color: checkinMode === 'MEMBER' ? '#ffffff' : '#64748b',
                     border: 'none',
                     borderRadius: 8,
-                    padding: '6px 14px',
-                    fontWeight: 800,
-                    fontSize: '0.78rem',
-                    cursor: 'pointer'
+                    padding: '8px 16px',
+                    fontWeight: 900,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   👤 Membro da Igreja
@@ -1036,6 +1038,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                     setCheckinMode('VISITOR');
                     setSelectedFamilyMember(null);
                     setSelectedChildForCheckin(null);
+                    setMemberSearchInput('');
                     setQuickCheckinForm(prev => ({ ...prev, is_visitor: true, parent_member_id: '' }));
                   }}
                   style={{
@@ -1043,10 +1046,11 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                     color: checkinMode === 'VISITOR' ? '#ffffff' : '#64748b',
                     border: 'none',
                     borderRadius: 8,
-                    padding: '6px 14px',
-                    fontWeight: 800,
-                    fontSize: '0.78rem',
-                    cursor: 'pointer'
+                    padding: '8px 16px',
+                    fontWeight: 900,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   👋 Visitante / Novo
@@ -1056,81 +1060,165 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
 
             {/* MODO MEMBRO: Busca Inteligente na Base de Membros */}
             {checkinMode === 'MEMBER' && (
-              <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 14, border: '1px solid #e2e8f0' }}>
-                <label className="form-label-modern" style={{ fontSize: '0.80rem', fontWeight: 800 }}>
-                  🔍 1. Buscar Pai / Mãe na Lista de Membros:
-                </label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <input 
-                    type="text" 
-                    className="input-modern"
-                    placeholder="Digite o nome, WhatsApp ou e-mail do membro..."
-                    onChange={e => loadFamilies(e.target.value)}
-                  />
-                </div>
+              <div style={{ marginBottom: 24, background: '#f8fafc', padding: 20, borderRadius: 16, border: '1.5px solid #e2e8f0' }}>
+                {!selectedFamilyMember ? (
+                  <div>
+                    <label className="form-label-modern" style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8, display: 'block' }}>
+                      🔍 1. Buscar Pai / Mãe na Lista de Membros:
+                    </label>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      placeholder="Digite o nome, WhatsApp ou e-mail do membro..."
+                      value={memberSearchInput}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setMemberSearchInput(val);
+                        if (val.trim().length >= 2) {
+                          loadFamilies(val);
+                        }
+                      }}
+                      style={{
+                        padding: '14px 16px',
+                        fontSize: '0.98rem',
+                        minHeight: 50,
+                        borderRadius: 12,
+                        border: '1.5px solid #cbd5e1'
+                      }}
+                    />
 
-                {/* Lista de Membros Encontrados */}
-                {families.length > 0 && (
-                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
-                    {families.slice(0, 6).map(fam => {
-                      const isSelected = selectedFamilyMember?.id === fam.id;
-                      return (
-                        <div
-                          key={fam.id}
-                          onClick={() => {
-                            setSelectedFamilyMember(fam);
-                            setSelectedChildForCheckin(null);
-                            setQuickCheckinForm({
-                              ...quickCheckinForm,
-                              parent_name: fam.name,
-                              parent_phone: fam.phone || '',
-                              parent_email: fam.email || '',
-                              parent_member_id: fam.id,
-                              is_visitor: false
-                            });
-                          }}
-                          style={{
-                            background: isSelected ? 'var(--accent-primary-light)' : '#ffffff',
-                            border: isSelected ? '1.5px solid var(--accent-primary)' : '1px solid #e2e8f0',
-                            borderRadius: 10,
-                            padding: '8px 12px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary-gradient)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem' }}>
-                              {fam.name.charAt(0)}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-main)' }}>{fam.name}</div>
-                              <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>{fam.phone || fam.email} • {fam.role}</div>
-                            </div>
+                    {/* Lista de Membros Encontrados (Apenas com 2+ caracteres) */}
+                    {memberSearchInput.trim().length >= 2 && (
+                      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+                        {families.length === 0 ? (
+                          <div style={{ padding: 16, textAlign: 'center', background: '#ffffff', borderRadius: 12, border: '1px dashed #cbd5e1', fontSize: '0.86rem', color: '#64748b' }}>
+                            Nenhum membro encontrado com "{memberSearchInput}".
                           </div>
+                        ) : (
+                          families.map(fam => (
+                            <div
+                              key={fam.id}
+                              onClick={() => {
+                                setSelectedFamilyMember(fam);
+                                setMemberSearchInput('');
+                                if (fam.children && fam.children.length === 1) {
+                                  const singleChild = fam.children[0];
+                                  const childAge = calculateAge(singleChild.birthdate);
+                                  setSelectedChildForCheckin(singleChild);
+                                  setQuickCheckinForm({
+                                    child_name: singleChild.name,
+                                    birthdate: singleChild.birthdate || '',
+                                    allergies: singleChild.allergies || '',
+                                    medical_notes: singleChild.medical_notes || '',
+                                    room_id: getSuggestedRoomForAge(childAge),
+                                    parent_name: fam.name,
+                                    parent_phone: fam.phone || '',
+                                    parent_email: fam.email || '',
+                                    parent_member_id: fam.id,
+                                    is_visitor: false,
+                                    register_as_member: true
+                                  });
+                                } else {
+                                  setSelectedChildForCheckin(null);
+                                  setQuickCheckinForm(prev => ({
+                                    ...prev,
+                                    parent_name: fam.name,
+                                    parent_phone: fam.phone || '',
+                                    parent_email: fam.email || '',
+                                    parent_member_id: fam.id,
+                                    is_visitor: false
+                                  }));
+                                }
+                              }}
+                              style={{
+                                background: '#ffffff',
+                                border: '1.5px solid #e2e8f0',
+                                borderRadius: 12,
+                                padding: '12px 16px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-primary-gradient)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1rem' }}>
+                                  {fam.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 900, fontSize: '0.95rem', color: 'var(--text-main)' }}>{fam.name}</div>
+                                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{fam.phone || fam.email} • {fam.role}</div>
+                                </div>
+                              </div>
 
-                          <div style={{ fontSize: '0.74rem', fontWeight: 800, color: fam.children.length > 0 ? 'var(--accent-primary)' : '#94a3b8' }}>
-                            {fam.children.length > 0 ? `👶 ${fam.children.length} filho(s) cadastrado(s)` : 'Sem filhos vinculados'}
+                              <div style={{ fontSize: '0.80rem', fontWeight: 800, color: 'var(--accent-primary)', background: 'var(--accent-primary-light)', padding: '5px 10px', borderRadius: 8 }}>
+                                {fam.children.length} filho(s) cadastrado(s)
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Card do Responsável Selecionado */
+                  <div style={{ background: '#f0fdfa', border: '1.5px solid #99f6e4', borderRadius: 14, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
+                          👤
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.96rem', fontWeight: 900, color: '#0f766e' }}>
+                            {selectedFamilyMember.name}
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: '#115e59' }}>
+                            {selectedFamilyMember.phone || selectedFamilyMember.email} • Membro da Igreja
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Seleção de Filhos do Membro Selecionado */}
-                {selectedFamilyMember && (
-                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>
-                      👶 2. Selecione o filho de <strong>{selectedFamilyMember.name}</strong> para check-in:
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFamilyMember(null);
+                          setSelectedChildForCheckin(null);
+                          setQuickCheckinForm({
+                            child_name: '',
+                            birthdate: '',
+                            allergies: '',
+                            medical_notes: '',
+                            room_id: rooms[0]?.id || '',
+                            parent_name: '',
+                            parent_phone: '',
+                            parent_email: '',
+                            parent_member_id: '',
+                            is_visitor: false,
+                            register_as_member: true
+                          });
+                        }}
+                        style={{
+                          background: '#ffffff',
+                          color: '#e11d48',
+                          border: '1px solid #fecdd3',
+                          borderRadius: 8,
+                          padding: '6px 12px',
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Trocar Responsável
+                      </button>
                     </div>
 
-                    {selectedFamilyMember.children.length === 0 ? (
-                      <div style={{ fontSize: '0.78rem', color: '#64748b', background: '#ffffff', padding: '10px 14px', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
-                        Nenhum filho cadastrado para este membro ainda. Preencha o formulário abaixo para registrar e vincular o filho a {selectedFamilyMember.name}!
+                    {/* Seleção de Filhos do Membro com um toque */}
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #99f6e4' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f766e', marginBottom: 8 }}>
+                        👶 2. Selecione o filho para realizar Check-in:
                       </div>
-                    ) : (
+
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {selectedFamilyMember.children.map(ch => {
                           const isChildSelected = selectedChildForCheckin?.id === ch.id;
@@ -1158,24 +1246,60 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                               style={{
                                 background: isChildSelected ? 'var(--accent-primary)' : '#ffffff',
                                 color: isChildSelected ? '#ffffff' : 'var(--text-main)',
-                                border: isChildSelected ? '1px solid var(--accent-primary)' : '1px solid #cbd5e1',
-                                borderRadius: 10,
-                                padding: '8px 14px',
-                                fontWeight: 800,
-                                fontSize: '0.80rem',
+                                border: isChildSelected ? '1.5px solid var(--accent-primary)' : '1px solid #cbd5e1',
+                                borderRadius: 12,
+                                padding: '10px 16px',
+                                fontWeight: 900,
+                                fontSize: '0.88rem',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 6
+                                gap: 8,
+                                boxShadow: isChildSelected ? '0 4px 12px rgba(15, 118, 110, 0.2)' : '0 1px 3px rgba(0,0,0,0.05)'
                               }}
                             >
                               <span>👶 {ch.name}</span>
-                              <span style={{ fontSize: '0.70rem', opacity: 0.8 }}>({age !== null ? `${age} anos` : 'Idade N/I'})</span>
+                              <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>
+                                {age !== null ? `(${age} anos)` : ''}
+                              </span>
                             </button>
                           );
                         })}
+
+                        {/* Opção para cadastrar novo filho */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedChildForCheckin(null);
+                            setQuickCheckinForm({
+                              child_name: '',
+                              birthdate: '',
+                              allergies: '',
+                              medical_notes: '',
+                              room_id: rooms[0]?.id || '',
+                              parent_name: selectedFamilyMember.name,
+                              parent_phone: selectedFamilyMember.phone || '',
+                              parent_email: selectedFamilyMember.email || '',
+                              parent_member_id: selectedFamilyMember.id,
+                              is_visitor: false,
+                              register_as_member: true
+                            });
+                          }}
+                          style={{
+                            background: '#ffffff',
+                            color: '#0f766e',
+                            border: '1.5px dashed #0f766e',
+                            borderRadius: 12,
+                            padding: '10px 16px',
+                            fontWeight: 900,
+                            fontSize: '0.86rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ➕ Cadastrar Outro Filho
+                        </button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1183,22 +1307,24 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
 
             {/* MODO VISITANTE: Banner Informativo */}
             {checkinMode === 'VISITOR' && (
-              <div style={{ marginBottom: 16, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: '1.4rem' }}>👋</span>
+              <div style={{ marginBottom: 20, background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '1.6rem' }}>👋</span>
                 <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#b45309' }}>Check-in de Visitante / Família Nova</div>
-                  <div style={{ fontSize: '0.74rem', color: '#92400e' }}>
-                    O check-in funciona normalmente com geração do PIN de segurança. Opcionalmente você pode salvá-lo como membro/visitante no sistema.
+                  <div style={{ fontSize: '0.90rem', fontWeight: 900, color: '#b45309' }}>Check-in de Visitante / Família Nova</div>
+                  <div style={{ fontSize: '0.78rem', color: '#92400e', marginTop: 2 }}>
+                    Preencha os dados abaixo para gerar o crachá térmico com QR Code e registrar a permanência da criança com total segurança.
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Formulário de Check-in */}
-            <form onSubmit={handlePerformCheckin}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            {/* Formulário de Check-in (Campos Grandes & Espaçosos) */}
+            <form onSubmit={handlePerformCheckin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 14 }}>
                 <div>
-                  <label className="form-label-modern">Nome Completo da Criança *</label>
+                  <label className="form-label-modern" style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>
+                    👶 Nome Completo da Criança *
+                  </label>
                   <input 
                     type="text" 
                     className="input-modern"
@@ -1206,11 +1332,21 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, child_name: e.target.value })}
                     placeholder="Ex: Lucas Gabriel"
                     required
+                    style={{
+                      padding: '14px 16px',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      minHeight: 50,
+                      borderRadius: 12,
+                      border: '1.5px solid #cbd5e1'
+                    }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label-modern">Data de Nascimento / Idade</label>
+                  <label className="form-label-modern" style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>
+                    🎂 Data de Nascimento
+                  </label>
                   <input 
                     type="date" 
                     className="input-modern"
@@ -1221,21 +1357,39 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                       setQuickCheckinForm({ 
                         ...quickCheckinForm, 
                         birthdate: bdate,
-                        room_id: getSuggestedRoomForAge(age)
+                        room_id: age !== null ? getSuggestedRoomForAge(age) : quickCheckinForm.room_id
                       });
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      fontSize: '0.96rem',
+                      minHeight: 50,
+                      borderRadius: 12,
+                      border: '1.5px solid #cbd5e1'
                     }}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
-                  <label className="form-label-modern">Sala / Turma Destino *</label>
+                  <label className="form-label-modern" style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>
+                    🏷️ Sala / Turma Destino *
+                  </label>
                   <select 
                     className="select-modern"
                     value={quickCheckinForm.room_id} 
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, room_id: e.target.value })}
                     required
+                    style={{
+                      padding: '14px 16px',
+                      fontSize: '0.96rem',
+                      fontWeight: 800,
+                      minHeight: 50,
+                      borderRadius: 12,
+                      border: '1.5px solid #cbd5e1',
+                      background: '#ffffff'
+                    }}
                   >
                     <option value="">Selecione a Sala</option>
                     {rooms.map(r => (
@@ -1247,20 +1401,31 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                 </div>
 
                 <div>
-                  <label className="form-label-modern">Alergias Alimentares (Opcional)</label>
+                  <label className="form-label-modern" style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>
+                    ⚠️ Alergias Alimentares (Opcional)
+                  </label>
                   <input 
                     type="text" 
                     className="input-modern"
                     value={quickCheckinForm.allergies} 
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, allergies: e.target.value })}
                     placeholder="Ex: Lactose, Amendoim, Glúten..."
+                    style={{
+                      padding: '14px 16px',
+                      fontSize: '0.96rem',
+                      minHeight: 50,
+                      borderRadius: 12,
+                      border: '1.5px solid #cbd5e1'
+                    }}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
-                  <label className="form-label-modern">Nome do Responsável *</label>
+                  <label className="form-label-modern" style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>
+                    👤 Nome do Responsável *
+                  </label>
                   <input 
                     type="text" 
                     className="input-modern"
@@ -1268,83 +1433,71 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_name: e.target.value })}
                     placeholder="Ex: Mariana Silva"
                     required
+                    style={{
+                      padding: '14px 16px',
+                      fontSize: '0.96rem',
+                      minHeight: 50,
+                      borderRadius: 12,
+                      border: '1.5px solid #cbd5e1'
+                    }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label-modern">WhatsApp do Responsável *</label>
+                  <label className="form-label-modern" style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>
+                    📱 WhatsApp dos Pais *
+                  </label>
                   <input 
-                    type="text" 
+                    type="tel" 
                     className="input-modern"
                     value={quickCheckinForm.parent_phone} 
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, parent_phone: e.target.value })}
                     placeholder="(00) 00000-0000"
                     required
+                    style={{
+                      padding: '14px 16px',
+                      fontSize: '0.96rem',
+                      minHeight: 50,
+                      borderRadius: 12,
+                      border: '1.5px solid #cbd5e1'
+                    }}
                   />
                 </div>
               </div>
 
               {/* Opção para Visitantes: Salvar no cadastro permanente de membros */}
               {checkinMode === 'VISITOR' && (
-                <div style={{ marginBottom: 16, background: '#f8fafc', padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <input 
                     type="checkbox"
                     id="reg_member"
                     checked={quickCheckinForm.register_as_member}
                     onChange={e => setQuickCheckinForm({ ...quickCheckinForm, register_as_member: e.target.checked })}
-                    style={{ cursor: 'pointer' }}
+                    style={{ width: 18, height: 18, cursor: 'pointer' }}
                   />
-                  <label htmlFor="reg_member" style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer' }}>
+                  <label htmlFor="reg_member" style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer' }}>
                     Salvar automaticamente os dados deste visitante na base de membros/visitantes para os próximos cultos
                   </label>
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button type="submit" className="btn-primary" style={{ padding: '10px 24px', fontSize: '0.90rem' }}>
-                  <CheckIcon /> Concluir Check-in & Gerar Crachá
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button 
+                  type="submit" 
+                  className="btn-primary"
+                  style={{
+                    padding: '16px 32px',
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    borderRadius: 14,
+                    minHeight: 54,
+                    boxShadow: '0 4px 16px rgba(15, 118, 110, 0.3)'
+                  }}
+                >
+                  <CheckIcon /> Concluir Check-in & Gerar Crachá (PIN)
                 </button>
               </div>
             </form>
-
-            {/* Resultado do Check-in com Crachá de Impressão */}
-            {checkinSuccessData && (
-              <div style={{ marginTop: 24, padding: 20, background: '#ecfdf5', border: '2px dashed #059669', borderRadius: 16, textAlign: 'center' }}>
-                <div style={{ color: '#059669', fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>
-                  ✅ Check-in Concluído com Sucesso!
-                </div>
-                <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)', margin: '4px 0 10px 0' }}>
-                  {checkinSuccessData.child_name}
-                </h2>
-                <div style={{ display: 'inline-block', background: '#ffffff', border: '2px solid #059669', padding: '10px 24px', borderRadius: 12, marginBottom: 12 }}>
-                  <div style={{ fontSize: '0.70rem', fontWeight: 800, color: '#64748b' }}>CÓDIGO DE SEGURANÇA (PIN)</div>
-                  <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#059669', letterSpacing: '0.08em' }}>
-                    {checkinSuccessData.security_code}
-                  </div>
-                </div>
-                <p style={{ fontSize: '0.82rem', color: '#065f46', margin: 0 }}>
-                  Sala: <strong>{checkinSuccessData.room_name}</strong> • Responsável: <strong>{checkinSuccessData.parent_name}</strong> {checkinSuccessData.parent_member_id && '✓ Membro'}
-                </p>
-                <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 10 }}>
-                  <button 
-                    type="button" 
-                    className="btn-secondary"
-                    onClick={() => window.print()}
-                    style={{ fontSize: '0.78rem' }}
-                  >
-                    🖨️ Imprimir Etiqueta
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn-primary"
-                    onClick={() => setCheckinSuccessData(null)}
-                    style={{ fontSize: '0.78rem' }}
-                  >
-                    Novo Check-in
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
