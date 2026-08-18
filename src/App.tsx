@@ -387,6 +387,37 @@ function App() {
 
       const userEmail = currentUser.signInDetails?.loginId || userAttrs.email || '';
 
+      const checkIsMasterUser = (email: string, role?: string): boolean => {
+        if (!email) return false;
+        const cleanEmail = email.toLowerCase().trim();
+        const cleanRole = (role || '').toUpperCase().trim();
+
+        if (['SUPERADMIN', 'SUPER_ADMIN', 'MASTER_ADMIN', 'MASTER', 'ADMIN_MASTER'].includes(cleanRole)) {
+          return true;
+        }
+
+        const masterAccounts = [
+          'rfsena@icloud.com',
+          'admin@faithhubs.com',
+          'contato@faithhubs.com',
+          'rafaelsena@faithhubs.com'
+        ];
+
+        if (masterAccounts.includes(cleanEmail)) return true;
+
+        if (
+          cleanEmail.includes('rfsena') ||
+          cleanEmail.includes('rafaelsena') ||
+          cleanEmail.includes('@faithhubs.com') ||
+          cleanEmail.includes('@faithhub.com') ||
+          cleanEmail.startsWith('admin@')
+        ) {
+          return true;
+        }
+
+        return false;
+      };
+
       // Consultar perfil de membro e vínculo com a igreja/organização
       try {
         const res = await fetch(`${API_URL}/members?email=${encodeURIComponent(userEmail)}`);
@@ -395,11 +426,12 @@ function App() {
           const membersList = json.data || [];
           const profile = membersList[0];
 
+          const role = (profile?.role || userAttrs['custom:role'] || '').toUpperCase();
+          const isSuper = checkIsMasterUser(userEmail, role);
+          setIsSuperAdmin(isSuper);
+
           if (profile) {
             setUserProfile(profile);
-            const role = (profile.role || userAttrs['custom:role'] || '').toUpperCase();
-            const isSuper = role === 'SUPERADMIN' || userEmail.toLowerCase().includes('admin@faithhub') || userEmail.toLowerCase().includes('rafaelsena');
-            setIsSuperAdmin(isSuper);
 
             if (profile.campus_ids && Array.isArray(profile.campus_ids)) {
               setAllowedCampusIds(profile.campus_ids);
@@ -425,9 +457,9 @@ function App() {
               }
             }
           } else {
-            // Se não encontrou cadastro, verifica e-mail de admin master
-            const isSuper = userEmail.toLowerCase().includes('admin') || userEmail.toLowerCase().includes('rafaelsena');
-            setIsSuperAdmin(isSuper);
+            // Se não encontrou cadastro em members, verifica se é admin master por e-mail
+            const isSuperOnly = checkIsMasterUser(userEmail, userAttrs['custom:role']);
+            setIsSuperAdmin(isSuperOnly);
           }
         }
       } catch (e) {
