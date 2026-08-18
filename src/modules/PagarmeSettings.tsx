@@ -252,7 +252,7 @@ export default function PagarmeSettings() {
       </div>
 
       {/* Main Grid: 2 Colunas (Formulários à esquerda, Resumo Financeiro à direita) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.45fr) 380px', gap: '28px', alignItems: 'start' }}>
+      <div className="responsive-module-2col">
         
         {/* LEFT COLUMN: Abas e Formulários */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -641,7 +641,7 @@ export default function PagarmeSettings() {
               </div>
 
               {/* Agência e Conta */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.6fr 1.5fr 0.6fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '12px' }}>
                 <div className="form-group-modern">
                   <label className="form-label-modern">Agência *</label>
                   <input 

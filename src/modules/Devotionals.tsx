@@ -157,7 +157,7 @@ export const Devotionals = () => {
           <p>Clique em Adicionar Devocional para redigir a primeira palavra inspiracional.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 20 }}>
           {devotionals.map((dev) => {
             const parsedDate = new Date(dev.available_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             return (

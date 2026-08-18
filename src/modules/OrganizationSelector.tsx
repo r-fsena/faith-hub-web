@@ -64,6 +64,7 @@ interface OrganizationSelectorProps {
 
 export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName }) => {
   const [activeTab, setActiveTab] = useState<'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users'>('orgs');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   
   // Organizations State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -357,24 +358,28 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', fontFamily: 'inherit', position: 'relative' }}>
       
+      {/* Mobile Drawer Backdrop */}
+      <div 
+        className={`sidebar-backdrop ${isMobileNavOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileNavOpen(false)}
+      />
+
       {/* ========================================================
           SIDEBAR MASTER (ESTILO WEB STUDIO)
           ======================================================== */}
-      <aside style={{
-        width: '260px',
-        backgroundColor: '#ffffff',
-        borderRight: '1px solid var(--panel-border)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        zIndex: 40,
-        boxShadow: 'var(--shadow-sm)'
-      }}>
+      <aside 
+        className={`sidebar ${isMobileNavOpen ? 'mobile-open' : ''}`}
+        style={{
+          width: '260px',
+          backgroundColor: '#ffffff',
+          borderRight: '1px solid var(--panel-border)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}
+      >
         <div>
           {/* Top Brand Logo */}
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -427,7 +432,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => { setActiveTab(tab.id as any); setIsMobileNavOpen(false); }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -496,8 +501,27 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         
         {/* Top Executive KPI Bar */}
-        <header style={{ background: '#ffffff', borderBottom: '1px solid var(--panel-border)', padding: '16px 32px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+        <header style={{ background: '#ffffff', borderBottom: '1px solid var(--panel-border)', padding: '16px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <button 
+              type="button" 
+              className="hamburger-btn" 
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              title="Abrir Menu Lateral"
+              aria-label="Abrir Menu"
+            >
+              ☰
+            </button>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+              {activeTab === 'orgs' && 'Redes & Igrejas Ativas'}
+              {activeTab === 'proposals' && 'Funil de Propostas Comerciais'}
+              {activeTab === 'subscriptions' && 'Assinaturas & Faturamento Asaas'}
+              {activeTab === 'plans' && 'Planos & Preços SaaS'}
+              {activeTab === 'master_users' && 'Equipe Master Global'}
+            </h2>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '14px' }}>
             
             <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
               <div style={{ fontSize: '0.70rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>🏛️ Igrejas Ativas</div>
@@ -570,7 +594,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Crie uma nova rede ou emita uma proposta comercial.</p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
                   {filteredOrgs.map(org => (
                     <div
                       key={org.id}
@@ -697,7 +721,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Clique no botão acima para emitir a primeira proposta personalizada.</p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '20px' }}>
                   {filteredProposals.map(prop => {
                     const statusColors: any = {
                       SENT: { bg: '#fef3c7', text: '#d97706', label: 'Enviada' },

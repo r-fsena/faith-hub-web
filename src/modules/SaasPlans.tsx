@@ -187,7 +187,7 @@ export const SaasPlans: React.FC = () => {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Clique no botão acima para criar o primeiro plano.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '24px' }}>
           {plans.map(plan => (
             <div
               key={plan.id}

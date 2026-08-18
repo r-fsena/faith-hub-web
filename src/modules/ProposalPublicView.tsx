@@ -326,7 +326,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
                 ✨ Recursos Inclusos na Assinatura:
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
                 {(proposal.features_included || []).map((feat, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <span style={{ color: '#10b981', fontWeight: 900, fontSize: '0.90rem' }}>✓</span>

@@ -451,7 +451,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
       </div>
 
       {/* Main Grid: 2 Colunas (Formulários à esquerda, Emulador PWA à direita) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) 360px', gap: '28px', alignItems: 'start' }}>
+      <div className="responsive-module-2col">
         
         {/* LEFT COLUMN: Parametrizações & Abas */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

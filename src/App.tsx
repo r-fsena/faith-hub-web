@@ -16,6 +16,7 @@ import PagarmeSettings from './modules/PagarmeSettings';
 import Campuses, { type Campus } from './modules/Campuses';
 import OrganizationSelector, { type Organization } from './modules/OrganizationSelector';
 import { ProposalPublicView } from './modules/ProposalPublicView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -164,6 +165,9 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [user, setUser] = useState<any>(null);
+
+  // Mobile / Responsive Sidebar Drawer State
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Multi-Organization / SaaS Master State
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(() => {
@@ -494,13 +498,20 @@ function App() {
       </div>
 
       {/* Main Admin Area */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 37px)' }}>
+      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 37px)', position: 'relative' }}>
+        
+        {/* Mobile Sidebar Backdrop */}
+        <div 
+          className={`sidebar-backdrop ${isMobileSidebarOpen ? 'active' : ''}`}
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+
         {/* ========================================================
-            LEFT SIDEBAR
+            LEFT SIDEBAR (Responsive Desktop + Mobile Drawer)
             ======================================================== */}
-        <aside className="sidebar">
+        <aside className={`sidebar ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
           {/* Brand Header */}
-          <div className="sidebar-header" onClick={() => setActiveTab('church_branding')} style={{ cursor: 'pointer' }} title="Clique para personalizar a identidade da igreja">
+          <div className="sidebar-header" onClick={() => { setActiveTab('church_branding'); setIsMobileSidebarOpen(false); }} style={{ cursor: 'pointer' }} title="Clique para personalizar a identidade da igreja">
             {churchSettings.logo_icon_url ? (
               <img 
                 src={churchSettings.logo_icon_url} 
@@ -610,7 +621,7 @@ function App() {
                 <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
 
                 <button
-                  onClick={() => { setActiveTab('campuses'); setIsCampusDropdownOpen(false); }}
+                  onClick={() => { setActiveTab('campuses'); setIsCampusDropdownOpen(false); setIsMobileSidebarOpen(false); }}
                   style={{
                     textAlign: 'left',
                     padding: '8px 10px',
@@ -661,7 +672,7 @@ function App() {
                               <button
                                 key={sub.id}
                                 className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
-                                onClick={() => setActiveTab(sub.id)}
+                                onClick={() => { setActiveTab(sub.id); setIsMobileSidebarOpen(false); }}
                               >
                                 <span>{sub.label}</span>
                               </button>
@@ -676,7 +687,7 @@ function App() {
                     <button
                       key={item.id}
                       className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => { setActiveTab(item.id); setIsMobileSidebarOpen(false); }}
                     >
                       <div className="nav-item-left">
                         <IconComponent />
@@ -715,6 +726,15 @@ function App() {
           {/* Top Header Bar */}
           <header className="topbar">
             <div className="topbar-left">
+              <button 
+                type="button" 
+                className="hamburger-btn" 
+                onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+                title="Abrir Menu de Navegação"
+                aria-label="Abrir Menu"
+              >
+                ☰
+              </button>
               <div>
                 <div className="greeting-text">
                   {activeTab === 'dashboard' && `Dashboard (${selectedOrganization.name})`}
@@ -749,10 +769,10 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
+              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
                 <BellIcon />
               </button>
-              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => setActiveTab('configuracoes')}>
+              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => { setActiveTab('configuracoes'); setIsMobileSidebarOpen(false); }}>
                 <SettingsIcon />
               </button>
               <div className="user-avatar-circle" style={{ cursor: 'pointer' }}>
@@ -1071,25 +1091,27 @@ function App() {
             {/* ==========================================
                 ACTIVE MODULE RENDERERS (Multi-Campus Enabled)
                 ========================================== */}
-            {activeTab === 'campuses' && <Campuses />}
-            {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-            {(activeTab.startsWith('kids_') || activeTab === 'kids_ministerio') && (
-              <KidsMinistry 
-                selectedCampusId={selectedCampusId} 
-                selectedOrganization={selectedOrganization}
-                activeSubtab={activeTab}
-                onNavigateSubtab={(subtab) => setActiveTab(subtab)}
-              />
-            )}
-            {activeTab === 'transmissoes' && <Broadcasts />}
-            {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-            {activeTab === 'estudos' && <Studies />}
-            {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-            {activeTab === 'devocionais' && <Devotionals />}
-            {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-            {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-            {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
-            {activeTab === 'church_branding' && <ChurchBranding selectedOrganization={selectedOrganization} />}
+            <ErrorBoundary fallbackTitle="Erro ao carregar o módulo">
+              {activeTab === 'campuses' && <Campuses />}
+              {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {(activeTab.startsWith('kids_') || activeTab === 'kids_ministerio') && (
+                <KidsMinistry 
+                  selectedCampusId={selectedCampusId} 
+                  selectedOrganization={selectedOrganization}
+                  activeSubtab={activeTab}
+                  onNavigateSubtab={(subtab) => setActiveTab(subtab)}
+                />
+              )}
+              {activeTab === 'transmissoes' && <Broadcasts />}
+              {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'estudos' && <Studies />}
+              {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'devocionais' && <Devotionals />}
+              {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
+              {activeTab === 'church_branding' && <ChurchBranding selectedOrganization={selectedOrganization} />}
+            </ErrorBoundary>
 
             {/* Settings View */}
             {activeTab === 'configuracoes' && (

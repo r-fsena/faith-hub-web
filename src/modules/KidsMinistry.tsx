@@ -765,7 +765,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 16 }}>
               {filteredCheckins.map(item => {
                 const isCalling = item.status === 'CALLING_PARENTS';
                 const age = calculateAge(item.birthdate);
