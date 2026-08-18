@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
-export interface KidsExportItem {
+export interface KidsReportItem {
   id: string;
   child_id: string;
   child_name: string;
@@ -31,22 +30,20 @@ export interface KidsExportItem {
   medical_notes?: string;
 }
 
-interface KidsExportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface KidsReportsViewProps {
   selectedOrganization?: any;
   selectedCampusId?: string;
   rooms?: any[];
+  onDataLoaded?: (count: number) => void;
 }
 
-export const KidsExportModal: React.FC<KidsExportModalProps> = ({
-  isOpen,
-  onClose,
+export const KidsReportsView: React.FC<KidsReportsViewProps> = ({
   selectedOrganization,
   selectedCampusId = 'all',
-  rooms = []
+  rooms = [],
+  onDataLoaded
 }) => {
-  const [data, setData] = useState<KidsExportItem[]>([]);
+  const [data, setData] = useState<KidsReportItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -59,12 +56,10 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
-    if (isOpen) {
-      fetchExportData();
-    }
-  }, [isOpen, period, startDate, endDate, selectedRoom, selectedStatus, selectedCampusId]);
+    fetchReportData();
+  }, [period, startDate, endDate, selectedRoom, selectedStatus, selectedCampusId]);
 
-  const fetchExportData = async () => {
+  const fetchReportData = async () => {
     setLoading(true);
     try {
       const orgId = selectedOrganization?.id || 'org_default';
@@ -110,10 +105,14 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
       const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
-        setData(json.data || []);
+        const items = json.data || [];
+        setData(items);
+        if (onDataLoaded) {
+          onDataLoaded(items.length);
+        }
       }
     } catch (err) {
-      console.error('Erro ao buscar dados para exportação:', err);
+      console.error('Erro ao buscar dados do relatório:', err);
     } finally {
       setLoading(false);
     }
@@ -270,175 +269,158 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
     window.print();
   };
 
-  if (!isOpen) return null;
+  return (
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Top Action Toolbar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 14,
+        background: '#ffffff',
+        padding: '16px 20px',
+        borderRadius: 16,
+        border: '1px solid var(--panel-border)',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        {/* Período Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: 4 }}>
+            Período:
+          </span>
+          {[
+            { id: 'TODAY', label: 'Hoje' },
+            { id: 'LAST_7_DAYS', label: 'Últimos 7 dias' },
+            { id: 'THIS_MONTH', label: 'Este Mês' },
+            { id: 'ALL_TIME', label: 'Todo o Histórico' },
+            { id: 'CUSTOM', label: 'Data Específica' }
+          ].map(p => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPeriod(p.id as any)}
+              style={{
+                padding: '7px 13px',
+                borderRadius: '10px',
+                border: '1px solid',
+                borderColor: period === p.id ? 'var(--accent-primary)' : 'var(--panel-border)',
+                background: period === p.id ? 'var(--accent-primary-light)' : '#ffffff',
+                color: period === p.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                fontWeight: period === p.id ? 800 : 600,
+                fontSize: '0.80rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
 
-  return createPortal(
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 99999 }}>
-      <div 
-        className="modal-studio-container" 
-        style={{ 
-          maxWidth: '1240px', 
-          width: '100%', 
-          maxHeight: '90vh', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          padding: 0, 
-          overflow: 'hidden',
-          borderRadius: '24px',
-          boxShadow: '0 25px 60px rgba(15, 23, 42, 0.35)',
-          background: '#ffffff'
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Modal Topbar */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid var(--panel-border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: '#ffffff',
-          flexWrap: 'wrap',
-          gap: 12
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.3rem',
-              boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
-            }}>
-              📊
+          {period === 'CUSTOM' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.80rem' }}
+              />
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>até</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.80rem' }}
+              />
             </div>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
-                Relatório & Exportação de Dados do Ministério Infantil
-              </h2>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Auditoria de check-ins, horários, PINs de segurança e chamados aos responsáveis.
-              </span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              type="button"
-              onClick={handleCopyTable}
-              className="btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-              title="Copiar dados tabulados para colar no Excel"
-            >
-              <span>{copied ? '✅' : '📋'}</span> {copied ? 'Copiado!' : 'Copiar'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-              title="Imprimir relatório formatado ou salvar como PDF"
-            >
-              <span>🖨️</span> Imprimir / PDF
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="btn-primary"
-              style={{ padding: '8px 16px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800 }}
-              title="Baixar planilha CSV compatível com Excel e Google Sheets"
-            >
-              <span>📥</span> Exportar Excel (.csv)
-            </button>
-
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="modal-close-circle"
-              style={{ marginLeft: 6 }}
-              title="Fechar"
-            >
-              ✕
-            </button>
-          </div>
+          )}
         </div>
 
-        {/* Filter Toolbar */}
+        {/* Action Buttons: Copiar, Imprimir, Exportar Excel */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            onClick={handleCopyTable}
+            className="btn-secondary"
+            style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+            title="Copiar dados tabulados para colar no Excel"
+          >
+            <span>{copied ? '✅' : '📋'}</span> {copied ? 'Copiado!' : 'Copiar'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="btn-secondary"
+            style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+            title="Imprimir relatório formatado ou salvar como PDF"
+          >
+            <span>🖨️</span> Imprimir / PDF
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="btn-primary"
+            style={{ padding: '8px 16px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800 }}
+            title="Baixar planilha CSV compatível com Excel e Google Sheets"
+          >
+            <span>📥</span> Exportar Excel (.csv)
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Mini-Bar */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+        gap: 14
+      }}>
+        <div className="portal-card" style={{ padding: '16px 18px', margin: 0 }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total de Crianças</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', marginTop: 4 }}>{totalChildren}</div>
+        </div>
+
+        <div className="portal-card" style={{ padding: '16px 18px', margin: 0, borderLeft: '4px solid #059669' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>Presentes na Sala</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#059669', marginTop: 4 }}>{activeCount}</div>
+        </div>
+
+        <div className="portal-card" style={{ padding: '16px 18px', margin: 0, borderLeft: '4px solid #0284c7' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>Checkouts Realizados</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0284c7', marginTop: 4 }}>{checkoutCount}</div>
+        </div>
+
+        <div className="portal-card" style={{ padding: '16px 18px', margin: 0, borderLeft: '4px solid #dc2626' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase' }}>Chamados Disparados</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#dc2626', marginTop: 4 }}>{totalCalls}</div>
+        </div>
+
+        <div className="portal-card" style={{ padding: '16px 18px', margin: 0 }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Média de Idade</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', marginTop: 4 }}>{avgAge} {avgAge !== '-' ? 'anos' : ''}</div>
+        </div>
+      </div>
+
+      {/* Filter Row & Table Container */}
+      <div className="portal-card" style={{ padding: 0, overflow: 'hidden' }}>
+        {/* Table Header Filter Row */}
         <div style={{
-          padding: '16px 24px',
+          padding: '16px 20px',
           background: '#f8fafc',
           borderBottom: '1px solid var(--panel-border)',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
+          alignItems: 'center',
           flexWrap: 'wrap',
           gap: 12
         }}>
-          {/* Período Pill Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: 4 }}>
-              Período:
-            </span>
-            {[
-              { id: 'TODAY', label: 'Hoje' },
-              { id: 'LAST_7_DAYS', label: 'Últimos 7 dias' },
-              { id: 'THIS_MONTH', label: 'Este Mês' },
-              { id: 'ALL_TIME', label: 'Todo o Histórico' },
-              { id: 'CUSTOM', label: 'Data Específica' }
-            ].map(p => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPeriod(p.id as any)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid',
-                  borderColor: period === p.id ? 'var(--accent-primary)' : 'var(--panel-border)',
-                  background: period === p.id ? 'var(--accent-primary-light)' : '#ffffff',
-                  color: period === p.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                  fontWeight: period === p.id ? 800 : 600,
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-
-            {period === 'CUSTOM' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
-                  style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.78rem' }}
-                />
-                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>até</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
-                  style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.78rem' }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Sala, Status e Busca */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <select
               value={selectedRoom}
               onChange={e => setSelectedRoom(e.target.value)}
               className="select-modern"
-              style={{ width: 'auto', padding: '7px 12px', fontSize: '0.80rem' }}
+              style={{ width: 'auto', padding: '8px 14px', fontSize: '0.82rem' }}
             >
               <option value="all">Todas as Salas</option>
               {rooms.map(r => (
@@ -450,63 +432,28 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
               className="select-modern"
-              style={{ width: 'auto', padding: '7px 12px', fontSize: '0.80rem' }}
+              style={{ width: 'auto', padding: '8px 14px', fontSize: '0.82rem' }}
             >
               <option value="all">Todos os Status</option>
               <option value="CHECKED_IN">Presentes na Sala</option>
               <option value="CHECKED_OUT">Checkout Realizado</option>
               <option value="CALLING_PARENTS">Em Chamado Ativo</option>
             </select>
-
-            <div className="search-pill" style={{ width: '220px', padding: '6px 12px' }}>
-              <input
-                type="text"
-                placeholder="Buscar criança, pai, PIN..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                style={{ fontSize: '0.80rem' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* KPI Mini-Bar */}
-        <div style={{
-          padding: '12px 24px',
-          background: '#ffffff',
-          borderBottom: '1px solid var(--panel-border)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 12
-        }}>
-          <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border)' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total de Registros</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', marginTop: 2 }}>{totalChildren}</div>
           </div>
 
-          <div style={{ background: '#ecfdf5', padding: '8px 12px', borderRadius: 10, border: '1px solid #a7f3d0' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>Presentes na Sala</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#059669', marginTop: 2 }}>{activeCount}</div>
-          </div>
-
-          <div style={{ background: '#f0f9ff', padding: '8px 12px', borderRadius: 10, border: '1px solid #bae6fd' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>Checkouts Realizados</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#0284c7', marginTop: 2 }}>{checkoutCount}</div>
-          </div>
-
-          <div style={{ background: '#fef2f2', padding: '8px 12px', borderRadius: 10, border: '1px solid #fecaca' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase' }}>Chamados Disparados</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#dc2626', marginTop: 2 }}>{totalCalls}</div>
-          </div>
-
-          <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border)' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Média de Idade</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', marginTop: 2 }}>{avgAge} {avgAge !== '-' ? 'anos' : ''}</div>
+          <div className="search-pill" style={{ width: '280px', padding: '7px 14px' }}>
+            <input
+              type="text"
+              placeholder="Buscar criança, pai, PIN..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ fontSize: '0.82rem' }}
+            />
           </div>
         </div>
 
         {/* Data Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
               <div style={{ width: '32px', height: '32px', border: '3px solid #e2e8f0', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px auto' }} />
@@ -519,20 +466,20 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
               <p style={{ fontSize: '0.84rem', marginTop: 4 }}>Altere o período ou os filtros selecionados para visualizar os check-ins.</p>
             </div>
           ) : (
-            <table className="custom-table" style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
-              <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 10 }}>
+            <table className="custom-table" style={{ width: '100%', fontSize: '0.84rem', borderCollapse: 'collapse' }}>
+              <thead>
                 <tr>
-                  <th style={{ padding: '12px 14px' }}>Data</th>
-                  <th style={{ padding: '12px 14px' }}>Criança</th>
-                  <th style={{ padding: '12px 14px' }}>Idade</th>
-                  <th style={{ padding: '12px 14px' }}>Sala / Turma</th>
-                  <th style={{ padding: '12px 14px' }}>Responsável</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>PIN</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Entrada</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Saída</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Chamados</th>
-                  <th style={{ padding: '12px 14px' }}>Operador</th>
+                  <th style={{ padding: '14px 16px' }}>Data</th>
+                  <th style={{ padding: '14px 16px' }}>Criança</th>
+                  <th style={{ padding: '14px 16px' }}>Idade</th>
+                  <th style={{ padding: '14px 16px' }}>Sala / Turma</th>
+                  <th style={{ padding: '14px 16px' }}>Responsável</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>PIN</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Entrada</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Saída</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Status</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Chamados</th>
+                  <th style={{ padding: '14px 16px' }}>Operador</th>
                 </tr>
               </thead>
               <tbody>
@@ -543,11 +490,11 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
 
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-secondary)' }}>
                         {formatDate(item.checkin_at)}
                       </td>
 
-                      <td style={{ padding: '12px 14px' }}>
+                      <td style={{ padding: '14px 16px' }}>
                         <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{item.child_name}</div>
                         {item.is_visitor ? (
                           <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
@@ -560,19 +507,19 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
                         )}
                       </td>
 
-                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
                         {age !== null ? `${age} anos` : '-'}
                       </td>
 
-                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 5,
-                          fontSize: '0.78rem',
+                          fontSize: '0.80rem',
                           fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: 6,
+                          padding: '4px 10px',
+                          borderRadius: 8,
                           background: item.room_color ? `${item.room_color}15` : '#f1f5f9',
                           color: item.room_color || 'var(--text-main)'
                         }}>
@@ -580,20 +527,20 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
                         </span>
                       </td>
 
-                      <td style={{ padding: '12px 14px' }}>
+                      <td style={{ padding: '14px 16px' }}>
                         <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{item.parent_name}</div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{item.parent_phone || '-'}</div>
                       </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         <span style={{
                           fontFamily: 'monospace',
-                          fontSize: '0.88rem',
+                          fontSize: '0.90rem',
                           fontWeight: 900,
                           background: '#f1f5f9',
                           border: '1px solid #cbd5e1',
-                          padding: '3px 8px',
-                          borderRadius: 6,
+                          padding: '4px 10px',
+                          borderRadius: 8,
                           letterSpacing: '0.05em',
                           color: 'var(--text-main)'
                         }}>
@@ -601,44 +548,44 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
                         </span>
                       </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color: '#059669' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, color: '#059669' }}>
                         {formatTime(item.checkin_at)}
                       </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color: isCheckedOut ? '#0284c7' : 'var(--text-muted)' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, color: isCheckedOut ? '#0284c7' : 'var(--text-muted)' }}>
                         {isCheckedOut ? formatTime(item.checkout_at) : 'Presente'}
                       </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         {isCalling ? (
-                          <span style={{ background: '#fee2e2', color: '#dc2626', padding: '3px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800 }}>
+                          <span style={{ background: '#fee2e2', color: '#dc2626', padding: '4px 10px', borderRadius: 999, fontSize: '0.74rem', fontWeight: 800 }}>
                             🚨 Em Chamado
                           </span>
                         ) : isCheckedOut ? (
-                          <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '3px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800 }}>
+                          <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '4px 10px', borderRadius: 999, fontSize: '0.74rem', fontWeight: 800 }}>
                             ✓ Devolvido
                           </span>
                         ) : (
-                          <span style={{ background: '#e0f2fe', color: '#0284c7', padding: '3px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800 }}>
+                          <span style={{ background: '#e0f2fe', color: '#0284c7', padding: '4px 10px', borderRadius: 999, fontSize: '0.74rem', fontWeight: 800 }}>
                             ● Na Sala
                           </span>
                         )}
                       </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         {(item.call_count && item.call_count > 0) || item.called_at ? (
                           <span 
-                            style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 6, fontWeight: 900, fontSize: '0.76rem', cursor: item.call_reason ? 'help' : 'default' }}
+                            style={{ background: '#fee2e2', color: '#b91c1c', padding: '3px 10px', borderRadius: 8, fontWeight: 900, fontSize: '0.78rem', cursor: item.call_reason ? 'help' : 'default' }}
                             title={item.call_reason ? `Motivo: ${item.call_reason}` : undefined}
                           >
                             {item.call_count || 1}x {item.call_reason ? `(${item.call_reason})` : ''}
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>0</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.80rem' }}>0</span>
                         )}
                       </td>
 
-                      <td style={{ padding: '12px 14px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: '14px 16px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                         <div>Entrada: <strong>{item.checked_in_by || 'Recepção'}</strong></div>
                         {item.checked_out_by && <div>Saída: <strong>{item.checked_out_by}</strong></div>}
                       </td>
@@ -650,31 +597,25 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
+        {/* Table Footer */}
         <div style={{
-          padding: '14px 24px',
-          borderTop: '1px solid var(--panel-border)',
+          padding: '14px 20px',
           background: '#f8fafc',
+          borderTop: '1px solid var(--panel-border)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          fontSize: '0.78rem',
+          fontSize: '0.80rem',
           color: 'var(--text-muted)'
         }}>
           <div>
             Total de <strong>{filteredData.length}</strong> registro(s) listado(s).
           </div>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-            style={{ padding: '6px 16px', fontWeight: 700 }}
-          >
-            Fechar
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>Exportação pronta para Excel (.csv) e PDF</span>
+          </div>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 };

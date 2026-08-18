@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { KidsBadgeModal } from '../components/KidsBadgeModal';
 import { KidsQrScannerModal } from '../components/KidsQrScannerModal';
-import { KidsExportModal } from '../components/KidsExportModal';
+import { KidsReportsView } from '../components/KidsReportsView';
 import './Members.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -121,11 +121,12 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
 }) => {
   const orgId = selectedOrganization?.id || 'org_default';
 
-  const mapSubtabToInternal = (sub?: string): 'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas' => {
+  const mapSubtabToInternal = (sub?: string): 'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas' | 'relatorios' => {
     if (sub === 'kids_checkin') return 'checkin_rapido';
     if (sub === 'kids_chamados') return 'chamados';
     if (sub === 'kids_familias') return 'familias';
     if (sub === 'kids_config_salas') return 'config_salas';
+    if (sub === 'kids_relatorios') return 'relatorios';
     return 'salas';
   };
 
@@ -134,25 +135,22 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
     if (internal === 'chamados') return 'kids_chamados';
     if (internal === 'familias') return 'kids_familias';
     if (internal === 'config_salas') return 'kids_config_salas';
+    if (internal === 'relatorios') return 'kids_relatorios';
     return 'kids_salas';
   };
 
   // Navigation Subtabs
-  const [activeTab, setActiveTabState] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas'>(
+  const [activeTab, setActiveTabState] = useState<'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas' | 'relatorios'>(
     mapSubtabToInternal(activeSubtab)
   );
 
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-
   useEffect(() => {
-    if (activeSubtab === 'kids_relatorios') {
-      setIsExportModalOpen(true);
-    } else if (activeSubtab) {
+    if (activeSubtab) {
       setActiveTabState(mapSubtabToInternal(activeSubtab));
     }
   }, [activeSubtab]);
 
-  const switchTab = (tab: 'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas') => {
+  const switchTab = (tab: 'salas' | 'checkin_rapido' | 'chamados' | 'familias' | 'config_salas' | 'relatorios') => {
     setActiveTabState(tab);
     if (onNavigateSubtab) {
       onNavigateSubtab(mapInternalToSubtab(tab));
@@ -586,6 +584,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                 {activeTab === 'chamados' && `Central de Chamados de Pais ${activeCheckinsCalling.length > 0 ? `(${activeCheckinsCalling.length})` : ''}`}
                 {activeTab === 'familias' && `Base de Famílias & Membros (${families.length})`}
                 {activeTab === 'config_salas' && `Configuração de Salas & Turmas (${rooms.length})`}
+                {activeTab === 'relatorios' && 'Relatórios & Auditoria de Check-ins'}
               </h2>
               <p style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: '0.86rem' }}>
                 {activeTab === 'salas' && 'Monitoramento em tempo real das turmas infantis e conferência de crachás.'}
@@ -593,6 +592,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                 {activeTab === 'chamados' && 'Disparo e acompanhamento de alertas aos responsáveis via aplicativo e WhatsApp.'}
                 {activeTab === 'familias' && 'Crianças agrupadas diretamente por seus responsáveis na base de membros.'}
                 {activeTab === 'config_salas' && 'Gestão de turmas, faixas etárias, capacidades e identidade visual das salas.'}
+                {activeTab === 'relatorios' && 'Histórico detalhado de presenças, checkouts, PINs e chamados aos pais com exportação para Excel e PDF.'}
               </p>
             </div>
           </div>
@@ -621,16 +621,6 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
               <span>🚨</span> {activeCheckinsCalling.length} Chamado(s) Ativo(s)
             </button>
           )}
-
-          <button 
-            type="button" 
-            className="btn-secondary"
-            onClick={() => setIsExportModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.84rem', padding: '9px 14px' }}
-            title="Visualizar e Exportar Histórico / Relatório de Check-ins"
-          >
-            <span>📊</span> Relatório & Exportação
-          </button>
 
           {activeTab === 'checkin_rapido' && (
             <button 
@@ -1834,6 +1824,17 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       )}
 
       {/* ========================================================
+          TAB 6: RELATÓRIOS & AUDITORIA DE CHECK-IN
+          ======================================================== */}
+      {activeTab === 'relatorios' && (
+        <KidsReportsView
+          selectedOrganization={selectedOrganization}
+          selectedCampusId={selectedCampusId}
+          rooms={rooms}
+        />
+      )}
+
+      {/* ========================================================
           MODAL: CHAMAR PAIS (ALERTA NO APP & WHATSAPP)
           ======================================================== */}
       {isCallModalOpen && selectedCheckinForAction && createPortal(
@@ -2278,15 +2279,6 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         }}
         onScanSuccess={handleScanSuccessCheckout}
         childName={scannerTargetChild?.child_name}
-      />
-
-      {/* Modal de Visualização & Exportação de Dados / Relatório */}
-      <KidsExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        selectedOrganization={selectedOrganization}
-        selectedCampusId={selectedCampusId}
-        rooms={rooms}
       />
 
     </div>
