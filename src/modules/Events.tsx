@@ -45,6 +45,12 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Validador de Portaria Web
+  const [showValidatorModal, setShowValidatorModal] = useState(false);
+  const [validatorCode, setValidatorCode] = useState('');
+  const [validatorLoading, setValidatorLoading] = useState(false);
+  const [validatorResult, setValidatorResult] = useState<any | null>(null);
+
   const [formData, setFormData] = useState<{
     id: string;
     type: number;
@@ -72,6 +78,35 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
     is_featured: false,
     lots: [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
   });
+
+  const handleValidateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validatorCode.trim() || validatorLoading) return;
+    setValidatorLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/tickets/scan`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          token: validatorCode.trim(),
+          scanned_by: 'Painel Web Admin'
+        })
+      });
+      const data = await res.json();
+      setValidatorResult({
+        success: res.ok && data.isValid,
+        data
+      });
+    } catch (err: any) {
+      setValidatorResult({
+        success: false,
+        data: { message: 'Erro ao conectar ao servidor de validação.' }
+      });
+    } finally {
+      setValidatorLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadEvents();
@@ -252,7 +287,18 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
           <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Eventos, Cursos e Trilhas</h1>
           <p className="card-subtitle">Configure eventos da igreja, conferências, retiros e workshops integrados ao App.</p>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <button 
+            className="btn-secondary" 
+            onClick={() => {
+              setShowValidatorModal(true);
+              setValidatorResult(null);
+              setValidatorCode('');
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+          >
+            <span>📸</span> Validador de Portaria
+          </button>
           <button className="btn-secondary" onClick={generateMock}>
             Carregar Dados Mock
           </button>
@@ -695,6 +741,105 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
               >
                 {saving ? 'Publicando no App...' : (formData.id ? 'Salvar Alterações' : 'Salvar & Publicar no App')}
               </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL VALIDADOR DE PORTARIA (WEB ADMIN)
+          ======================================================== */}
+      {showValidatorModal && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setShowValidatorModal(false)}>
+          <div className="modal-studio-container" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()}>
+            
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: '#0f172a', color: '#ffffff' }}>
+                  📸
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Validador de Portaria & Check-in</h2>
+                  <p className="modal-studio-subtitle">Valide ingressos por QR Code Token ou Código Curto (FH-XXXXXX)</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                className="action-circle-btn" 
+                onClick={() => setShowValidatorModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: 24 }}>
+              <form onSubmit={handleValidateTicket} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="form-label-modern">Código do Ingresso / Token QR Code</label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      value={validatorCode}
+                      onChange={e => setValidatorCode(e.target.value.toUpperCase())}
+                      placeholder="Ex: FH-882190 ou TICKET-..."
+                      style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                      autoFocus
+                    />
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={!validatorCode.trim() || validatorLoading}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      {validatorLoading ? 'Validando...' : 'Validar Entrada'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Resultado da Validação */}
+              {validatorResult && (
+                <div style={{
+                  marginTop: 20,
+                  padding: 16,
+                  borderRadius: 16,
+                  background: validatorResult.success ? '#ecfdf5' : '#fef2f2',
+                  border: `1.5px solid ${validatorResult.success ? '#10b981' : '#ef4444'}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '1.4rem' }}>{validatorResult.success ? '✅' : '⚠️'}</span>
+                    <strong style={{ fontSize: '0.98rem', color: validatorResult.success ? '#065f46' : '#991b1b' }}>
+                      {validatorResult.data?.message || (validatorResult.success ? 'Entrada Liberada!' : 'Acesso Negado')}
+                    </strong>
+                  </div>
+
+                  {validatorResult.data?.attendee_name && (
+                    <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: 10, fontSize: '0.84rem', color: 'var(--text-main)' }}>
+                      <div>👤 <strong>Participante:</strong> {validatorResult.data.attendee_name}</div>
+                      {validatorResult.data.event && <div>🗓️ <strong>Evento:</strong> {validatorResult.data.event}</div>}
+                      {validatorResult.data.lot && <div>🎟️ <strong>Lote:</strong> {validatorResult.data.lot}</div>}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setValidatorResult(null);
+                      setValidatorCode('');
+                    }}
+                    style={{ marginTop: 6, fontWeight: 700 }}
+                  >
+                    🔄 Validar Outro Ingresso
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>
