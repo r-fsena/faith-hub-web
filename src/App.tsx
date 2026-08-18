@@ -16,6 +16,7 @@ import PagarmeSettings from './modules/PagarmeSettings';
 import Campuses, { type Campus } from './modules/Campuses';
 import OrganizationSelector, { type Organization } from './modules/OrganizationSelector';
 import { ProposalPublicView } from './modules/ProposalPublicView';
+import { BibleConfig } from './modules/BibleConfig';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
@@ -124,6 +125,7 @@ const navigationGroups = [
           { id: 'devocionais', label: 'Devocionais Diários' },
           { id: 'estudos', label: 'Estudos e Mídias' },
           { id: 'eventos', label: 'Eventos & Trilhas' },
+          { id: 'bible_config', label: 'Configurações da Bíblia' },
         ]
       },
     ]
@@ -909,6 +911,7 @@ function App() {
                     {activeTab === 'devocionais' && 'Devocionais'}
                     {activeTab === 'estudos' && 'Biblioteca de Estudos'}
                     {activeTab === 'eventos' && 'Eventos & Cursos'}
+                    {activeTab === 'bible_config' && 'Configurações da Bíblia Sagrada'}
                     {activeTab === 'pdv_produtos' && 'PDV • Catálogo de Produtos'}
                     {activeTab === 'pdv_pedidos' && 'PDV • Monitor de Pedidos'}
                     {activeTab === 'transmissoes' && 'Cultos & Transmissões'}
@@ -1268,6 +1271,12 @@ function App() {
               {activeTab === 'estudos' && <Studies />}
               {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'devocionais' && <Devotionals />}
+              {activeTab === 'bible_config' && (
+                <BibleConfig
+                  organizationId={selectedOrganization?.id}
+                  churchSlug={selectedOrganization?.slug}
+                />
+              )}
               {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
