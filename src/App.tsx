@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCurrentUser, signOut } from 'aws-amplify/auth';
+import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 import Login from './Login';
 import Members from './modules/Members';
@@ -167,6 +167,11 @@ function App() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [user, setUser] = useState<any>(null);
 
+  // User Profile & Multi-Tenancy Segregation State
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [allowedCampusIds, setAllowedCampusIds] = useState<string[]>([]);
+
   // Mobile / Responsive Sidebar Drawer State
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -250,6 +255,8 @@ function App() {
         case 'signedOut':
           setIsAuthenticated(false);
           setUser(null);
+          setUserProfile(null);
+          setIsSuperAdmin(false);
           break;
       }
     });
@@ -262,7 +269,7 @@ function App() {
     if (isAuthenticated && selectedOrganization) {
       loadCampuses();
     }
-  }, [isAuthenticated, selectedOrganization]);
+  }, [isAuthenticated, selectedOrganization, allowedCampusIds]);
 
   const loadCampuses = async () => {
     try {
@@ -270,7 +277,17 @@ function App() {
       const res = await fetch(`${API_URL}/campuses${orgParam}`);
       if (res.ok) {
         const json = await res.json();
-        setCampuses(json.data || []);
+        let list: Campus[] = json.data || [];
+
+        // Se o usuário não for SuperAdmin e tiver restrição de unidades específicas
+        if (!isSuperAdmin && allowedCampusIds.length > 0 && !allowedCampusIds.includes('all')) {
+          list = list.filter(c => allowedCampusIds.includes(c.id));
+          if (list.length > 0 && (selectedCampusId === 'all' || !allowedCampusIds.includes(selectedCampusId))) {
+            setSelectedCampusId(list[0].id);
+          }
+        }
+
+        setCampuses(list);
       }
     } catch (e) {
       console.error("Erro ao carregar lista de unidades:", e);
@@ -281,7 +298,7 @@ function App() {
     const handleCampusesUpdated = () => loadCampuses();
     window.addEventListener('campuses-updated', handleCampusesUpdated);
     return () => window.removeEventListener('campuses-updated', handleCampusesUpdated);
-  }, [selectedOrganization]);
+  }, [selectedOrganization, allowedCampusIds]);
 
   useEffect(() => {
     if (isAuthenticated && selectedOrganization) {
@@ -360,6 +377,60 @@ function App() {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
       setIsAuthenticated(true);
+
+      let userAttrs: any = {};
+      try {
+        userAttrs = await fetchUserAttributes();
+      } catch (e) {}
+
+      const userEmail = currentUser.signInDetails?.loginId || userAttrs.email || '';
+
+      // Consultar perfil de membro e vínculo com a igreja/organização
+      try {
+        const res = await fetch(`${API_URL}/members?email=${encodeURIComponent(userEmail)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const membersList = json.data || [];
+          const profile = membersList[0];
+
+          if (profile) {
+            setUserProfile(profile);
+            const role = (profile.role || userAttrs['custom:role'] || '').toUpperCase();
+            const isSuper = role === 'SUPERADMIN' || userEmail.toLowerCase().includes('admin@faithhub') || userEmail.toLowerCase().includes('rafaelsena');
+            setIsSuperAdmin(isSuper);
+
+            if (profile.campus_ids && Array.isArray(profile.campus_ids)) {
+              setAllowedCampusIds(profile.campus_ids);
+            } else if (profile.campus_id) {
+              setAllowedCampusIds([profile.campus_id]);
+            }
+
+            // Se NÃO for SuperAdmin, conecta automaticamente ao ambiente exclusivo da igreja dele
+            if (!isSuper && profile.organization_id) {
+              try {
+                const orgRes = await fetch(`${API_URL}/organizations/${profile.organization_id}`);
+                if (orgRes.ok) {
+                  const orgData = await orgRes.json();
+                  setSelectedOrganization(orgData);
+                  localStorage.setItem('faithhub_active_org', JSON.stringify(orgData));
+                  if (orgData.primary_color) {
+                    document.documentElement.style.setProperty('--accent-primary', orgData.primary_color);
+                    document.documentElement.style.setProperty('--accent-primary-gradient', `linear-gradient(135deg, ${orgData.primary_color} 0%, #14b8a6 100%)`);
+                  }
+                }
+              } catch (orgErr) {
+                console.error("Erro ao carregar organização do membro:", orgErr);
+              }
+            }
+          } else {
+            // Se não encontrou cadastro, verifica e-mail de admin master
+            const isSuper = userEmail.toLowerCase().includes('admin') || userEmail.toLowerCase().includes('rafaelsena');
+            setIsSuperAdmin(isSuper);
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao verificar perfil do usuário:", e);
+      }
     } catch (err) {
       setIsAuthenticated(false);
     } finally {
@@ -393,6 +464,7 @@ function App() {
   };
 
   const handleReturnToMasterHub = () => {
+    if (!isSuperAdmin) return;
     setSelectedOrganization(null);
     localStorage.removeItem('faithhub_active_org');
     document.documentElement.style.setProperty('--accent-primary', '#0f766e');
@@ -426,10 +498,10 @@ function App() {
     return <Login onLoginSuccess={checkAuth} />;
   }
 
-  const userName = user?.signInDetails?.loginId?.split('@')[0] || 'Pastor & Equipe';
+  const userName = userProfile?.name || user?.signInDetails?.loginId?.split('@')[0] || 'Pastor & Equipe';
   const formattedUserName = userName.charAt(0).toUpperCase() + userName.slice(1);
 
-  // SE NÃO SELECIONOU UMA ORGANIZAÇÃO/REDE, EXIBE A TELA DO HUB MASTER!
+  // SE NÃO SELECIONOU UMA ORGANIZAÇÃO/REDE E FOR SUPERADMIN, EXIBE A TELA DO HUB MASTER!
   if (!selectedOrganization) {
     return (
       <OrganizationSelector
@@ -450,53 +522,55 @@ function App() {
       {/* ========================================================
           MASTER ADMIN IMPERSONATION BANNER (TOP BAR)
           ======================================================== */}
-      <div style={{
-        background: '#0f172a',
-        color: '#f8fafc',
-        padding: '8px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: '0.80rem',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        zIndex: 100
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{
-            background: 'rgba(16, 185, 129, 0.2)',
-            color: '#34d399',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontWeight: 800,
-            fontSize: '0.68rem',
-            border: '1px solid rgba(52, 211, 153, 0.3)'
-          }}>
-            MODO MASTER
-          </span>
-          <span>
-            Gerenciando a Rede: <strong style={{ color: '#ffffff' }}>{selectedOrganization.name}</strong> ({selectedOrganization.plan || 'PRO'})
-          </span>
-        </div>
+      {isSuperAdmin && (
+        <div style={{
+          background: '#0f172a',
+          color: '#f8fafc',
+          padding: '8px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.80rem',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          zIndex: 100
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{
+              background: 'rgba(16, 185, 129, 0.2)',
+              color: '#34d399',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontWeight: 800,
+              fontSize: '0.68rem',
+              border: '1px solid rgba(52, 211, 153, 0.3)'
+            }}>
+              MODO MASTER
+            </span>
+            <span>
+              Gerenciando a Rede: <strong style={{ color: '#ffffff' }}>{selectedOrganization.name}</strong> ({selectedOrganization.plan || 'PRO'})
+            </span>
+          </div>
 
-        <button
-          onClick={handleReturnToMasterHub}
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            color: '#38bdf8',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            padding: '4px 12px',
-            borderRadius: '6px',
-            fontWeight: 700,
-            fontSize: '0.75rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          <GridIcon /> Trocar de Rede (Hub Master)
-        </button>
-      </div>
+          <button
+            onClick={handleReturnToMasterHub}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              color: '#38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              padding: '4px 12px',
+              borderRadius: '6px',
+              fontWeight: 700,
+              fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <GridIcon /> Trocar de Rede (Hub Master)
+          </button>
+        </div>
+      )}
 
       {/* Main Admin Area */}
       <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 37px)', position: 'relative' }}>
@@ -710,12 +784,16 @@ function App() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{formattedUserName}</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Administrador Master</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {isSuperAdmin ? 'Administrador Master' : (userProfile?.role || 'Liderança')}
+                  </span>
                 </div>
               </div>
-              <button onClick={handleReturnToMasterHub} title="Trocar de Igreja / Rede" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <GridIcon />
-              </button>
+              {isSuperAdmin && (
+                <button onClick={handleReturnToMasterHub} title="Trocar de Igreja / Rede (Hub Master)" style={{ color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}>
+                  <GridIcon />
+                </button>
+              )}
             </div>
           </div>
         </aside>
