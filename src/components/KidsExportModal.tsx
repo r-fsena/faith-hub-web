@@ -273,21 +273,22 @@ export const KidsExportModal: React.FC<KidsExportModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="modal-backdrop animate-fade-in" style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 99999 }}>
       <div 
-        className="portal-card modal-studio-container" 
+        className="modal-studio-container" 
         style={{ 
           maxWidth: '1240px', 
           width: '100%', 
-          maxHeight: '92vh', 
+          maxHeight: '90vh', 
           display: 'flex', 
           flexDirection: 'column', 
           padding: 0, 
           overflow: 'hidden',
           borderRadius: '24px',
-          boxShadow: '0 25px 60px rgba(15, 23, 42, 0.25)',
+          boxShadow: '0 25px 60px rgba(15, 23, 42, 0.35)',
           background: '#ffffff'
         }}
+        onClick={e => e.stopPropagation()}
       >
         {/* Modal Topbar */}
         <div style={{
