@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { KidsBadgeModal } from '../components/KidsBadgeModal';
 import { KidsQrScannerModal } from '../components/KidsQrScannerModal';
+import { KidsExportModal } from '../components/KidsExportModal';
 import './Members.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -141,8 +142,12 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
     mapSubtabToInternal(activeSubtab)
   );
 
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
   useEffect(() => {
-    if (activeSubtab) {
+    if (activeSubtab === 'kids_relatorios') {
+      setIsExportModalOpen(true);
+    } else if (activeSubtab) {
       setActiveTabState(mapSubtabToInternal(activeSubtab));
     }
   }, [activeSubtab]);
@@ -617,12 +622,21 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
             </button>
           )}
 
-          {activeTab !== 'checkin_rapido' && (
+          <button 
+            type="button" 
+            className="btn-secondary"
+            onClick={() => setIsExportModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.84rem', padding: '9px 14px' }}
+            title="Visualizar e Exportar Histórico / Relatório de Check-ins"
+          >
+            <span>📊</span> Relatório & Exportação
+          </button>
+
+          {activeTab === 'checkin_rapido' && (
             <button 
               type="button" 
               className="btn-primary"
               onClick={() => {
-                switchTab('checkin_rapido');
                 setCheckinSuccessData(null);
               }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.84rem', padding: '9px 16px' }}
@@ -2264,6 +2278,15 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         }}
         onScanSuccess={handleScanSuccessCheckout}
         childName={scannerTargetChild?.child_name}
+      />
+
+      {/* Modal de Visualização & Exportação de Dados / Relatório */}
+      <KidsExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        selectedOrganization={selectedOrganization}
+        selectedCampusId={selectedCampusId}
+        rooms={rooms}
       />
 
     </div>

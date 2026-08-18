@@ -112,6 +112,7 @@ const navigationGroups = [
           { id: 'kids_chamados', label: 'Central de Chamados' },
           { id: 'kids_familias', label: 'Base de Famílias & Membros' },
           { id: 'kids_config_salas', label: 'Configuração de Salas' },
+          { id: 'kids_relatorios', label: 'Relatórios & Exportação' },
         ]
       },
       { 
@@ -747,6 +748,7 @@ function App() {
                     {activeTab === 'kids_chamados' && 'Kids • Chamados de Pais'}
                     {activeTab === 'kids_familias' && 'Kids • Famílias & Membros'}
                     {activeTab === 'kids_config_salas' && 'Kids • Configuração de Salas'}
+                    {activeTab === 'kids_relatorios' && 'Kids • Relatórios & Exportação'}
                     {activeTab === 'kids_ministerio' && 'Ministério Infantil'}
                     {activeTab === 'celulas' && 'Células & Grupos'}
                     {activeTab === 'devocionais' && 'Devocionais'}
