@@ -1000,16 +1000,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       {activeTab === 'checkin_rapido' && (
         <div className="animate-fade-in" style={{ maxWidth: 880, margin: '0 auto' }}>
           <div className="portal-card" style={{ padding: 28 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-              <div>
-                <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                  🏷️ Totem de Check-in Expresso Kids
-                </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginTop: 3 }}>
-                  Selecione se o responsável é membro cadastrado da igreja ou visitante.
-                </p>
-              </div>
-
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
               {/* Toggle de Modo: Membro vs Visitante */}
               <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 12 }}>
                 <button
@@ -1507,15 +1498,6 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
           ======================================================== */}
       {activeTab === 'chamados' && (
         <div className="animate-fade-in">
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-              📢 Central de Chamados de Pais em Tempo Real
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
-              Acompanhe as solicitações ativas dos educadores para comparecimento dos pais nas salas.
-            </p>
-          </div>
-
           {activeCheckinsCalling.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 60, background: '#ffffff', borderRadius: 16, border: '1px dashed var(--panel-border)' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>✨</div>
@@ -1605,25 +1587,16 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       {activeTab === 'familias' && (
         <div className="animate-fade-in">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-            <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                👨‍👩‍👧‍👦 Famílias & Membros Vinculados
-              </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
-                Visualize as crianças agrupadas diretamente por seus pais cadastrados na base de membros.
-              </p>
+            <div className="search-pill" style={{ width: 280 }}>
+              <SearchIcon />
+              <input 
+                type="text" 
+                placeholder="Buscar família ou membro..." 
+                onChange={e => loadFamilies(e.target.value)}
+              />
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <div className="search-pill" style={{ width: 260 }}>
-                <SearchIcon />
-                <input 
-                  type="text" 
-                  placeholder="Buscar família ou membro..." 
-                  onChange={e => loadFamilies(e.target.value)}
-                />
-              </div>
-
               <button 
                 type="button" 
                 className="btn-primary"
@@ -1784,16 +1757,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
           ======================================================== */}
       {activeTab === 'config_salas' && (
         <div className="animate-fade-in">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                🏫 Salas & Turmas do Ministério Infantil
-              </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: 4 }}>
-                Configure as faixas etárias, capacidades e identidade visual de cada turma.
-              </p>
-            </div>
-
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 16 }}>
             <button 
               type="button" 
               className="btn-primary"

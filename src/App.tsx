@@ -736,26 +736,30 @@ function App() {
                 ☰
               </button>
               <div>
-                <div className="greeting-text">
-                  {activeTab === 'dashboard' && `Dashboard (${selectedOrganization.name})`}
-                  {activeTab === 'membros' && 'Gestão de Membros & Liderança'}
-                  {activeTab === 'kids_salas' && 'Ministério Infantil • Painel ao Vivo das Salas'}
-                  {activeTab === 'kids_checkin' && 'Ministério Infantil • Totem de Check-in Expresso'}
-                  {activeTab === 'kids_chamados' && 'Ministério Infantil • Central de Chamados de Pais'}
-                  {activeTab === 'kids_familias' && 'Ministério Infantil • Base de Famílias & Membros'}
-                  {activeTab === 'kids_config_salas' && 'Ministério Infantil • Configuração de Salas'}
-                  {activeTab === 'kids_ministerio' && 'Ministério Infantil (Faith Kids & Check-in)'}
-                  {activeTab === 'celulas' && 'Células, Redes & Grupos Familiares'}
-                  {activeTab === 'devocionais' && 'Devocionais Diários'}
-                  {activeTab === 'estudos' && 'Biblioteca de Estudos & Mídias'}
-                  {activeTab === 'eventos' && 'Eventos, Cursos & Inscrições'}
-                  {activeTab === 'pdv_produtos' && 'Catálogo de Produtos PDV'}
-                  {activeTab === 'pdv_pedidos' && 'Monitor de Pedidos em Tempo Real'}
-                  {activeTab === 'transmissoes' && 'Central de Cultos & Transmissões'}
-                  {activeTab === 'campuses' && 'Gestão de Unidades, Filiais & Campi'}
-                  {activeTab === 'church_branding' && 'Identidade Visual & PWA Studio'}
-                  {activeTab === 'pagarme_financeiro' && 'Gateway de Pagamento (Pagar.me / Pix)'}
-                  {activeTab === 'configuracoes' && 'Configurações da Nuvem AWS'}
+                <div className="greeting-text" style={{ fontSize: '0.90rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{selectedOrganization.name}</span>
+                  <span style={{ margin: '0 6px', opacity: 0.5 }}>/</span>
+                  <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>
+                    {activeTab === 'dashboard' && 'Dashboard Central'}
+                    {activeTab === 'membros' && 'Membros & Liderança'}
+                    {activeTab === 'kids_salas' && 'Kids • Mural de Salas'}
+                    {activeTab === 'kids_checkin' && 'Kids • Totem de Check-in'}
+                    {activeTab === 'kids_chamados' && 'Kids • Chamados de Pais'}
+                    {activeTab === 'kids_familias' && 'Kids • Famílias & Membros'}
+                    {activeTab === 'kids_config_salas' && 'Kids • Configuração de Salas'}
+                    {activeTab === 'kids_ministerio' && 'Ministério Infantil'}
+                    {activeTab === 'celulas' && 'Células & Grupos'}
+                    {activeTab === 'devocionais' && 'Devocionais'}
+                    {activeTab === 'estudos' && 'Biblioteca de Estudos'}
+                    {activeTab === 'eventos' && 'Eventos & Cursos'}
+                    {activeTab === 'pdv_produtos' && 'PDV • Catálogo de Produtos'}
+                    {activeTab === 'pdv_pedidos' && 'PDV • Monitor de Pedidos'}
+                    {activeTab === 'transmissoes' && 'Cultos & Transmissões'}
+                    {activeTab === 'campuses' && 'Unidades & Filiais'}
+                    {activeTab === 'church_branding' && 'Identidade Visual & PWA'}
+                    {activeTab === 'pagarme_financeiro' && 'Gateway Pagar.me'}
+                    {activeTab === 'configuracoes' && 'Configurações'}
+                  </span>
                 </div>
               </div>
             </div>
