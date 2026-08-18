@@ -213,7 +213,7 @@ export const BibleConfig: React.FC<BibleConfigProps> = ({ organizationId, church
             </div>
             <div>
               <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.4px' }}>
-                Configurações da Bíblia Sagrada
+                Bíblias
               </h1>
               <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
                 Defina as traduções canônicas disponíveis, versão padrão e orientações pastorais para o App PWA da <strong>{churchName}</strong>.

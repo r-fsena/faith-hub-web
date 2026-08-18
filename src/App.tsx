@@ -125,7 +125,7 @@ const navigationGroups = [
           { id: 'devocionais', label: 'Devocionais Diários' },
           { id: 'estudos', label: 'Estudos e Mídias' },
           { id: 'eventos', label: 'Eventos & Trilhas' },
-          { id: 'bible_config', label: 'Configurações da Bíblia' },
+          { id: 'bible_config', label: 'Bíblias' },
         ]
       },
     ]
@@ -943,7 +943,7 @@ function App() {
                     {activeTab === 'devocionais' && 'Devocionais'}
                     {activeTab === 'estudos' && 'Biblioteca de Estudos'}
                     {activeTab === 'eventos' && 'Eventos & Cursos'}
-                    {activeTab === 'bible_config' && 'Configurações da Bíblia Sagrada'}
+                    {activeTab === 'bible_config' && 'Bíblias'}
                     {activeTab === 'pdv_produtos' && 'PDV • Catálogo de Produtos'}
                     {activeTab === 'pdv_pedidos' && 'PDV • Monitor de Pedidos'}
                     {activeTab === 'transmissoes' && 'Cultos & Transmissões'}
