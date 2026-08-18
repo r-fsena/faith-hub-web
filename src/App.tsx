@@ -512,6 +512,71 @@ function App() {
     );
   }
 
+  // SE A ORGANIZAÇÃO ESTIVER INATIVA E O USUÁRIO NÃO FOR MASTER SUPERADMIN, BLOQUEIA O ACESSO AO STUDIO!
+  if ((selectedOrganization.status || '').toUpperCase() === 'INACTIVE' && !isSuperAdmin) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f1f5f9',
+        padding: '24px',
+        fontFamily: 'inherit'
+      }}>
+        <div style={{
+          background: '#ffffff',
+          borderRadius: '24px',
+          padding: '44px 32px',
+          maxWidth: '480px',
+          width: '100%',
+          textAlign: 'center',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
+          border: '1px solid #e2e8f0'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '20px',
+            background: '#fee2e2',
+            color: '#ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '2rem',
+            margin: '0 auto 20px auto'
+          }}>
+            🚫
+          </div>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f172a', margin: '0 0 8px 0' }}>
+            Ambiente Suspenso
+          </h2>
+          <span style={{ display: 'inline-block', background: '#fee2e2', color: '#b91c1c', padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800, marginBottom: '16px' }}>
+            Acesso Temporariamente Desativado
+          </span>
+          <p style={{ color: '#64748b', fontSize: '0.90rem', lineHeight: 1.5, margin: '0 0 24px 0' }}>
+            O portal da comunidade <strong>{selectedOrganization.name}</strong> foi temporariamente desativado pela administração. Para regularizar ou reativar este ambiente, entre em contato com a equipe Faith-Hub.
+          </p>
+          <button
+            onClick={handleSignOut}
+            style={{
+              background: '#0f172a',
+              color: '#ffffff',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '12px',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              cursor: 'pointer'
+            }}
+          >
+            Sair da Conta
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const selectedCampusName = selectedCampusId === 'all' 
     ? 'Todas as Unidades' 
     : campuses.find(c => c.id === selectedCampusId)?.name || 'Unidade Selecionada';
@@ -534,7 +599,7 @@ function App() {
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           zIndex: 100
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <span style={{
               background: 'rgba(16, 185, 129, 0.2)',
               color: '#34d399',
@@ -546,6 +611,18 @@ function App() {
             }}>
               MODO MASTER
             </span>
+            {(selectedOrganization.status || '').toUpperCase() === 'INACTIVE' && (
+              <span style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontWeight: 900,
+                fontSize: '0.68rem'
+              }}>
+                🚫 AMBIENTE INATIVO
+              </span>
+            )}
             <span>
               Gerenciando a Rede: <strong style={{ color: '#ffffff' }}>{selectedOrganization.name}</strong> ({selectedOrganization.plan || 'PRO'})
             </span>

@@ -71,8 +71,18 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
-  const [savingOrg, setSavingOrg] = useState(false);
-  const [orgFormData, setOrgFormData] = useState({
+  const [openMenuOrgId, setOpenMenuOrgId] = useState<string | null>(null);
+  const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
+  const [orgFormData, setOrgFormData] = useState<{
+    id?: string;
+    name: string;
+    slug: string;
+    cnpj: string;
+    plan: string;
+    primary_color: string;
+    secondary_color: string;
+    status: string;
+  }>({
     name: '',
     slug: '',
     cnpj: '',
@@ -143,6 +153,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     fetchProposals();
     fetchSubscriptions();
     fetchAvailablePlans();
+
+    // Fecha o menu de 3 pontinhos ao clicar em qualquer lugar da tela
+    const handleClickOutside = () => setOpenMenuOrgId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
   const fetchAvailablePlans = async () => {
@@ -203,7 +218,63 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     }
   };
 
-  const handleCreateOrg = async (e: React.FormEvent) => {
+  const handleToggleOrgStatus = async (org: Organization) => {
+    const isCurrentlyInactive = (org.status || '').toUpperCase() === 'INACTIVE';
+    const newStatus = isCurrentlyInactive ? 'ACTIVE' : 'INACTIVE';
+    
+    const confirmMessage = isCurrentlyInactive
+      ? `Deseja REATIVAR o ambiente da "${org.name}"?\n\n• O acesso ao Studio e ao App PWA dos membros será reestabelecido imediatamente com todos os dados mantidos.`
+      : `Deseja INATIVAR o ambiente da "${org.name}"?\n\n• O acesso ao Studio e ao App PWA dos membros será bloqueado temporariamente.\n• Todos os dados permanecerão salvos com segurança para reativação futura.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/organizations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: org.id, status: newStatus })
+      });
+      if (res.ok) {
+        setOrganizations(prev => prev.map(o => o.id === org.id ? { ...o, status: newStatus } : o));
+        alert(`✓ Ambiente da "${org.name}" foi ${newStatus === 'ACTIVE' ? 'reativado' : 'inativado'} com sucesso!`);
+      } else {
+        alert('Erro ao atualizar status do ambiente.');
+      }
+    } catch (e) {
+      alert('Erro ao conectar ao servidor.');
+    }
+  };
+
+  const handleEditOrg = (org: Organization) => {
+    setEditingOrgId(org.id);
+    setOrgFormData({
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      cnpj: org.cnpj || '',
+      plan: org.plan || 'PRO',
+      primary_color: org.primary_color || '#0f766e',
+      secondary_color: org.secondary_color || '#14b8a6',
+      status: org.status || 'ACTIVE'
+    });
+    setIsOrgModalOpen(true);
+  };
+
+  const handleOpenNewOrgModal = () => {
+    setEditingOrgId(null);
+    setOrgFormData({
+      name: '',
+      slug: '',
+      cnpj: '',
+      plan: 'PRO',
+      primary_color: '#0f766e',
+      secondary_color: '#14b8a6',
+      status: 'ACTIVE'
+    });
+    setIsOrgModalOpen(true);
+  };
+
+  const handleSaveOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingOrg(true);
     try {
@@ -214,6 +285,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       });
       if (res.ok) {
         setIsOrgModalOpen(false);
+        setEditingOrgId(null);
         setOrgFormData({
           name: '',
           slug: '',
@@ -224,9 +296,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           status: 'ACTIVE'
         });
         fetchOrganizations();
+        alert('✓ Dados da congregação salvos com sucesso!');
+      } else {
+        const err = await res.json();
+        alert(`Erro ao salvar organização: ${err.error || err.message}`);
       }
     } catch (e) {
-      alert('Erro ao criar organização');
+      alert('Erro ao salvar organização');
     } finally {
       setSavingOrg(false);
     }
@@ -569,7 +645,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                 </div>
 
                 <button
-                  onClick={() => setIsOrgModalOpen(true)}
+                  onClick={handleOpenNewOrgModal}
                   style={{
                     background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
                     color: '#ffffff',
@@ -594,70 +670,285 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>Crie uma nova rede ou emita uma proposta comercial.</p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
-                  {filteredOrgs.map(org => (
-                    <div
-                      key={org.id}
-                      className="portal-card animate-fade-in"
-                      style={{
-                        margin: 0,
-                        padding: '24px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        position: 'relative',
-                        border: '1px solid var(--panel-border)',
-                        boxShadow: 'var(--shadow-sm)'
-                      }}
-                    >
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${org.primary_color || '#0f766e'} 0%, ${org.secondary_color || '#14b8a6'} 100%)` }} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 310px), 1fr))', gap: '20px' }}>
+                  {filteredOrgs.map(org => {
+                    const isInactive = (org.status || '').toUpperCase() === 'INACTIVE';
 
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: org.primary_color || '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
-                              {org.name.charAt(0).toUpperCase()}
+                    return (
+                      <div
+                        key={org.id}
+                        className="portal-card animate-fade-in"
+                        style={{
+                          margin: 0,
+                          padding: '24px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          position: 'relative',
+                          border: isInactive ? '1.5px dashed #cbd5e1' : '1px solid var(--panel-border)',
+                          background: isInactive ? '#f8fafc' : '#ffffff',
+                          boxShadow: 'var(--shadow-sm)',
+                          opacity: isInactive ? 0.9 : 1,
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        {/* Accent Top Line */}
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: '4px',
+                          background: isInactive
+                            ? 'linear-gradient(90deg, #94a3b8 0%, #cbd5e1 100%)'
+                            : `linear-gradient(90deg, ${org.primary_color || '#0f766e'} 0%, ${org.secondary_color || '#14b8a6'} 100%)`
+                        }} />
+
+                        <div>
+                          {/* Header with Avatar, Name, Plan and 3-Dots Menu */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px', position: 'relative' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                width: '44px',
+                                height: '44px',
+                                borderRadius: '12px',
+                                background: isInactive ? '#64748b' : (org.primary_color || '#0f766e'),
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 800,
+                                fontSize: '1.2rem',
+                                flexShrink: 0,
+                                filter: isInactive ? 'grayscale(1)' : 'none'
+                              }}>
+                                {org.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: isInactive ? '#64748b' : 'var(--text-main)', margin: 0 }}>
+                                    {org.name}
+                                  </h2>
+                                </div>
+                                <span style={{ fontSize: '0.74rem', color: isInactive ? '#94a3b8' : 'var(--text-muted)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                  app: <strong>app.faithhubs.com/{org.slug}</strong>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Plan Badge + 3-Dots Menu Button */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              {isInactive ? (
+                                <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '3px 7px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 800 }}>
+                                  🚫 INATIVO
+                                </span>
+                              ) : (
+                                <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>
+                                  {org.plan || 'PRO'}
+                                </span>
+                              )}
+
+                              {/* 3-DOTS (⋮) MENU */}
+                              <div style={{ position: 'relative' }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuOrgId(openMenuOrgId === org.id ? null : org.id);
+                                  }}
+                                  style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    background: openMenuOrgId === org.id ? '#f1f5f9' : '#ffffff',
+                                    color: '#475569',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '1.2rem',
+                                    fontWeight: 900,
+                                    lineHeight: 1
+                                  }}
+                                  title="Opções do Ambiente"
+                                >
+                                  ⋮
+                                </button>
+
+                                {openMenuOrgId === org.id && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '36px',
+                                      right: 0,
+                                      background: '#ffffff',
+                                      borderRadius: '14px',
+                                      boxShadow: '0 15px 35px rgba(0, 0, 0, 0.15)',
+                                      border: '1px solid #e2e8f0',
+                                      padding: '6px',
+                                      zIndex: 100,
+                                      width: '210px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '2px'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleEditOrg(org);
+                                        setOpenMenuOrgId(null);
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '9px 12px',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        color: '#1e293b',
+                                        fontSize: '0.80rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        borderRadius: '8px',
+                                        textAlign: 'left'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                      ✏️ Editar Dados da Igreja
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleToggleOrgStatus(org);
+                                        setOpenMenuOrgId(null);
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '9px 12px',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        color: isInactive ? '#059669' : '#dc2626',
+                                        fontSize: '0.80rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        borderRadius: '8px',
+                                        textAlign: 'left'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = isInactive ? '#ecfdf5' : '#fef2f2'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                      {isInactive ? '🟢 Reativar Ambiente' : '🚫 Inativar Ambiente'}
+                                    </button>
+
+                                    <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(`https://app.faithhubs.com/${org.slug}`);
+                                        alert(`✓ Link do PWA copiado: https://app.faithhubs.com/${org.slug}`);
+                                        setOpenMenuOrgId(null);
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '9px 12px',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        color: '#475569',
+                                        fontSize: '0.80rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        borderRadius: '8px',
+                                        textAlign: 'left'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                      📱 Copiar Link do PWA
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Metrics Grid */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '10px',
+                            background: isInactive ? '#f1f5f9' : '#f8fafc',
+                            padding: '12px',
+                            borderRadius: '10px',
+                            marginBottom: '16px',
+                            border: '1px solid var(--panel-border)'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: isInactive ? '#64748b' : 'var(--text-main)' }}>
+                                {org.total_campuses ?? 1}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                Campi / Filiais
+                              </div>
                             </div>
                             <div>
-                              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{org.name}</h2>
-                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>app: <strong>app.faithhubs.com/{org.slug}</strong></span>
+                              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: isInactive ? '#dc2626' : '#059669' }}>
+                                {isInactive ? 'Inativo' : 'Ativa'}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                Status do SaaS
+                              </div>
                             </div>
                           </div>
-                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>{org.plan || 'PRO'}</span>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '16px', border: '1px solid var(--panel-border)' }}>
-                          <div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{org.total_campuses ?? 1}</div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Campi / Filiais</div>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#059669' }}>Ativa</div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Status do SaaS</div>
-                          </div>
+                        {/* Card Actions */}
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            onClick={() => onSelectOrg(org)}
+                            className={isInactive ? "btn-secondary" : "btn-primary"}
+                            style={{
+                              flex: 1,
+                              padding: '10px',
+                              fontSize: '0.84rem',
+                              borderRadius: '10px',
+                              background: isInactive ? '#e2e8f0' : undefined,
+                              color: isInactive ? '#475569' : undefined,
+                              fontWeight: 800
+                            }}
+                          >
+                            {isInactive ? 'Acessar (Inativo) ➔' : 'Acessar Studio ➔'}
+                          </button>
+                          <a
+                            href={`https://app.faithhubs.com/${org.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn-secondary"
+                            style={{
+                              padding: '10px 14px',
+                              fontSize: '0.84rem',
+                              borderRadius: '10px',
+                              textDecoration: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              opacity: isInactive ? 0.5 : 1
+                            }}
+                          >
+                            📱 App
+                          </a>
                         </div>
                       </div>
-
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button
-                          onClick={() => onSelectOrg(org)}
-                          className="btn-primary"
-                          style={{ flex: 1, padding: '10px', fontSize: '0.84rem', borderRadius: '10px' }}
-                        >
-                          Acessar Studio ➔
-                        </button>
-                        <a
-                          href={`https://app.faithhubs.com/${org.slug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn-secondary"
-                          style={{ padding: '10px 14px', fontSize: '0.84rem', borderRadius: '10px', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
-                        >
-                          📱 App
-                        </a>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1356,7 +1647,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       )}
 
       {/* ========================================================
-          MODAL: NOVA ORGANIZAÇÃO MANUAL (PORTAL)
+          MODAL: ORGANIZAÇÃO (CRIAR OU EDITAR DADOS)
           ======================================================== */}
       {isOrgModalOpen && createPortal(
         <div
@@ -1387,7 +1678,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             style={{
               backgroundColor: '#ffffff',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '520px',
               borderRadius: '24px',
               boxShadow: '0 30px 80px rgba(0, 0, 0, 0.4)',
               border: '1px solid #e2e8f0',
@@ -1400,7 +1691,14 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             }}
           >
             <div style={{ padding: '22px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>Nova Rede / Denominação</h3>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>
+                  {editingOrgId ? '✏️ Editar Dados da Igreja' : '🏛️ Nova Rede / Denominação'}
+                </h3>
+                <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '2px 0 0 0' }}>
+                  {editingOrgId ? 'Atualize as informações, cores institucionais e status do ambiente.' : 'Cadastre uma nova congregação e libere o acesso ao ecossistema.'}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsOrgModalOpen(false)}
@@ -1410,19 +1708,139 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               </button>
             </div>
 
-            <form onSubmit={handleCreateOrg} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleSaveOrg} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '75vh', overflowY: 'auto' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Nome da Igreja *</label>
-                <input type="text" value={orgFormData.name} onChange={e => setOrgFormData({ ...orgFormData, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-') })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }} required />
+                <input
+                  type="text"
+                  value={orgFormData.name}
+                  onChange={e => setOrgFormData({
+                    ...orgFormData,
+                    name: e.target.value,
+                    slug: editingOrgId ? orgFormData.slug : e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-')
+                  })}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
+                  required
+                />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Slug do PWA (app.faithhubs.com/slug)</label>
-                <input type="text" value={orgFormData.slug} onChange={e => setOrgFormData({ ...orgFormData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }} required />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Slug do PWA (URL) *</label>
+                  <input
+                    type="text"
+                    value={orgFormData.slug}
+                    onChange={e => setOrgFormData({ ...orgFormData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Plano Contratado</label>
+                  <select
+                    value={orgFormData.plan}
+                    onChange={e => setOrgFormData({ ...orgFormData, plan: e.target.value })}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box', fontWeight: 700 }}
+                  >
+                    <option value="START">START</option>
+                    <option value="PRO">PRO</option>
+                    <option value="KINGDOM">KINGDOM</option>
+                    <option value="ENTERPRISE">ENTERPRISE</option>
+                  </select>
+                </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>CNPJ (Opcional)</label>
+                  <input
+                    type="text"
+                    value={orgFormData.cnpj}
+                    onChange={e => setOrgFormData({ ...orgFormData, cnpj: e.target.value })}
+                    placeholder="00.000.000/0000-00"
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Status do Ambiente</label>
+                  <select
+                    value={orgFormData.status}
+                    onChange={e => setOrgFormData({ ...orgFormData, status: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid #cbd5e1',
+                      background: orgFormData.status === 'INACTIVE' ? '#fef2f2' : '#f0fdf4',
+                      color: orgFormData.status === 'INACTIVE' ? '#b91c1c' : '#15803d',
+                      boxSizing: 'border-box',
+                      fontWeight: 800
+                    }}
+                  >
+                    <option value="ACTIVE">🟢 ATIVO (Liberado)</option>
+                    <option value="INACTIVE">🚫 INATIVO (Suspenso)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Cor Primária</label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="color"
+                      value={orgFormData.primary_color}
+                      onChange={e => setOrgFormData({ ...orgFormData, primary_color: e.target.value })}
+                      style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: 0 }}
+                    />
+                    <input
+                      type="text"
+                      value={orgFormData.primary_color}
+                      onChange={e => setOrgFormData({ ...orgFormData, primary_color: e.target.value })}
+                      style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Cor Secundária</label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="color"
+                      value={orgFormData.secondary_color}
+                      onChange={e => setOrgFormData({ ...orgFormData, secondary_color: e.target.value })}
+                      style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: 0 }}
+                    />
+                    <input
+                      type="text"
+                      value={orgFormData.secondary_color}
+                      onChange={e => setOrgFormData({ ...orgFormData, secondary_color: e.target.value })}
+                      style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
-                <button type="button" onClick={() => setIsOrgModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#334155', cursor: 'pointer' }}>Cancelar</button>
-                <button type="submit" disabled={savingOrg} style={{ flex: 2, padding: '12px', borderRadius: '12px', fontWeight: 800, background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', color: '#ffffff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)' }}>
-                  {savingOrg ? 'Criando...' : 'Criar Igreja'}
+                <button type="button" onClick={() => setIsOrgModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#334155', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+                <button
+                  type="submit"
+                  disabled={savingOrg}
+                  style={{
+                    flex: 2,
+                    padding: '12px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)'
+                  }}
+                >
+                  {savingOrg ? 'Salvando...' : (editingOrgId ? 'Salvar Alterações' : 'Criar Igreja')}
                 </button>
               </div>
             </form>
