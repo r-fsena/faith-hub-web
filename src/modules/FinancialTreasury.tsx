@@ -491,7 +491,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
           </div>
         </div>
 
-        {/* Ações Rápidas Topo */}
+        {/* Ação Unificada Topo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -502,20 +502,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
               setIsTransactionModalOpen(true);
             }}
           >
-            <PlusIcon /> Registrar Receita / Dízimo
-          </button>
-
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ color: 'var(--danger)', borderColor: '#fecdd3' }}
-            onClick={() => {
-              setModalTransactionType('EXPENSE');
-              setFormData({ ...formData, category: 'Instalações & Aluguel', description: '' });
-              setIsTransactionModalOpen(true);
-            }}
-          >
-            <PlusIcon /> Nova Despesa / Conta
+            <PlusIcon /> Nova Movimentação
           </button>
         </div>
       </div>
@@ -731,7 +718,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                     setIsTransactionModalOpen(true);
                   }}
                 >
-                  <PlusIcon /> Registrar Dízimo / Oferta
+                  <PlusIcon /> Nova Movimentação
                 </button>
               </div>
 
@@ -798,15 +785,14 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                 </h3>
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ color: 'var(--danger)', borderColor: '#fecdd3' }}
+                  className="btn-primary"
                   onClick={() => {
                     setModalTransactionType('EXPENSE');
                     setFormData({ ...formData, category: 'Instalações & Aluguel' });
                     setIsTransactionModalOpen(true);
                   }}
                 >
-                  <PlusIcon /> Nova Despesa / Pagamento
+                  <PlusIcon /> Nova Movimentação
                 </button>
               </div>
 
