@@ -17,6 +17,8 @@ import Campuses, { type Campus } from './modules/Campuses';
 import OrganizationSelector, { type Organization } from './modules/OrganizationSelector';
 import { ProposalPublicView } from './modules/ProposalPublicView';
 import { BibleConfig } from './modules/BibleConfig';
+import { FinancialTreasury } from './modules/FinancialTreasury';
+import { MySubscription } from './modules/MySubscription';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
@@ -147,11 +149,26 @@ const navigationGroups = [
     ]
   },
   {
+    category: 'Gestão Financeira & SaaS',
+    items: [
+      {
+        id: 'financas_group',
+        label: 'Finanças & Tesouraria',
+        icon: CreditCardIcon,
+        hasSubmenu: true,
+        subItems: [
+          { id: 'financial_treasury', label: 'Painel & DRE da Igreja' },
+          { id: 'pagarme_financeiro', label: 'Gateway de Pagamento' },
+          { id: 'my_subscription', label: 'Minha Assinatura Faith-Hub' },
+        ]
+      },
+    ]
+  },
+  {
     category: 'Whitelabel & Sistema',
     items: [
       { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon },
       { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon },
-      { id: 'pagarme_financeiro', label: 'Gateway de Pagamento', icon: CreditCardIcon },
       { id: 'configuracoes', label: 'Configurações AWS', icon: SettingsIcon },
     ]
   }
@@ -164,6 +181,7 @@ function App() {
     kids_group: true,
     ensino_group: true,
     pdv_group: true,
+    financas_group: true,
   });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -947,6 +965,8 @@ function App() {
                     {activeTab === 'pdv_produtos' && 'PDV • Catálogo de Produtos'}
                     {activeTab === 'pdv_pedidos' && 'PDV • Monitor de Pedidos'}
                     {activeTab === 'transmissoes' && 'Cultos & Transmissões'}
+                    {activeTab === 'financial_treasury' && 'Finanças & Tesouraria'}
+                    {activeTab === 'my_subscription' && 'Minha Assinatura Faith-Hub'}
                     {activeTab === 'campuses' && 'Unidades & Filiais'}
                     {activeTab === 'church_branding' && 'Identidade Visual & PWA'}
                     {activeTab === 'pagarme_financeiro' && 'Gateway Pagar.me'}
@@ -1307,6 +1327,17 @@ function App() {
                 <BibleConfig
                   organizationId={selectedOrganization?.id}
                   churchSlug={selectedOrganization?.slug}
+                />
+              )}
+              {activeTab === 'financial_treasury' && (
+                <FinancialTreasury
+                  selectedCampusId={selectedCampusId}
+                  selectedOrganization={selectedOrganization}
+                />
+              )}
+              {activeTab === 'my_subscription' && (
+                <MySubscription
+                  selectedOrganization={selectedOrganization}
                 />
               )}
               {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
