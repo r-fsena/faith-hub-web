@@ -1,9 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import './Members.css';
+import './Broadcasts.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
+// --- ICONS SVG ---
+const CreditCardIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+  </svg>
+);
+
+const TargetIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+  </svg>
+);
+
+const DocumentIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>
+  </svg>
+);
+
+const ImageIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/>
+  </svg>
+);
+
+const PrinterIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+// --- INTERFACES ---
 export interface FinancialTransaction {
   id: string;
   organization_id: string;
@@ -87,7 +144,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   selectedCampusId = 'all',
   selectedOrganization
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'tithes' | 'expenses' | 'projects' | 'statement'>('dre');
+  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'tithes' | 'expenses' | 'projects' | 'statement' | 'report'>('dre');
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [projects, setProjects] = useState<SpecialProject[]>([]);
@@ -108,12 +165,20 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
 
-  // Modais
+  // Modais State
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [modalTransactionType, setModalTransactionType] = useState<'INCOME' | 'EXPENSE'>('INCOME');
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isMemberReportModalOpen, setIsMemberReportModalOpen] = useState(false);
   const [selectedMemberForReport, setSelectedMemberForReport] = useState<string>('');
+  const [reportYear, setReportYear] = useState<string>(new Date().getFullYear().toString());
+
+  // Upload States & Refs
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [uploadingProjectImage, setUploadingProjectImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+  const projectImageInputRef = useRef<HTMLInputElement>(null);
 
   // Form State Transação
   const [formData, setFormData] = useState({
@@ -124,6 +189,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     status: 'PAID',
     member_name: '',
     project_id: '',
+    receipt_url: '',
     payment_date: new Date().toISOString().split('T')[0],
     due_date: ''
   });
@@ -132,11 +198,13 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   const [projectFormData, setProjectFormData] = useState({
     title: '',
     description: '',
+    image_url: '',
     target_amount: '',
     collected_amount: '0',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
-    pix_key: ''
+    pix_key: '',
+    status: 'ACTIVE'
   });
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
@@ -191,6 +259,56 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     }
   };
 
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+
+    setUploadingReceipt(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/upload-url?contentType=${encodeURIComponent(file.type)}&prefix=receipts`, { headers });
+      const { uploadUrl, url } = await res.json();
+
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      });
+
+      setFormData(prev => ({ ...prev, receipt_url: url }));
+    } catch (err) {
+      console.error('Erro no upload do comprovante', err);
+      alert('Erro ao realizar upload do comprovante.');
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+
+    setUploadingProjectImage(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/upload-url?contentType=${encodeURIComponent(file.type)}&prefix=campaigns`, { headers });
+      const { uploadUrl, url } = await res.json();
+
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      });
+
+      setProjectFormData(prev => ({ ...prev, image_url: url }));
+    } catch (err) {
+      console.error('Erro no upload da imagem da campanha', err);
+      alert('Erro ao realizar upload da imagem.');
+    } finally {
+      setUploadingProjectImage(false);
+    }
+  };
+
   const handleSaveTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description || !formData.amount) {
@@ -198,6 +316,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       return;
     }
 
+    setIsSaving(true);
     try {
       const headers = await getAuthHeaders();
       const payload = {
@@ -211,6 +330,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         status: formData.status,
         member_name: formData.member_name || null,
         project_id: formData.project_id || null,
+        receipt_url: formData.receipt_url || null,
         payment_date: formData.payment_date,
         due_date: formData.due_date || null
       };
@@ -231,6 +351,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
           status: 'PAID',
           member_name: '',
           project_id: '',
+          receipt_url: '',
           payment_date: new Date().toISOString().split('T')[0],
           due_date: ''
         });
@@ -241,6 +362,8 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     } catch (e) {
       console.error(e);
       alert('Erro de comunicação.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -251,17 +374,21 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       return;
     }
 
+    setIsSaving(true);
     try {
       const headers = await getAuthHeaders();
       const payload = {
         organization_id: orgId,
+        campus_id: selectedCampusId !== 'all' ? selectedCampusId : null,
         title: projectFormData.title,
         description: projectFormData.description,
+        image_url: projectFormData.image_url || null,
         target_amount: parseFloat(projectFormData.target_amount),
         collected_amount: parseFloat(projectFormData.collected_amount || '0'),
         start_date: projectFormData.start_date,
         end_date: projectFormData.end_date || null,
-        pix_key: projectFormData.pix_key || null
+        pix_key: projectFormData.pix_key || null,
+        status: projectFormData.status || 'ACTIVE'
       };
 
       const res = await fetch(`${API_URL}/financial/projects`, {
@@ -275,19 +402,23 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         setProjectFormData({
           title: '',
           description: '',
+          image_url: '',
           target_amount: '',
           collected_amount: '0',
           start_date: new Date().toISOString().split('T')[0],
           end_date: '',
-          pix_key: ''
+          pix_key: '',
+          status: 'ACTIVE'
         });
         loadAllFinancialData();
       } else {
-        alert('Erro ao criar projeto/campanha.');
+        alert('Erro ao criar campanha.');
       }
     } catch (e) {
       console.error(e);
       alert('Erro de comunicação.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -331,7 +462,11 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
 
   // Informe anual por membro
   const memberReportTransactions = selectedMemberForReport
-    ? transactions.filter(t => t.member_name && t.member_name.toLowerCase().includes(selectedMemberForReport.toLowerCase()) && t.type === 'INCOME')
+    ? transactions.filter(t => {
+        const matchesName = t.member_name && t.member_name.toLowerCase().includes(selectedMemberForReport.toLowerCase());
+        const matchesYear = !reportYear || t.payment_date.startsWith(reportYear);
+        return matchesName && matchesYear && t.type === 'INCOME';
+      })
     : [];
   const totalMemberContributed = memberReportTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
@@ -341,627 +476,566 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       {/* HEADER PRINCIPAL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', fontWeight: 900 }}>
-              💳
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '46px', height: '46px', borderRadius: 'var(--radius-sm)', background: 'var(--accent-primary-gradient)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+              <CreditCardIcon />
             </div>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.4px' }}>
+              <h1 style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.4px' }}>
                 Gestão Financeira & Tesouraria
               </h1>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                Controle completo de Dízimos, Ofertas, Projetos, Cantina/PDV, Despesas e DRE da <strong>{selectedOrganization?.name || 'Igreja'}</strong>.
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+                Controle unificado de Dízimos, Ofertas, Despesas, Campanhas e DRE da <strong>{selectedOrganization?.name || 'Igreja'}</strong>.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Ações Rápidas */}
+        {/* Ações Rápidas Topo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             type="button"
+            className="btn-primary"
             onClick={() => {
               setModalTransactionType('INCOME');
-              setFormData({ ...formData, category: 'Dízimo' });
+              setFormData({ ...formData, category: 'Dízimo', description: '' });
               setIsTransactionModalOpen(true);
             }}
-            style={{
-              background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-              color: '#ffffff',
-              border: 'none',
-              padding: '10px 18px',
-              borderRadius: '12px',
-              fontWeight: 800,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)'
-            }}
           >
-            + Registrar Entrada / Dízimo
+            <PlusIcon /> Registrar Receita / Dízimo
           </button>
 
           <button
             type="button"
+            className="btn-secondary"
+            style={{ color: 'var(--danger)', borderColor: '#fecdd3' }}
             onClick={() => {
               setModalTransactionType('EXPENSE');
-              setFormData({ ...formData, category: 'Instalações & Aluguel' });
+              setFormData({ ...formData, category: 'Instalações & Aluguel', description: '' });
               setIsTransactionModalOpen(true);
             }}
-            style={{
-              background: '#ffffff',
-              color: '#dc2626',
-              border: '1.5px solid #fca5a5',
-              padding: '10px 18px',
-              borderRadius: '12px',
-              fontWeight: 800,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
           >
-            - Nova Despesa / Conta
+            <PlusIcon /> Nova Despesa / Conta
           </button>
         </div>
       </div>
 
       {/* KPI STATS CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '26px' }}>
         
-        {/* Card 1: Saldo Líquido */}
-        <div className="portal-card" style={{ padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '18px' }}>
-          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Saldo Consolidado em Caixa
+        {/* Card 1: Saldo Líquido Consolidado */}
+        <div className="portal-card" style={{ padding: '22px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: 'var(--radius-md)', border: '1px solid #334155' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Saldo Consolidado em Caixa
+            </span>
+            <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 800, background: summary.net_balance >= 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: summary.net_balance >= 0 ? '#34d399' : '#f87171' }}>
+              {summary.net_balance >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}
+            </span>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 900, marginTop: '6px', color: summary.net_balance >= 0 ? '#34d399' : '#f87171' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: 900, marginTop: '8px', color: summary.net_balance >= 0 ? '#34d399' : '#f87171', letterSpacing: '-0.5px' }}>
             {formatCurrency(summary.net_balance)}
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '4px' }}>
-            Receitas Líquidas vs Despesas Pagas
+          <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '6px' }}>
+            Receitas Pagas menos Despesas Quitadas
           </div>
         </div>
 
-        {/* Card 2: Entradas do Mês */}
-        <div className="portal-card" style={{ padding: '20px', borderRadius: '18px', borderLeft: '4px solid #059669' }}>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>
-            📈 Total de Entradas (Receitas)
+        {/* Card 2: Total de Receitas */}
+        <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #059669' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+            Total de Entradas (Receitas)
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#059669', marginTop: '6px' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#059669', marginTop: '8px' }}>
             {formatCurrency(summary.total_income)}
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
-            {summary.income_by_category.length} categorias ativas de arrecadação
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+            {summary.income_by_category.length} categorias ativas com lançamentos
           </div>
         </div>
 
-        {/* Card 3: Saídas do Mês */}
-        <div className="portal-card" style={{ padding: '20px', borderRadius: '18px', borderLeft: '4px solid #dc2626' }}>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>
-            📉 Total de Saídas (Despesas)
+        {/* Card 3: Total de Despesas */}
+        <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #dc2626' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+            Total de Saídas (Despesas)
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#dc2626', marginTop: '6px' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#dc2626', marginTop: '8px' }}>
             {formatCurrency(summary.total_expense)}
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
-            Custos operacionais e ministeriais
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+            Custos ministeriais, aluguéis e contas
           </div>
         </div>
 
-        {/* Card 4: Campanhas Ativas */}
-        <div className="portal-card" style={{ padding: '20px', borderRadius: '18px', borderLeft: '4px solid #7c3aed' }}>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>
-            🎯 Campanhas com Metas
+        {/* Card 4: Campanhas & Projetos Ativos */}
+        <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #7c3aed' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+            Campanhas & Metas Especiais
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#7c3aed', marginTop: '6px' }}>
-            {projects.filter(p => p.status === 'ACTIVE').length} Ativas
+          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#7c3aed', marginTop: '8px' }}>
+            {projects.filter(p => p.status === 'ACTIVE').length} <span style={{ fontSize: '0.90rem', color: 'var(--text-muted)', fontWeight: 600 }}>ativas</span>
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
-            {formatCurrency(projects.reduce((acc, p) => acc + Number(p.collected_amount || 0), 0))} arrecadados
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+            Arrecadações direcionadas no PWA
           </div>
         </div>
 
       </div>
 
-      {/* TABS DE NAVEGAÇÃO FINANCEIRA */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px', marginBottom: '20px', overflowX: 'auto' }}>
+      {/* NAVEGAÇÃO DE SUB-ABAS */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '14px', marginBottom: '22px', overflowX: 'auto' }}>
         <button
           type="button"
+          className={`filter-pill ${activeSubTab === 'dre' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('dre')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeSubTab === 'dre' ? 'var(--accent-primary)' : 'transparent',
-            color: activeSubTab === 'dre' ? '#ffffff' : 'var(--text-main)',
-            fontWeight: 800,
-            fontSize: '0.84rem',
-            cursor: 'pointer'
-          }}
         >
-          📊 Visão Geral & DRE
+          📊 Demonstrativo DRE
         </button>
-
         <button
           type="button"
+          className={`filter-pill ${activeSubTab === 'tithes' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('tithes')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeSubTab === 'tithes' ? 'var(--accent-primary)' : 'transparent',
-            color: activeSubTab === 'tithes' ? '#ffffff' : 'var(--text-main)',
-            fontWeight: 800,
-            fontSize: '0.84rem',
-            cursor: 'pointer'
-          }}
         >
-          🙏 Dízimos & Ofertas ({tithesAndOfferings.length})
+          💰 Dízimos & Ofertas ({tithesAndOfferings.length})
         </button>
-
         <button
           type="button"
+          className={`filter-pill ${activeSubTab === 'expenses' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('expenses')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeSubTab === 'expenses' ? 'var(--accent-primary)' : 'transparent',
-            color: activeSubTab === 'expenses' ? '#ffffff' : 'var(--text-main)',
-            fontWeight: 800,
-            fontSize: '0.84rem',
-            cursor: 'pointer'
-          }}
         >
-          🧾 Despesas & Contas a Pagar ({expenseTransactions.length})
+          📉 Despesas & Contas ({expenseTransactions.length})
         </button>
-
         <button
           type="button"
+          className={`filter-pill ${activeSubTab === 'projects' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('projects')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeSubTab === 'projects' ? 'var(--accent-primary)' : 'transparent',
-            color: activeSubTab === 'projects' ? '#ffffff' : 'var(--text-main)',
-            fontWeight: 800,
-            fontSize: '0.84rem',
-            cursor: 'pointer'
-          }}
         >
-          🎯 Campanhas & Projetos ({projects.length})
+          🎯 Campanhas & Metas ({projects.length})
         </button>
-
         <button
           type="button"
+          className={`filter-pill ${activeSubTab === 'statement' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('statement')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeSubTab === 'statement' ? 'var(--accent-primary)' : 'transparent',
-            color: activeSubTab === 'statement' ? '#ffffff' : 'var(--text-main)',
-            fontWeight: 800,
-            fontSize: '0.84rem',
-            cursor: 'pointer'
+        >
+          📋 Extrato Geral ({transactions.length})
+        </button>
+        <button
+          type="button"
+          className={`filter-pill ${activeSubTab === 'report' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveSubTab('report');
+            setIsMemberReportModalOpen(true);
           }}
         >
-          📋 Extrato & Relatórios
+          📄 Declaração Anual de Renda
         </button>
       </div>
 
+      {/* CONTEÚDO DAS SUB-ABAS */}
       {loading ? (
-        <div className="portal-card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Carregando dados financeiros e movimentações...
+        <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--accent-primary)', fontWeight: 700 }}>
+          Carregando informações financeiras da tesouraria...
         </div>
       ) : (
         <>
-          {/* TAB 1: VISÃO GERAL & DRE */}
+          {/* TAB 1: DRE CONSOLIDADO */}
           {activeSubTab === 'dre' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '22px' }}>
               
-              {/* Box Entradas por Categoria */}
-              <div className="portal-card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#059669', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🟢</span> Fontes de Arrecadação (Entradas)
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {summary.income_by_category.length === 0 ? (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', padding: '16px 0' }}>Nenhuma entrada registrada no período.</div>
-                  ) : (
-                    summary.income_by_category.map((cat, idx) => {
-                      const pct = summary.total_income > 0 ? (cat.total / summary.total_income) * 100 : 0;
+              {/* DRE Receitas por Categoria */}
+              <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    Entradas por Categoria (DRE)
+                  </h3>
+                  <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#059669' }}>
+                    {formatCurrency(summary.total_income)}
+                  </span>
+                </div>
+
+                {summary.income_by_category.length === 0 ? (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.84rem', textAlign: 'center', padding: '24px 0' }}>
+                    Nenhuma receita lançada no período.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {summary.income_by_category.map((item, idx) => {
+                      const pct = summary.total_income > 0 ? Math.round((Number(item.total) / summary.total_income) * 100) : 0;
                       return (
                         <div key={idx}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>
-                            <span>{cat.category} ({cat.count})</span>
-                            <span style={{ color: '#059669' }}>{formatCurrency(cat.total)} ({pct.toFixed(1)}%)</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', fontWeight: 700, marginBottom: '6px' }}>
+                            <span style={{ color: 'var(--text-main)' }}>{item.category}</span>
+                            <span style={{ color: '#059669' }}>{formatCurrency(Number(item.total))} <small style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({pct}%)</small></span>
                           </div>
-                          <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', background: '#10b981', width: `${pct}%`, borderRadius: '4px' }} />
+                          <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #059669)', borderRadius: '999px' }} />
                           </div>
                         </div>
                       );
-                    })
-                  )}
-                </div>
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Box Saídas por Categoria */}
-              <div className="portal-card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#dc2626', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🔴</span> Distribuição de Despesas (Saídas)
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {summary.expense_by_category.length === 0 ? (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', padding: '16px 0' }}>Nenhuma despesa registrada no período.</div>
-                  ) : (
-                    summary.expense_by_category.map((cat, idx) => {
-                      const pct = summary.total_expense > 0 ? (cat.total / summary.total_expense) * 100 : 0;
+              {/* DRE Despesas por Categoria */}
+              <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    Saídas por Categoria (DRE)
+                  </h3>
+                  <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#dc2626' }}>
+                    {formatCurrency(summary.total_expense)}
+                  </span>
+                </div>
+
+                {summary.expense_by_category.length === 0 ? (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.84rem', textAlign: 'center', padding: '24px 0' }}>
+                    Nenhuma despesa lançada no período.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {summary.expense_by_category.map((item, idx) => {
+                      const pct = summary.total_expense > 0 ? Math.round((Number(item.total) / summary.total_expense) * 100) : 0;
                       return (
                         <div key={idx}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, marginBottom: '4px' }}>
-                            <span>{cat.category} ({cat.count})</span>
-                            <span style={{ color: '#dc2626' }}>{formatCurrency(cat.total)} ({pct.toFixed(1)}%)</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', fontWeight: 700, marginBottom: '6px' }}>
+                            <span style={{ color: 'var(--text-main)' }}>{item.category}</span>
+                            <span style={{ color: '#dc2626' }}>{formatCurrency(Number(item.total))} <small style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({pct}%)</small></span>
                           </div>
-                          <div style={{ height: '8px', background: '#fee2e2', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', background: '#ef4444', width: `${pct}%`, borderRadius: '4px' }} />
+                          <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #f87171, #dc2626)', borderRadius: '999px' }} />
                           </div>
                         </div>
                       );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {/* Box Formas de Pagamento Utilizadas */}
-              <div className="portal-card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 16px 0' }}>
-                  💳 Canais de Pagamento Recebidos
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {summary.income_by_method.map((m, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 700 }}>
-                      <span>{m.payment_method === 'CREDIT_CARD' ? '💳 Cartão de Crédito' : m.payment_method === 'PIX' ? '⚡ PIX Instantâneo' : m.payment_method === 'CASH' ? '💵 Dinheiro em Espécie' : m.payment_method}</span>
-                      <span style={{ color: 'var(--accent-primary)', fontWeight: 800 }}>{formatCurrency(m.total)}</span>
-                    </div>
-                  ))}
-                </div>
+                    })}
+                  </div>
+                )}
               </div>
 
             </div>
           )}
 
-          {/* TAB 2: DÍZIMOS & OFERTAS */}
+          {/* TAB 2: DÍZIMOS E OFERTAS */}
           {activeSubTab === 'tithes' && (
-            <div className="portal-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    Extrato de Dízimos e Ofertas
-                  </h3>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Total arrecadado: <strong>{formatCurrency(tithesAndOfferings.reduce((acc, t) => acc + Number(t.amount || 0), 0))}</strong>
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsMemberReportModalOpen(true)}
-                    style={{
-                      background: '#f0fdfa',
-                      color: '#0f766e',
-                      border: '1px solid #99f6e4',
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    📄 Emitir Informe do Dizimista
-                  </button>
-                </div>
+            <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  Lançamentos de Dízimos & Ofertas
+                </h3>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    setModalTransactionType('INCOME');
+                    setFormData({ ...formData, category: 'Dízimo' });
+                    setIsTransactionModalOpen(true);
+                  }}
+                >
+                  <PlusIcon /> Registrar Dízimo / Oferta
+                </button>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
                   <thead>
-                    <tr style={{ background: '#f8fafc', color: 'var(--text-muted)', textAlign: 'left' }}>
+                    <tr style={{ borderBottom: '1.5px solid var(--panel-border)', textAlign: 'left', color: 'var(--text-secondary)' }}>
                       <th style={{ padding: '12px' }}>Data</th>
+                      <th style={{ padding: '12px' }}>Membro / Dizimista</th>
                       <th style={{ padding: '12px' }}>Categoria</th>
-                      <th style={{ padding: '12px' }}>Membro / Doador</th>
                       <th style={{ padding: '12px' }}>Descrição</th>
-                      <th style={{ padding: '12px' }}>Canal</th>
+                      <th style={{ padding: '12px' }}>Forma</th>
                       <th style={{ padding: '12px', textAlign: 'right' }}>Valor</th>
                       <th style={{ padding: '12px', textAlign: 'center' }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tithesAndOfferings.map(t => (
-                      <tr key={t.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                        <td style={{ padding: '12px', fontWeight: 600 }}>{new Date(t.payment_date).toLocaleDateString('pt-BR')}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.72rem' }}>
-                            {t.category}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
-                          {t.member_name || 'Oferta Anônima / Culto'}
-                        </td>
-                        <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{t.description}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 700 }}>
-                            {t.payment_method}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 900, color: '#059669' }}>
-                          {formatCurrency(t.amount)}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
-                          >
-                            Excluir
-                          </button>
+                    {tithesAndOfferings.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                          Nenhum dízimo ou oferta registrado ainda.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      tithesAndOfferings.map(t => (
+                        <tr key={t.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                          <td style={{ padding: '12px', fontWeight: 600 }}>{new Date(t.payment_date).toLocaleDateString('pt-BR')}</td>
+                          <td style={{ padding: '12px', fontWeight: 800, color: 'var(--text-main)' }}>{t.member_name || 'Anônimo / Geral'}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '0.74rem' }}>
+                              {t.category}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{t.description}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{t.payment_method}</td>
+                          <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800, color: '#059669' }}>
+                            + {formatCurrency(t.amount)}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTransaction(t.id)}
+                              style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                              title="Remover lançamento"
+                            >
+                              <TrashIcon />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* TAB 3: DESPESAS & CONTAS A PAGAR */}
+          {/* TAB 3: DESPESAS & CONTAS */}
           {activeSubTab === 'expenses' && (
-            <div className="portal-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    Contas a Pagar & Despesas
-                  </h3>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Total de saídas: <strong>{formatCurrency(expenseTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0))}</strong>
-                  </span>
-                </div>
+            <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  Despesas, Contas e Custos Fixos
+                </h3>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ color: 'var(--danger)', borderColor: '#fecdd3' }}
+                  onClick={() => {
+                    setModalTransactionType('EXPENSE');
+                    setFormData({ ...formData, category: 'Instalações & Aluguel' });
+                    setIsTransactionModalOpen(true);
+                  }}
+                >
+                  <PlusIcon /> Nova Despesa / Pagamento
+                </button>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
                   <thead>
-                    <tr style={{ background: '#f8fafc', color: 'var(--text-muted)', textAlign: 'left' }}>
+                    <tr style={{ borderBottom: '1.5px solid var(--panel-border)', textAlign: 'left', color: 'var(--text-secondary)' }}>
                       <th style={{ padding: '12px' }}>Data</th>
                       <th style={{ padding: '12px' }}>Categoria</th>
-                      <th style={{ padding: '12px' }}>Favorecido / Descrição</th>
-                      <th style={{ padding: '12px' }}>Forma de Pagamento</th>
+                      <th style={{ padding: '12px' }}>Descrição / Fornecedor</th>
+                      <th style={{ padding: '12px' }}>Forma</th>
                       <th style={{ padding: '12px' }}>Status</th>
                       <th style={{ padding: '12px', textAlign: 'right' }}>Valor</th>
                       <th style={{ padding: '12px', textAlign: 'center' }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {expenseTransactions.map(t => (
-                      <tr key={t.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                        <td style={{ padding: '12px', fontWeight: 600 }}>{new Date(t.payment_date).toLocaleDateString('pt-BR')}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: '#fee2e2', color: '#dc2626', padding: '4px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.72rem' }}>
-                            {t.category}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
-                          {t.description}
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 700 }}>
-                            {t.payment_method}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: t.status === 'PAID' ? '#ecfdf5' : '#fef3c7', color: t.status === 'PAID' ? '#059669' : '#d97706', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>
-                            {t.status === 'PAID' ? 'PAGO' : 'PENDENTE'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 900, color: '#dc2626' }}>
-                          {formatCurrency(t.amount)}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
-                          >
-                            Excluir
-                          </button>
+                    {expenseTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                          Nenhuma despesa lançada ainda.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      expenseTransactions.map(t => (
+                        <tr key={t.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                          <td style={{ padding: '12px', fontWeight: 600 }}>{new Date(t.payment_date).toLocaleDateString('pt-BR')}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ background: '#fff1f2', color: '#e11d48', padding: '4px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '0.74rem' }}>
+                              {t.category}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', fontWeight: 700, color: 'var(--text-main)' }}>{t.description}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{t.payment_method}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '0.70rem', fontWeight: 800, background: t.status === 'PAID' ? '#ecfdf5' : '#fffbeb', color: t.status === 'PAID' ? '#059669' : '#d97706' }}>
+                              {t.status === 'PAID' ? '✓ PAGO' : '⏳ PENDENTE'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800, color: '#dc2626' }}>
+                            - {formatCurrency(t.amount)}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTransaction(t.id)}
+                              style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                              title="Remover lançamento"
+                            >
+                              <TrashIcon />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* TAB 4: CAMPANHAS & PROJETOS COM METAS */}
+          {/* TAB 4: CAMPANHAS & METAS */}
           {activeSubTab === 'projects' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    Campanhas e Projetos Especiais de Arrecadação
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    Campanhas de Arrecadação com Metas
                   </h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                    Estes projetos aparecem automaticamente no aplicativo PWA para contribuição direta dos membros.
+                  <p style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                    Projetos especiais divulgados com barra de progresso no aplicativo dos membros.
                   </p>
                 </div>
 
                 <button
                   type="button"
+                  className="btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}
                   onClick={() => setIsProjectModalOpen(true)}
-                  style={{
-                    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.84rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
-                  }}
                 >
-                  + Nova Campanha com Meta
+                  <PlusIcon /> Nova Campanha
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '18px' }}>
-                {projects.map(proj => {
-                  const pct = proj.target_amount > 0 ? Math.min(100, (proj.collected_amount / proj.target_amount) * 100) : 0;
-                  return (
-                    <div key={proj.id} className="portal-card" style={{ padding: '22px', borderRadius: '20px', borderTop: '4px solid #7c3aed' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '0.70rem', fontWeight: 800, background: proj.status === 'ACTIVE' ? '#f3e8ff' : '#ecfdf5', color: proj.status === 'ACTIVE' ? '#7c3aed' : '#059669', padding: '3px 8px', borderRadius: 999 }}>
-                          {proj.status === 'ACTIVE' ? '🎯 Em Andamento' : '✓ Concluído'}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          Início: {new Date(proj.start_date).toLocaleDateString('pt-BR')}
-                        </span>
+              {projects.length === 0 ? (
+                <div className="portal-card" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
+                  <TargetIcon />
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '12px' }}>
+                    Nenhuma campanha cadastrada ainda
+                  </div>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '6px auto 16px auto' }}>
+                    Crie campanhas como Reforma do Templo, Missões, Som ou Espaço Kids com metas financeiras interativas.
+                  </p>
+                  <button type="button" className="btn-primary" onClick={() => setIsProjectModalOpen(true)}>
+                    + Criar Primeira Campanha
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+                  {projects.map(proj => {
+                    const collected = Number(proj.collected_amount || 0);
+                    const target = Number(proj.target_amount || 1);
+                    const pct = Math.min(Math.round((collected / target) * 100), 100);
+
+                    return (
+                      <div key={proj.id} className="portal-card" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        {proj.image_url ? (
+                          <img src={proj.image_url} alt={proj.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ height: '100px', background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
+                            <TargetIcon />
+                          </div>
+                        )}
+
+                        <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '0.70rem', fontWeight: 800, padding: '3px 8px', borderRadius: '999px', background: proj.status === 'ACTIVE' ? '#ecfdf5' : '#f1f5f9', color: proj.status === 'ACTIVE' ? '#059669' : '#64748b' }}>
+                                {proj.status === 'ACTIVE' ? 'EM ANDAMENTO' : 'CONCLUÍDA'}
+                              </span>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                Início: {new Date(proj.start_date).toLocaleDateString('pt-BR')}
+                              </span>
+                            </div>
+
+                            <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                              {proj.title}
+                            </h4>
+                            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 16px 0' }}>
+                              {proj.description || 'Sem descrição cadastrada.'}
+                            </p>
+                          </div>
+
+                          <div>
+                            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.80rem', marginBottom: '8px' }}>
+                                <strong style={{ color: '#059669' }}>{formatCurrency(collected)}</strong>
+                                <span style={{ color: 'var(--text-muted)' }}>Meta: {formatCurrency(target)} ({pct}%)</span>
+                              </div>
+                              <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #059669)', borderRadius: '999px' }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-
-                      <h4 style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
-                        {proj.title}
-                      </h4>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                        {proj.description || 'Campanha oficial da congregação.'}
-                      </p>
-
-                      {/* Barra de Progresso */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.80rem', fontWeight: 800, marginBottom: '6px' }}>
-                          <span style={{ color: '#059669' }}>{formatCurrency(proj.collected_amount)}</span>
-                          <span style={{ color: 'var(--text-muted)' }}>Meta: {formatCurrency(proj.target_amount)}</span>
-                        </div>
-                        <div style={{ height: '10px', background: '#f1f5f9', borderRadius: '6px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', background: 'linear-gradient(90deg, #7c3aed 0%, #10b981 100%)', width: `${pct}%`, borderRadius: '6px' }} />
-                        </div>
-                        <div style={{ textAlign: 'right', fontSize: '0.72rem', fontWeight: 800, color: '#7c3aed', marginTop: '4px' }}>
-                          {pct.toFixed(1)}% alcançado
-                        </div>
-                      </div>
-
-                      {proj.pix_key && (
-                        <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Chave PIX da Campanha:</span>
-                          <strong>{proj.pix_key}</strong>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
-          {/* TAB 5: EXTRATO COMPLETO & RELATÓRIOS */}
+          {/* TAB 5: EXTRATO GERAL */}
           {activeSubTab === 'statement' && (
-            <div className="portal-card" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    Extrato Financeiro Consolidado
-                  </h3>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Exibindo {filteredTransactions.length} movimentações no período selecionado
-                  </span>
-                </div>
+            <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
+                  <div style={{ position: 'relative', minWidth: '260px', flex: 1 }}>
+                    <input
+                      type="text"
+                      className="input-modern"
+                      placeholder="Buscar por descrição, membro ou categoria..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                    />
+                  </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    style={{
-                      background: '#f8fafc',
-                      border: '1px solid var(--panel-border)',
-                      color: 'var(--text-main)',
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer'
-                    }}
+                  <select
+                    className="select-modern"
+                    style={{ width: 'auto' }}
+                    value={selectedTypeFilter}
+                    onChange={e => setSelectedTypeFilter(e.target.value)}
                   >
-                    🖨️ Imprimir / Gerar PDF
-                  </button>
+                    <option value="">Todos os Tipos</option>
+                    <option value="INCOME">🟢 Apenas Entradas (Receitas)</option>
+                    <option value="EXPENSE">🔴 Apenas Saídas (Despesas)</option>
+                  </select>
                 </div>
-              </div>
-
-              {/* Filtros da Tabela */}
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  placeholder="Buscar favorecido, membro ou descrição..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  style={{ flex: 1, minWidth: '220px', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontSize: '0.82rem' }}
-                />
-
-                <select
-                  value={selectedTypeFilter}
-                  onChange={e => setSelectedTypeFilter(e.target.value)}
-                  style={{ padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontSize: '0.82rem', fontWeight: 700 }}
-                >
-                  <option value="">Todos os Tipos (Entradas & Saídas)</option>
-                  <option value="INCOME">Apenas Entradas (Receitas)</option>
-                  <option value="EXPENSE">Apenas Saídas (Despesas)</option>
-                </select>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
                   <thead>
-                    <tr style={{ background: '#f8fafc', color: 'var(--text-muted)', textAlign: 'left' }}>
+                    <tr style={{ borderBottom: '1.5px solid var(--panel-border)', textAlign: 'left', color: 'var(--text-secondary)' }}>
                       <th style={{ padding: '12px' }}>Data</th>
                       <th style={{ padding: '12px' }}>Tipo</th>
                       <th style={{ padding: '12px' }}>Categoria</th>
-                      <th style={{ padding: '12px' }}>Descrição / Favorecido</th>
-                      <th style={{ padding: '12px' }}>Meio</th>
-                      <th style={{ padding: '12px', textAlign: 'right' }}>Valor</th>
+                      <th style={{ padding: '12px' }}>Descrição</th>
+                      <th style={{ padding: '12px' }}>Forma</th>
+                      <th style={{ padding: '12px', textAlign: 'right' }}>Valor (R$)</th>
                       <th style={{ padding: '12px', textAlign: 'center' }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTransactions.map(t => (
-                      <tr key={t.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                        <td style={{ padding: '12px', fontWeight: 600 }}>{new Date(t.payment_date).toLocaleDateString('pt-BR')}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: t.type === 'INCOME' ? '#ecfdf5' : '#fee2e2', color: t.type === 'INCOME' ? '#059669' : '#dc2626', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 900 }}>
-                            {t.type === 'INCOME' ? 'ENTRADA' : 'SAÍDA'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', fontWeight: 700 }}>{t.category}</td>
-                        <td style={{ padding: '12px' }}>{t.description}</td>
-                        <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{t.payment_method}</td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 900, color: t.type === 'INCOME' ? '#059669' : '#dc2626' }}>
-                          {t.type === 'INCOME' ? '+' : '-'} {formatCurrency(t.amount)}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.74rem' }}
-                          >
-                            Excluir
-                          </button>
+                    {filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                          Nenhuma transação encontrada com os filtros selecionados.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredTransactions.map(t => (
+                        <tr key={t.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                          <td style={{ padding: '12px', fontWeight: 600 }}>{new Date(t.payment_date).toLocaleDateString('pt-BR')}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '0.70rem', fontWeight: 800, background: t.type === 'INCOME' ? '#ecfdf5' : '#fff1f2', color: t.type === 'INCOME' ? '#059669' : '#e11d48' }}>
+                              {t.type === 'INCOME' ? 'ENTRADA' : 'SAÍDA'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', fontWeight: 700 }}>{t.category}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-main)' }}>{t.description}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{t.payment_method}</td>
+                          <td style={{ padding: '12px', textAlign: 'right', fontWeight: 900, color: t.type === 'INCOME' ? '#059669' : '#dc2626' }}>
+                            {t.type === 'INCOME' ? '+' : '-'} {formatCurrency(t.amount)}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTransaction(t.id)}
+                              style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                              title="Remover lançamento"
+                            >
+                              <TrashIcon />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -971,300 +1045,594 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         </>
       )}
 
-      {/* MODAL: REGISTRAR TRANSAÇÃO (ENTRADA OU SAÍDA) */}
-      {isTransactionModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
-          <div className="portal-card animate-fade-in" style={{ background: '#ffffff', borderRadius: '24px', padding: '28px', maxWidth: '520px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+      {/* ========================================================
+          MODAL STUDIO 1: LANÇAMENTO FINANCEIRO (RECEITA OU DESPESA)
+          ======================================================== */}
+      {isTransactionModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsTransactionModalOpen(false)}>
+          <div className="modal-studio-container" onClick={e => e.stopPropagation()}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: modalTransactionType === 'INCOME' ? '#059669' : '#dc2626', margin: 0 }}>
-                {modalTransactionType === 'INCOME' ? '+ Registrar Entrada / Dízimo' : '- Registrar Despesa / Conta'}
-              </h3>
-              <button type="button" onClick={() => setIsTransactionModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer' }}>✕</button>
+            {/* Modal Header */}
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: modalTransactionType === 'INCOME' ? 'var(--pastel-green-bg)' : 'var(--pastel-rose-bg)', color: modalTransactionType === 'INCOME' ? 'var(--pastel-green-text)' : 'var(--pastel-rose-text)' }}>
+                  <CreditCardIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">
+                    {modalTransactionType === 'INCOME' ? 'Registrar Nova Receita / Dízimo' : 'Registrar Nova Despesa / Conta'}
+                  </h2>
+                  <p className="modal-studio-subtitle">
+                    {modalTransactionType === 'INCOME'
+                      ? 'Lançamento de dízimos, ofertas, arrecadações e entradas gerais da congregação.'
+                      : 'Lançamento de pagamentos, custos fixos, aluguéis e compras da tesouraria.'}
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setIsTransactionModalOpen(false)} title="Fechar">
+                &times;
+              </button>
             </div>
 
-            <form onSubmit={handleSaveTransaction} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
-              <div>
-                <label className="form-label-modern">Categoria</label>
-                <select
-                  value={formData.category}
-                  onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontWeight: 700 }}
-                >
-                  {(modalTransactionType === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label-modern">Descrição / Identificação</label>
-                <input
-                  type="text"
-                  placeholder={modalTransactionType === 'INCOME' ? 'Ex: Dízimo Mensal / Oferta de Domingo' : 'Ex: Aluguel do Templo / Conta de Luz'}
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="form-label-modern">Valor (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={formData.amount}
-                    onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                    required
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontWeight: 900, fontSize: '1.05rem', color: modalTransactionType === 'INCOME' ? '#059669' : '#dc2626' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label-modern">Data do Pagamento</label>
-                  <input
-                    type="date"
-                    value={formData.payment_date}
-                    onChange={e => setFormData({ ...formData, payment_date: e.target.value })}
-                    required
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="form-label-modern">Forma de Pagamento</label>
-                  <select
-                    value={formData.payment_method}
-                    onChange={e => setFormData({ ...formData, payment_method: e.target.value as any })}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontWeight: 700 }}
-                  >
-                    <option value="PIX">⚡ PIX</option>
-                    <option value="CREDIT_CARD">💳 Cartão de Crédito</option>
-                    <option value="DEBIT_CARD">💳 Cartão de Débito</option>
-                    <option value="BOLETO">📄 Boleto</option>
-                    <option value="CASH">💵 Dinheiro em Espécie</option>
-                    <option value="TRANSFER">🏦 Transferência Bancária</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label-modern">Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontWeight: 700 }}
-                  >
-                    <option value="PAID">✓ Quitado / Pago</option>
-                    <option value="PENDING">⏳ Pendente / A Pagar</option>
-                  </select>
-                </div>
-              </div>
-
-              {modalTransactionType === 'INCOME' && (
-                <div>
-                  <label className="form-label-modern">Nome do Membro / Dizimista (Opcional)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Carlos Eduardo Silva (para emissão de informe anual)"
-                    value={formData.member_name}
-                    onChange={e => setFormData({ ...formData, member_name: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}
-                  />
-                </div>
-              )}
-
-              {modalTransactionType === 'INCOME' && projects.length > 0 && (
-                <div>
-                  <label className="form-label-modern">Vincular à Campanha / Projeto (Opcional)</label>
-                  <select
-                    value={formData.project_id}
-                    onChange={e => setFormData({ ...formData, project_id: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}
-                  >
-                    <option value="">Nenhum (Entrada Geral da Igreja)</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsTransactionModalOpen(false)}
-                  style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--panel-border)', background: '#ffffff', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{ flex: 2, padding: '12px', borderRadius: '12px', border: 'none', background: modalTransactionType === 'INCOME' ? '#059669' : '#dc2626', color: '#ffffff', fontWeight: 900, cursor: 'pointer' }}
-                >
-                  Confirmar Lançamento
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: NOVA CAMPANHA / PROJETO */}
-      {isProjectModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
-          <div className="portal-card animate-fade-in" style={{ background: '#ffffff', borderRadius: '24px', padding: '28px', maxWidth: '520px', width: '100%' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#7c3aed', margin: 0 }}>
-                🎯 Nova Campanha de Arrecadação com Meta
-              </h3>
-              <button type="button" onClick={() => setIsProjectModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer' }}>✕</button>
-            </div>
-
-            <form onSubmit={handleSaveProject} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label className="form-label-modern">Título da Campanha</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Reforma do Telhado / Missões no Sertão"
-                  value={projectFormData.title}
-                  onChange={e => setProjectFormData({ ...projectFormData, title: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}
-                />
-              </div>
-
-              <div>
-                <label className="form-label-modern">Meta Financeira (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Ex: 50000.00"
-                  value={projectFormData.target_amount}
-                  onChange={e => setProjectFormData({ ...projectFormData, target_amount: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontWeight: 800, fontSize: '1.05rem', color: '#7c3aed' }}
-                />
-              </div>
-
-              <div>
-                <label className="form-label-modern">Descrição e Propósito</label>
-                <textarea
-                  rows={3}
-                  placeholder="Explique à congregação a importância desta arrecadação..."
-                  value={projectFormData.description}
-                  onChange={e => setProjectFormData({ ...projectFormData, description: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', resize: 'vertical' }}
-                />
-              </div>
-
-              <div>
-                <label className="form-label-modern">Chave PIX Específica (Opcional)</label>
-                <input
-                  type="text"
-                  placeholder="Ex: missoes@igrejaviva.com.br ou CNPJ"
-                  value={projectFormData.pix_key}
-                  onChange={e => setProjectFormData({ ...projectFormData, pix_key: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsProjectModalOpen(false)}
-                  style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--panel-border)', background: '#ffffff', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{ flex: 2, padding: '12px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', color: '#ffffff', fontWeight: 900, cursor: 'pointer' }}
-                >
-                  Criar Campanha
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: INFORME ANUAL DE DÍZIMOS DO MEMBRO */}
-      {isMemberReportModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
-          <div className="portal-card animate-fade-in" style={{ background: '#ffffff', borderRadius: '24px', padding: '28px', maxWidth: '580px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                  📄 Informe Anual de Contribuições
-                </h3>
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Declaração de dízimos e ofertas para comprovação de renda e IRPF</span>
-              </div>
-              <button type="button" onClick={() => setIsMemberReportModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer' }}>✕</button>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label className="form-label-modern">Buscar Membro / Dizimista</label>
-              <input
-                type="text"
-                placeholder="Digite o nome do membro..."
-                value={selectedMemberForReport}
-                onChange={e => setSelectedMemberForReport(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--panel-border)', fontSize: '0.84rem' }}
-              />
-            </div>
-
-            {selectedMemberForReport && (
-              <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '16px', border: '1px solid var(--panel-border)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
-                  <strong>Membro: {selectedMemberForReport}</strong>
-                  <strong style={{ color: '#059669' }}>Total: {formatCurrency(totalMemberContributed)}</strong>
-                </div>
-
-                {memberReportTransactions.length === 0 ? (
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Nenhuma contribuição identificada com este nome.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                    {memberReportTransactions.map(t => (
-                      <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', padding: '4px 0', borderBottom: '1px dashed #e2e8f0' }}>
-                        <span>{new Date(t.payment_date).toLocaleDateString('pt-BR')} • {t.category}</span>
-                        <strong>{formatCurrency(t.amount)}</strong>
+            {/* Modal Body - 2 Column Split */}
+            <form id="transaction-form" onSubmit={handleSaveTransaction} className="modal-studio-body">
+              <div className="modal-studio-grid">
+                
+                {/* LEFT COLUMN: Dados Principais do Lançamento (60%) */}
+                <div className="modal-studio-column">
+                  
+                  {/* Segmented Tipo Control */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Tipo de Movimentação *</label>
+                    <div className="segmented-control">
+                      <div
+                        className={`segmented-btn ${modalTransactionType === 'INCOME' ? 'active' : ''}`}
+                        onClick={() => {
+                          setModalTransactionType('INCOME');
+                          setFormData({ ...formData, category: 'Dízimo' });
+                        }}
+                      >
+                        🟢 Receita / Dízimo / Entrada
                       </div>
-                    ))}
+                      <div
+                        className={`segmented-btn ${modalTransactionType === 'EXPENSE' ? 'active' : ''}`}
+                        onClick={() => {
+                          setModalTransactionType('EXPENSE');
+                          setFormData({ ...formData, category: 'Instalações & Aluguel' });
+                        }}
+                      >
+                        🔴 Despesa / Conta / Saída
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+                  {/* Categoria */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Categoria Financeira *</label>
+                    <select
+                      className="select-modern"
+                      value={formData.category}
+                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                      required
+                    >
+                      {(modalTransactionType === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Descrição */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Descrição e Identificação *</label>
+                    <input
+                      type="text"
+                      className="input-modern"
+                      placeholder={modalTransactionType === 'INCOME' ? 'Ex: Dízimo Mensal Culto de Domingo, Oferta Geral...' : 'Ex: Locação do Templo, Conta de Energia Elétrica...'}
+                      value={formData.description}
+                      onChange={e => setFormData({ ...formData, description: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  {/* Sub-grid Valor & Datas */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Valor do Lançamento (R$) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="input-modern"
+                        placeholder="0,00"
+                        value={formData.amount}
+                        onChange={e => setFormData({ ...formData, amount: e.target.value })}
+                        required
+                        style={{ fontSize: '1.05rem', fontWeight: 800, color: modalTransactionType === 'INCOME' ? '#059669' : '#dc2626' }}
+                      />
+                    </div>
+
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Data do Pagamento *</label>
+                      <input
+                        type="date"
+                        className="input-modern"
+                        value={formData.payment_date}
+                        onChange={e => setFormData({ ...formData, payment_date: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Campos Condicionais de Receita */}
+                  {modalTransactionType === 'INCOME' && (
+                    <>
+                      <div className="form-group-modern">
+                        <label className="form-label-modern">
+                          <span>Nome do Membro / Dizimista</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Opcional (para declaração anual)</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="input-modern"
+                          placeholder="Ex: Carlos Eduardo Silva..."
+                          value={formData.member_name}
+                          onChange={e => setFormData({ ...formData, member_name: e.target.value })}
+                        />
+                      </div>
+
+                      {projects.length > 0 && (
+                        <div className="form-group-modern">
+                          <label className="form-label-modern">Vincular a Campanha / Projeto Especial</label>
+                          <select
+                            className="select-modern"
+                            value={formData.project_id}
+                            onChange={e => setFormData({ ...formData, project_id: e.target.value })}
+                          >
+                            <option value="">Nenhum (Entrada Geral da Igreja)</option>
+                            {projects.map(p => (
+                              <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                </div>
+
+                {/* RIGHT COLUMN: Forma, Status & Comprovante (40%) */}
+                <div className="modal-studio-column">
+                  
+                  {/* Forma de Pagamento */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Forma de Pagamento *</label>
+                    <select
+                      className="select-modern"
+                      value={formData.payment_method}
+                      onChange={e => setFormData({ ...formData, payment_method: e.target.value as any })}
+                    >
+                      <option value="PIX">⚡ PIX</option>
+                      <option value="CREDIT_CARD">💳 Cartão de Crédito</option>
+                      <option value="DEBIT_CARD">💳 Cartão de Débito</option>
+                      <option value="BOLETO">📄 Boleto Bancário</option>
+                      <option value="CASH">💵 Dinheiro em Espécie</option>
+                      <option value="TRANSFER">🏦 Transferência Bancária</option>
+                    </select>
+                  </div>
+
+                  {/* Status do Lançamento */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Status do Lançamento *</label>
+                    <select
+                      className="select-modern"
+                      value={formData.status}
+                      onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                    >
+                      <option value="PAID">✓ Quitado / Confirmado</option>
+                      <option value="PENDING">⏳ Pendente / Agendado</option>
+                    </select>
+                  </div>
+
+                  {/* Anexo de Comprovante Dropzone */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">
+                      <span>Anexar Comprovante / Recibo</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>PDF, PNG ou JPG</span>
+                    </label>
+
+                    <input
+                      type="file"
+                      ref={receiptInputRef}
+                      accept="image/*,application/pdf"
+                      style={{ display: 'none' }}
+                      onChange={handleReceiptUpload}
+                    />
+
+                    <div
+                      className="dropzone-box"
+                      onClick={() => receiptInputRef.current?.click()}
+                      style={{ minHeight: '140px' }}
+                    >
+                      {uploadingReceipt ? (
+                        <div style={{ color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
+                          Fazendo upload do comprovante...
+                        </div>
+                      ) : formData.receipt_url ? (
+                        <div style={{ textAlign: 'center' }}>
+                          <CheckIcon />
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#059669', marginTop: '6px' }}>
+                            Comprovante Anexado com Sucesso!
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Clique para substituir o arquivo
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: '6px' }}>
+                            <DocumentIcon />
+                          </div>
+                          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                            Clique para Anexar Comprovante
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            Arquivo opcional para prestação de contas
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card de Impacto no Caixa */}
+                  <div style={{ background: '#f8fafc', borderRadius: 'var(--radius-md)', padding: '16px', border: '1px solid var(--panel-border)' }}>
+                    <div style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      Resumo da Movimentação:
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: modalTransactionType === 'INCOME' ? '#059669' : '#dc2626' }}>
+                      {modalTransactionType === 'INCOME' ? '+' : '-'} {formatCurrency(parseFloat(formData.amount) || 0)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {formData.category} • {formData.payment_method}
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </form>
+
+            {/* Modal Footer */}
+            <div className="modal-studio-footer">
               <button
                 type="button"
+                className="btn-secondary"
+                onClick={() => setIsTransactionModalOpen(false)}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="submit"
+                form="transaction-form"
+                disabled={isSaving}
+                className="btn-primary"
+                style={{ background: modalTransactionType === 'INCOME' ? 'var(--accent-primary)' : '#dc2626' }}
+              >
+                {isSaving ? 'Salvando...' : 'Confirmar Lançamento'}
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL STUDIO 2: NOVA CAMPANHA / PROJETO COM META
+          ======================================================== */}
+      {isProjectModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsProjectModalOpen(false)}>
+          <div className="modal-studio-container" onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header */}
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
+                  <TargetIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">
+                    Criar Nova Campanha de Arrecadação com Meta
+                  </h2>
+                  <p className="modal-studio-subtitle">
+                    Campanhas para reformas, missões, eventos ou melhorias estruturais exibidas no PWA dos membros.
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setIsProjectModalOpen(false)} title="Fechar">
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form id="project-form" onSubmit={handleSaveProject} className="modal-studio-body">
+              <div className="modal-studio-grid">
+                
+                {/* Left Column: Dados da Campanha (60%) */}
+                <div className="modal-studio-column">
+                  
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Título da Campanha *</label>
+                    <input
+                      type="text"
+                      className="input-modern"
+                      placeholder="Ex: Reforma e Climatização do Auditório, Missões no Sertão..."
+                      value={projectFormData.title}
+                      onChange={e => setProjectFormData({ ...projectFormData, title: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Meta Financeira (R$) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="input-modern"
+                        placeholder="Ex: 50000.00"
+                        value={projectFormData.target_amount}
+                        onChange={e => setProjectFormData({ ...projectFormData, target_amount: e.target.value })}
+                        required
+                        style={{ fontSize: '1.05rem', fontWeight: 800, color: '#7c3aed' }}
+                      />
+                    </div>
+
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Data de Início *</label>
+                      <input
+                        type="date"
+                        className="input-modern"
+                        value={projectFormData.start_date}
+                        onChange={e => setProjectFormData({ ...projectFormData, start_date: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Descrição e Propósito Missionário</label>
+                    <textarea
+                      rows={3}
+                      className="textarea-modern"
+                      placeholder="Explique detalhadamente o objetivo desta arrecadação para mobilizar a membresia..."
+                      value={projectFormData.description}
+                      onChange={e => setProjectFormData({ ...projectFormData, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">
+                      <span>Chave PIX Exclusiva da Campanha</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Opcional</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input-modern"
+                      placeholder="Ex: missoes@igrejaviva.com.br ou CNPJ..."
+                      value={projectFormData.pix_key}
+                      onChange={e => setProjectFormData({ ...projectFormData, pix_key: e.target.value })}
+                    />
+                  </div>
+
+                </div>
+
+                {/* Right Column: Imagem & Preview (40%) */}
+                <div className="modal-studio-column">
+                  
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">
+                      <span>Foto de Capa da Campanha</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Proporção 16:9</span>
+                    </label>
+
+                    <input
+                      type="file"
+                      ref={projectImageInputRef}
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={handleProjectImageUpload}
+                    />
+
+                    <div
+                      className="dropzone-box"
+                      onClick={() => projectImageInputRef.current?.click()}
+                    >
+                      {uploadingProjectImage ? (
+                        <div style={{ color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
+                          Fazendo upload da foto...
+                        </div>
+                      ) : projectFormData.image_url ? (
+                        <>
+                          <img src={projectFormData.image_url} alt="Preview" className="dropzone-preview-img" />
+                          <div className="dropzone-overlay-btn">
+                            📷 Alterar Capa da Campanha
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ padding: '16px 8px' }}>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>
+                            <ImageIcon />
+                          </div>
+                          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
+                            Selecionar Imagem da Campanha
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            PNG, JPG ou WEBP até 5MB
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Status da Campanha */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Status da Campanha</label>
+                    <select
+                      className="select-modern"
+                      value={projectFormData.status}
+                      onChange={e => setProjectFormData({ ...projectFormData, status: e.target.value })}
+                    >
+                      <option value="ACTIVE">🟢 Ativa (Exibida no Aplicativo)</option>
+                      <option value="PAUSED">⏸️ Pausada (Oculta temporariamente)</option>
+                      <option value="COMPLETED">🏁 Concluída (Meta Atingida)</option>
+                    </select>
+                  </div>
+
+                </div>
+
+              </div>
+            </form>
+
+            {/* Modal Footer */}
+            <div className="modal-studio-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setIsProjectModalOpen(false)}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="submit"
+                form="project-form"
+                disabled={isSaving}
+                className="btn-primary"
+                style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}
+              >
+                {isSaving ? 'Salvando...' : 'Criar Campanha Oficial'}
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL STUDIO 3: INFORME ANUAL DE CONTRIBUIÇÕES (IRPF)
+          ======================================================== */}
+      {isMemberReportModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsMemberReportModalOpen(false)}>
+          <div className="modal-studio-container" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header */}
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
+                  <DocumentIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">
+                    Informe Anual de Contribuições & Dízimos
+                  </h2>
+                  <p className="modal-studio-subtitle">
+                    Emissão de declaração oficial timbrada para comprovação de renda e fins de Imposto de Renda.
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-circle" onClick={() => setIsMemberReportModalOpen(false)} title="Fechar">
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-studio-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', marginBottom: '18px' }}>
+                <div className="form-group-modern">
+                  <label className="form-label-modern">Buscar Membro / Dizimista *</label>
+                  <input
+                    type="text"
+                    className="input-modern"
+                    placeholder="Digite o nome completo do membro..."
+                    value={selectedMemberForReport}
+                    onChange={e => setSelectedMemberForReport(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group-modern">
+                  <label className="form-label-modern">Ano-Base</label>
+                  <select
+                    className="select-modern"
+                    value={reportYear}
+                    onChange={e => setReportYear(e.target.value)}
+                  >
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </div>
+              </div>
+
+              {selectedMemberForReport ? (
+                <div style={{ background: '#f8fafc', borderRadius: 'var(--radius-md)', padding: '20px', border: '1px solid var(--panel-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                    <div>
+                      <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{selectedMemberForReport}</strong>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Igreja: {selectedOrganization?.name || 'Comunidade Faith'} • Ano {reportYear}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>TOTAL CONTRIBUÍDO</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669' }}>{formatCurrency(totalMemberContributed)}</div>
+                    </div>
+                  </div>
+
+                  {memberReportTransactions.length === 0 ? (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
+                      Nenhum dízimo ou oferta com comprovante encontrado para este nome no ano {reportYear}.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                      {memberReportTransactions.map(t => (
+                        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '6px 0', borderBottom: '1px dashed #e2e8f0' }}>
+                          <span>{new Date(t.payment_date).toLocaleDateString('pt-BR')} • {t.category} ({t.payment_method})</span>
+                          <strong style={{ color: 'var(--text-main)' }}>{formatCurrency(t.amount)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                  Digite o nome do membro acima para gerar o extrato consolidado.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="modal-studio-footer">
+              <button
+                type="button"
+                className="btn-secondary"
                 onClick={() => setIsMemberReportModalOpen(false)}
-                style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid var(--panel-border)', background: '#ffffff', fontWeight: 700, cursor: 'pointer' }}
               >
                 Fechar
               </button>
+
               {selectedMemberForReport && memberReportTransactions.length > 0 && (
                 <button
                   type="button"
+                  className="btn-primary"
                   onClick={() => window.print()}
-                  style={{ flex: 2, padding: '10px', borderRadius: '10px', border: 'none', background: '#059669', color: '#ffffff', fontWeight: 900, cursor: 'pointer' }}
                 >
-                  🖨️ Imprimir Declaração
+                  <PrinterIcon /> Imprimir Declaração Timbrada
                 </button>
               )}
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
