@@ -1418,7 +1418,7 @@ function App() {
               )}
               {activeTab === 'transmissoes' && <Broadcasts />}
               {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-              {activeTab === 'estudos' && <Studies />}
+              {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'devocionais' && <Devotionals />}
               {activeTab === 'bible_config' && (

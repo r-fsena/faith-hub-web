@@ -28,12 +28,24 @@ type Study = {
   content_text?: string;
 };
 
+interface StudiesProps {
+  selectedCampusId?: string;
+  selectedOrganization?: {
+    id: string;
+    name: string;
+    slug?: string;
+  } | null;
+}
+
 type Group = {
   id: string;
   name: string;
+  leader_name?: string;
+  network?: string;
+  campus_name?: string;
 };
 
-export default function Studies() {
+export default function Studies({ selectedCampusId, selectedOrganization }: StudiesProps) {
   const [studies, setStudies] = useState<Study[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,7 +77,7 @@ export default function Studies() {
   useEffect(() => {
     loadStudies();
     loadGroups();
-  }, []);
+  }, [selectedCampusId, selectedOrganization]);
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
@@ -87,13 +99,15 @@ export default function Studies() {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/studies`, { headers });
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId && selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/studies?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setStudies(data.data || []);
+        setStudies(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao carregar estudos:', err);
     } finally {
       setLoading(false);
     }
@@ -102,13 +116,15 @@ export default function Studies() {
   const loadGroups = async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/cell-groups`, { headers });
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId && selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/cell-groups?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setGroups(data.data || []);
+        setGroups(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao carregar células para estudos:', err);
     }
   };
 
@@ -117,10 +133,16 @@ export default function Studies() {
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
+      const payload = {
+        ...formData,
+        target_group_id: formData.target_group_id || null,
+        organization_id: selectedOrganization?.id || 'org_default',
+        campus_id: selectedCampusId && selectedCampusId !== 'all' ? selectedCampusId : undefined
+      };
       const res = await fetch(`${API_URL}/studies`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setShowModal(false);
@@ -361,13 +383,21 @@ export default function Studies() {
                       value={formData.target_group_id} 
                       onChange={e => setFormData({...formData, target_group_id: e.target.value})}
                     >
-                      <option value="">Geral (Todas as Células e Membros)</option>
-                      {groups.map(g => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
+                      <option value="">🌐 Geral (Todas as Células e Membros)</option>
+                      {groups.length > 0 ? (
+                        <optgroup label="Células & Pequenos Grupos Ativos">
+                          {groups.map(g => (
+                            <option key={g.id} value={g.id}>
+                              👥 {g.name} {g.leader_name ? `• Líder: ${g.leader_name}` : ''} {g.network ? `(${g.network})` : ''}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : (
+                        <option disabled value="">Nenhuma célula cadastrada neste campus/organização</option>
+                      )}
                     </select>
                     <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      Deixe "Geral" para disponibilizar para todo o ministério.
+                      Deixe "Geral" para disponibilizar para todo o ministério ou selecione a célula/rede desejada.
                     </span>
                   </div>
 
