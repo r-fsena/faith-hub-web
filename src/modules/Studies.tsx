@@ -3,29 +3,57 @@ import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import './Broadcasts.css';
 
-const FileTextIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+const BookOpenIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+  </svg>
 );
+
 const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+  </svg>
 );
+
 const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
 );
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
-type Study = {
+export type Chapter = {
+  id?: string;
+  chapter_number: number;
+  title: string;
+  verse_reference: string;
+  icebreaker: string;
+  content_text: string;
+  discussion_questions: string[];
+  practical_challenge: string;
+  media_type: 'NONE' | 'VIDEO' | 'PDF';
+  media_link: string;
+  scheduled_date: string;
+  status: 'ACTIVE' | 'DRAFT';
+};
+
+export type StudyBook = {
   id: string;
   title: string;
-  description: string;
-  content_type: 'TEXT' | 'PDF' | 'VIDEO';
-  link: string | null;
-  date_published: string;
-  status: string;
+  subtitle: string;
+  author_name: string;
+  preface: string;
+  cover_color: string;
+  cover_url?: string;
+  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
   target_group_id: string | null;
   target_group_name?: string;
-  content_text?: string;
+  chapter_count?: number;
+  first_scheduled_date?: string;
+  last_scheduled_date?: string;
+  chapters?: Chapter[];
+  created_at?: string;
 };
 
 interface StudiesProps {
@@ -45,37 +73,50 @@ type Group = {
   campus_name?: string;
 };
 
+const COVER_GRADIENTS = [
+  { label: 'Azul Real', value: 'linear-gradient(135deg, #1e3a8a, #3b82f6)' },
+  { label: 'Roxo Profundo', value: 'linear-gradient(135deg, #4c1d95, #8b5cf6)' },
+  { label: 'Esmeralda', value: 'linear-gradient(135deg, #064e3b, #10b981)' },
+  { label: 'Âmbar Dourado', value: 'linear-gradient(135deg, #78350f, #d97706)' },
+  { label: 'Vinho / Rubi', value: 'linear-gradient(135deg, #881337, #e11d48)' },
+  { label: 'Dark Slate', value: 'linear-gradient(135deg, #0f172a, #334155)' }
+];
+
 export default function Studies({ selectedCampusId, selectedOrganization }: StudiesProps) {
-  const [studies, setStudies] = useState<Study[]>([]);
+  const [books, setBooks] = useState<StudyBook[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'book' | 'chapters'>('book');
   const [saving, setSaving] = useState(false);
+  const [expandedChapterIndex, setExpandedChapterIndex] = useState<number>(0);
 
   const [formData, setFormData] = useState<{
     id: string;
     title: string;
-    description: string;
-    content_type: 'TEXT' | 'PDF' | 'VIDEO';
-    link: string;
-    date_published: string;
-    status: string;
+    subtitle: string;
+    author_name: string;
+    preface: string;
+    cover_color: string;
+    cover_url: string;
+    status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
     target_group_id: string;
-    content_text: string;
+    chapters: Chapter[];
   }>({
     id: '',
     title: '',
-    description: '',
-    content_type: 'VIDEO',
-    link: '',
-    date_published: new Date().toISOString().split('T')[0],
+    subtitle: '',
+    author_name: '',
+    preface: '',
+    cover_color: COVER_GRADIENTS[0].value,
+    cover_url: '',
     status: 'ACTIVE',
     target_group_id: '',
-    content_text: ''
+    chapters: []
   });
 
   useEffect(() => {
-    loadStudies();
+    loadBooks();
     loadGroups();
   }, [selectedCampusId, selectedOrganization]);
 
@@ -95,19 +136,19 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
     }
   };
 
-  const loadStudies = async () => {
+  const loadBooks = async () => {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
       const campusParam = selectedCampusId && selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
-      const res = await fetch(`${API_URL}/studies?organization_id=${orgId}${campusParam}`, { headers });
+      const res = await fetch(`${API_URL}/study-books?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setStudies(Array.isArray(data) ? data : (data.data || []));
+        setBooks(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (err) {
-      console.error('Erro ao carregar estudos:', err);
+      console.error('Erro ao carregar livros de estudos:', err);
     } finally {
       setLoading(false);
     }
@@ -128,8 +169,91 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
     }
   };
 
+  const openNewModal = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({
+      id: '',
+      title: '',
+      subtitle: '',
+      author_name: 'Pastor da Comunidade',
+      preface: '',
+      cover_color: COVER_GRADIENTS[0].value,
+      cover_url: '',
+      status: 'ACTIVE',
+      target_group_id: '',
+      chapters: [
+        {
+          chapter_number: 1,
+          title: 'Capítulo 1: O Início da Jornada',
+          verse_reference: '',
+          icebreaker: '',
+          content_text: '',
+          discussion_questions: ['O que mais chamou sua atenção no estudo de hoje?', 'Como podemos aplicar este princípio em nossa semana?'],
+          practical_challenge: '',
+          media_type: 'NONE',
+          media_link: '',
+          scheduled_date: today,
+          status: 'ACTIVE'
+        }
+      ]
+    });
+    setModalTab('book');
+    setExpandedChapterIndex(0);
+    setShowModal(true);
+  };
+
+  const openEditModal = async (book: StudyBook) => {
+    setLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/study-books/${book.id}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const fullBook: StudyBook = data.data || data;
+        setFormData({
+          id: fullBook.id,
+          title: fullBook.title,
+          subtitle: fullBook.subtitle || '',
+          author_name: fullBook.author_name || 'Pastor da Comunidade',
+          preface: fullBook.preface || '',
+          cover_color: fullBook.cover_color || COVER_GRADIENTS[0].value,
+          cover_url: fullBook.cover_url || '',
+          status: fullBook.status || 'ACTIVE',
+          target_group_id: fullBook.target_group_id || '',
+          chapters: (fullBook.chapters && fullBook.chapters.length > 0) ? fullBook.chapters : [
+            {
+              chapter_number: 1,
+              title: 'Capítulo 1: Introdução',
+              verse_reference: '',
+              icebreaker: '',
+              content_text: '',
+              discussion_questions: ['Qual a principal aplicação prática deste estudo?'],
+              practical_challenge: '',
+              media_type: 'NONE',
+              media_link: '',
+              scheduled_date: new Date().toISOString().split('T')[0],
+              status: 'ACTIVE'
+            }
+          ]
+        });
+        setModalTab('book');
+        setExpandedChapterIndex(0);
+        setShowModal(true);
+      }
+    } catch (err) {
+      console.error('Erro ao abrir livro de estudo:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.title.trim()) {
+      alert('Por favor, informe o título do Livro de Estudo.');
+      return;
+    }
+
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
@@ -139,19 +263,20 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
         organization_id: selectedOrganization?.id || 'org_default',
         campus_id: selectedCampusId && selectedCampusId !== 'all' ? selectedCampusId : undefined
       };
-      const res = await fetch(`${API_URL}/studies`, {
+      const res = await fetch(`${API_URL}/study-books`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
       });
       if (res.ok) {
         setShowModal(false);
-        loadStudies();
+        loadBooks();
       } else {
-        alert("Erro ao salvar estudo.");
+        alert('Erro ao salvar livro de estudo.');
       }
     } catch (err) {
       console.error(err);
+      alert('Erro ao conectar ao servidor.');
     } finally {
       setSaving(false);
     }
@@ -159,44 +284,80 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Remover este estudo da plataforma?")) return;
+    if (!window.confirm('Tem certeza que deseja excluir este Livro e todos os seus capítulos?')) return;
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/studies/${id}`, { method: 'DELETE', headers });
+      const res = await fetch(`${API_URL}/study-books/${id}`, { method: 'DELETE', headers });
       if (res.ok) {
-         loadStudies();
+        loadBooks();
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const openNewModal = () => {
-    setFormData({ id: '', title: '', description: '', content_type: 'VIDEO', link: '', date_published: new Date().toISOString().split('T')[0], status: 'ACTIVE', target_group_id: '', content_text: '' });
-    setShowModal(true);
+  // Funções de manipulação de capítulos no formulário
+  const handleAddChapter = () => {
+    const nextNum = formData.chapters.length + 1;
+    const newChapter: Chapter = {
+      chapter_number: nextNum,
+      title: `Capítulo ${nextNum}: Nova Lição`,
+      verse_reference: '',
+      icebreaker: '',
+      content_text: '',
+      discussion_questions: ['Como podemos colocar esta lição em prática em nossas vidas?'],
+      practical_challenge: '',
+      media_type: 'NONE',
+      media_link: '',
+      scheduled_date: new Date().toISOString().split('T')[0],
+      status: 'ACTIVE'
+    };
+    setFormData(prev => ({
+      ...prev,
+      chapters: [...prev.chapters, newChapter]
+    }));
+    setExpandedChapterIndex(formData.chapters.length);
   };
 
-  const openEditModal = (s: Study) => {
-    setFormData({
-      id: s.id,
-      title: s.title,
-      description: s.description,
-      content_type: s.content_type,
-      link: s.link || '',
-      date_published: s.date_published || '',
-      status: s.status || 'ACTIVE',
-      target_group_id: s.target_group_id || '',
-      content_text: s.content_text || ''
-    });
-    setShowModal(true);
-  };
-
-  const getTypeStyle = (type: string) => {
-    switch(type) {
-      case 'VIDEO': return { bg: '#fef2f2', color: '#dc2626', label: 'VÍDEO' };
-      case 'PDF': return { bg: '#ecfdf5', color: '#059669', label: 'ARQUIVO PDF' };
-      default: return { bg: '#eff6ff', color: '#2563eb', label: 'TEXTO' };
+  const handleRemoveChapter = (index: number) => {
+    if (formData.chapters.length <= 1) {
+      alert('O livro deve conter pelo menos 1 capítulo ou lição.');
+      return;
     }
+    const updated = formData.chapters.filter((_, idx) => idx !== index).map((ch, idx) => ({
+      ...ch,
+      chapter_number: idx + 1
+    }));
+    setFormData(prev => ({ ...prev, chapters: updated }));
+    setExpandedChapterIndex(Math.max(0, index - 1));
+  };
+
+  const handleUpdateChapter = (index: number, field: keyof Chapter, val: any) => {
+    const updated = [...formData.chapters];
+    updated[index] = { ...updated[index], [field]: val };
+    setFormData(prev => ({ ...prev, chapters: updated }));
+  };
+
+  const handleAddQuestion = (chapterIdx: number) => {
+    const updated = [...formData.chapters];
+    const questions = [...(updated[chapterIdx].discussion_questions || []), ''];
+    updated[chapterIdx] = { ...updated[chapterIdx], discussion_questions: questions };
+    setFormData(prev => ({ ...prev, chapters: updated }));
+  };
+
+  const handleUpdateQuestion = (chapterIdx: number, qIdx: number, val: string) => {
+    const updated = [...formData.chapters];
+    const questions = [...(updated[chapterIdx].discussion_questions || [])];
+    questions[qIdx] = val;
+    updated[chapterIdx] = { ...updated[chapterIdx], discussion_questions: questions };
+    setFormData(prev => ({ ...prev, chapters: updated }));
+  };
+
+  const handleRemoveQuestion = (chapterIdx: number, qIdx: number) => {
+    const updated = [...formData.chapters];
+    const questions = updated[chapterIdx].discussion_questions.filter((_, idx) => idx !== qIdx);
+    updated[chapterIdx] = { ...updated[chapterIdx], discussion_questions: questions };
+    setFormData(prev => ({ ...prev, chapters: updated }));
   };
 
   return (
@@ -204,80 +365,155 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
       {/* Header */}
       <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 24 }}>
         <div>
-          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Estudos e Material de Célula</h1>
-          <p className="card-subtitle">Forneça roteiros (PDF, Vídeo ou Texto) com a "Palavra da Semana" para toda a liderança.</p>
+          <h1 className="card-title" style={{ fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>📚</span> Livros e Séries de Estudos
+          </h1>
+          <p className="card-subtitle">
+            Crie roteiros bíblicos estruturados em formato de Livro com Capítulos semanais, quebra-gelo, ministração e perguntas de debate.
+          </p>
         </div>
-        <button className="btn-primary" onClick={openNewModal}>
-          <PlusIcon /> Novo Estudo
+        <button className="btn-primary" onClick={openNewModal} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PlusIcon /> Novo Livro de Estudo
         </button>
       </div>
 
-      <div className="broadcast-mural">
-        {loading ? (
-          <div style={{ gridColumn: '1 / -1', padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando estudos...</div>
-        ) : studies.length === 0 ? (
-          <div className="empty-state">
-            <FileTextIcon />
-            <h3>Nenhum estudo cadastrado.</h3>
-            <p>Clique em Novo Estudo para disponibilizar a primeira lição.</p>
+      {/* Grid de Livros */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
+        {loading && books.length === 0 ? (
+          <div style={{ gridColumn: '1 / -1', padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Carregando catálogo de livros...
+          </div>
+        ) : books.length === 0 ? (
+          <div className="empty-state" style={{ gridColumn: '1 / -1', background: '#ffffff', borderRadius: 20, padding: '48px 24px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
+            <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: 12 }}>📖</span>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>Nenhum livro de estudo publicado</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', maxWidth: 460, margin: '0 auto 16px auto' }}>
+              Crie a primeira série de estudos da igreja (ex: <em>"A Estátua de Daniel"</em>, <em>"Família Vitoriosa"</em>) para os líderes guiarem suas células.
+            </p>
+            <button className="btn-primary" onClick={openNewModal}>
+              <PlusIcon /> Criar Primeiro Livro
+            </button>
           </div>
         ) : (
-          studies.map((s) => {
-            const typeStyle = getTypeStyle(s.content_type);
-            return (
-              <div key={s.id} className="portal-card" style={{ padding: 20, cursor: 'pointer' }} onClick={() => openEditModal(s)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <span className={`status-badge ${s.status === 'ACTIVE' ? 'excellent' : 'pending'}`}>
-                      {s.status === 'ACTIVE' ? "DISPONÍVEL" : "RASCUNHO"}
-                    </span>
-                    <span className="status-badge" style={{ background: typeStyle.bg, color: typeStyle.color, fontWeight: 800 }}>
-                      {typeStyle.label}
-                    </span>
-                  </div>
+          books.map(b => (
+            <div 
+              key={b.id} 
+              className="portal-card" 
+              onClick={() => openEditModal(b)}
+              style={{
+                background: '#ffffff',
+                borderRadius: 20,
+                padding: 0,
+                overflow: 'hidden',
+                border: '1px solid var(--panel-border)',
+                boxShadow: 'var(--shadow-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-3px)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+              }}
+            >
+              {/* Capa do Livro (Gradient Header) */}
+              <div style={{
+                background: b.cover_color || COVER_GRADIENTS[0].value,
+                padding: '24px 20px',
+                color: '#ffffff',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <span style={{ 
+                    fontSize: '0.68rem', 
+                    fontWeight: 900, 
+                    background: 'rgba(255,255,255,0.22)', 
+                    backdropFilter: 'blur(6px)', 
+                    padding: '3px 10px', 
+                    borderRadius: 12,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    LIVRO DE ESTUDO
+                  </span>
 
                   <button 
+                    type="button" 
                     className="action-circle-btn" 
-                    style={{ width: 30, height: 30, color: 'var(--danger)' }} 
-                    onClick={(e) => handleDelete(s.id, e)}
+                    style={{ background: 'rgba(0,0,0,0.25)', color: '#ffffff', width: 28, height: 28, border: 'none' }}
+                    onClick={(e) => handleDelete(b.id, e)}
+                    title="Excluir livro"
                   >
                     <TrashIcon />
                   </button>
                 </div>
 
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{s.title}</h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 16 }}>{s.description || 'Sem resumo disponível.'}</p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.78rem', color: 'var(--text-muted)', paddingTop: 12, borderTop: '1px solid var(--panel-border)' }}>
-                  <div>📍 <strong>Público:</strong> {s.target_group_name || 'Geral (Todas as Células)'}</div>
-                  <div>🗓️ <strong>Liberação:</strong> {s.date_published.split('-').reverse().join('/')}</div>
-                  {s.link && <div style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>🔗 Link de Mídia Anexado</div>}
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, margin: '8px 0 2px 0', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                    {b.title}
+                  </h3>
+                  {b.subtitle && (
+                    <p style={{ fontSize: '0.78rem', margin: 0, opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {b.subtitle}
+                    </p>
+                  )}
                 </div>
               </div>
-            );
-          })
+
+              {/* Informações e Sumário */}
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, flex: 1, justifyContent: 'space-between' }}>
+                {b.preface && (
+                  <p style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    "{b.preface}"
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.76rem', color: 'var(--text-muted)', paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>📍 <strong>Público:</strong> {b.target_group_name || '🌐 Toda a Igreja'}</span>
+                    <span style={{ fontWeight: 800, color: 'var(--accent-primary)', background: '#eff6ff', padding: '2px 8px', borderRadius: 8 }}>
+                      📑 {b.chapter_count || 0} {(b.chapter_count === 1) ? 'Capítulo' : 'Capítulos'}
+                    </span>
+                  </div>
+                  <div>✍️ <strong>Autor:</strong> {b.author_name || 'Pastor da Comunidade'}</div>
+                  {b.first_scheduled_date && (
+                    <div>🗓️ <strong>Período:</strong> {b.first_scheduled_date.split('-').reverse().join('/')} {b.last_scheduled_date ? `a ${b.last_scheduled_date.split('-').reverse().join('/')}` : ''}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
       {/* ========================================================
-          MODAL STUDIO (2-Column Horizontal Split Architecture)
+          MODAL STUDIO - LIVRO E CAPÍTULOS
           ======================================================== */}
       {showModal && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setShowModal(false)}>
-          <div className="modal-studio-container" onClick={e => e.stopPropagation()}>
+          <div className="modal-studio-container" style={{ maxWidth: 940, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             
-            {/* Modal Header */}
-            <div className="modal-studio-header">
+            {/* Modal Header com Abas */}
+            <div className="modal-studio-header" style={{ paddingBottom: 0 }}>
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
-                  <FileTextIcon />
+                  <BookOpenIcon />
                 </div>
                 <div>
                   <h2 className="modal-studio-title">
-                    {formData.id ? 'Editar Estudo de Célula' : 'Cadastrar Novo Estudo de Célula'}
+                    {formData.id ? 'Editar Livro de Estudo' : 'Cadastrar Novo Livro de Estudo'}
                   </h2>
                   <p className="modal-studio-subtitle">
-                    Disponibilize materiais, roteiros e vídeos para os líderes guiarem suas reuniões semanais.
+                    Defina a visão geral da série e os encontros semanais que os líderes aplicarão nas células.
                   </p>
                 </div>
               </div>
@@ -286,171 +522,415 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
               </button>
             </div>
 
-            {/* Modal Body - 2 Column Grid */}
-            <form id="study-studio-form" onSubmit={handleSave} className="modal-studio-body">
-              <div className="modal-studio-grid">
-                
-                {/* LEFT COLUMN: Conteúdo & Mídia (60%) */}
-                <div className="modal-studio-column">
+            {/* Abas do Editor */}
+            <div style={{ display: 'flex', gap: 8, padding: '14px 24px 0 24px', borderBottom: '1px solid var(--panel-border)' }}>
+              <button
+                type="button"
+                onClick={() => setModalTab('book')}
+                style={{
+                  background: modalTab === 'book' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderBottom: modalTab === 'book' ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                  padding: '8px 16px',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  color: modalTab === 'book' ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span>📖</span>
+                <span>1. Visão Geral & Prefácio</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalTab('chapters')}
+                style={{
+                  background: modalTab === 'chapters' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderBottom: modalTab === 'chapters' ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                  padding: '8px 16px',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  color: modalTab === 'chapters' ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span>📑</span>
+                <span>2. Capítulos & Encontros ({formData.chapters.length})</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form id="study-book-form" onSubmit={handleSave} style={{ overflowY: 'auto', flex: 1, padding: 24 }}>
+              {modalTab === 'book' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   
-                  {/* Segmented Media Selector */}
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Formato da Lição *</label>
-                    <div className="segmented-control">
-                      <div 
-                        className={`segmented-btn ${formData.content_type === 'TEXT' ? 'active' : ''}`}
-                        onClick={() => setFormData({ ...formData, content_type: 'TEXT' })}
-                      >
-                        📄 Texto / Esboço
-                      </div>
-                      <div 
-                        className={`segmented-btn ${formData.content_type === 'PDF' ? 'active' : ''}`}
-                        onClick={() => setFormData({ ...formData, content_type: 'PDF' })}
-                      >
-                        📕 Arquivo PDF
-                      </div>
-                      <div 
-                        className={`segmented-btn ${formData.content_type === 'VIDEO' ? 'active' : ''}`}
-                        onClick={() => setFormData({ ...formData, content_type: 'VIDEO' })}
-                      >
-                        🎥 Vídeo YouTube
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Título da Lição / Série *</label>
-                    <input 
-                      type="text" 
-                      className="input-modern"
-                      value={formData.title} 
-                      onChange={e => setFormData({...formData, title: e.target.value})} 
-                      placeholder="Ex: A Armadura de Deus - Lição 3" 
-                      required 
-                    />
-                  </div>
-
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Resumo Rápido para a Liderança *</label>
-                    <textarea 
-                      rows={2} 
-                      className="textarea-modern"
-                      value={formData.description} 
-                      onChange={e => setFormData({...formData, description: e.target.value})} 
-                      placeholder="Qual o objetivo central desta lição e o que enfatizar?" 
-                      required
-                    />
-                  </div>
-
-                  {(formData.content_type === 'PDF' || formData.content_type === 'VIDEO') && (
+                  {/* Grid Topo: Título e Subtítulo */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
                     <div className="form-group-modern">
-                      <label className="form-label-modern">
-                        Link Externo da Mídia * {formData.content_type === 'PDF' ? '(Google Drive, Dropbox)' : '(YouTube, Vimeo)'}
-                      </label>
+                      <label className="form-label-modern">Título do Livro / Série *</label>
                       <input 
-                        type="url" 
+                        type="text" 
                         className="input-modern"
-                        value={formData.link} 
-                        onChange={e => setFormData({...formData, link: e.target.value})} 
-                        placeholder="https://..." 
-                        required
+                        value={formData.title} 
+                        onChange={e => setFormData({ ...formData, title: e.target.value })} 
+                        placeholder="Ex: As Estátuas de Daniel & O Reino Eterno" 
+                        required 
                       />
                     </div>
-                  )}
 
-                  {formData.content_type === 'TEXT' && (
                     <div className="form-group-modern">
-                      <label className="form-label-modern">Esboço Completo do Estudo (Texto) *</label>
-                      <textarea 
-                        rows={6} 
-                        className="textarea-modern"
-                        value={formData.content_text} 
-                        onChange={e => setFormData({...formData, content_text: e.target.value})} 
-                        placeholder="Cole aqui todo o roteiro, versículos chave e perguntas para discussão..." 
-                        required
+                      <label className="form-label-modern">Subtítulo / Tema</label>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        value={formData.subtitle} 
+                        onChange={e => setFormData({ ...formData, subtitle: e.target.value })} 
+                        placeholder="Ex: Profecias e Fidelidade no Exílio" 
                       />
                     </div>
-                  )}
-                </div>
-
-                {/* RIGHT COLUMN: Público, Data & Visibilidade (40%) */}
-                <div className="modal-studio-column">
-                  
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Público / Célula Específica</label>
-                    <select 
-                      className="select-modern"
-                      value={formData.target_group_id} 
-                      onChange={e => setFormData({...formData, target_group_id: e.target.value})}
-                    >
-                      <option value="">🌐 Geral (Todas as Células e Membros)</option>
-                      {groups.length > 0 ? (
-                        <optgroup label="Células & Pequenos Grupos Ativos">
-                          {groups.map(g => (
-                            <option key={g.id} value={g.id}>
-                              👥 {g.name} {g.leader_name ? `• Líder: ${g.leader_name}` : ''} {g.network ? `(${g.network})` : ''}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : (
-                        <option disabled value="">Nenhuma célula cadastrada neste campus/organização</option>
-                      )}
-                    </select>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      Deixe "Geral" para disponibilizar para todo o ministério ou selecione a célula/rede desejada.
-                    </span>
                   </div>
 
+                  {/* Grid Meio: Autor e Público */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Autor / Pastor Responsável</label>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        value={formData.author_name} 
+                        onChange={e => setFormData({ ...formData, author_name: e.target.value })} 
+                        placeholder="Ex: Pr. Rafael Sena" 
+                      />
+                    </div>
+
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Público / Célula Específica</label>
+                      <select 
+                        className="select-modern"
+                        value={formData.target_group_id} 
+                        onChange={e => setFormData({ ...formData, target_group_id: e.target.value })}
+                      >
+                        <option value="">🌐 Geral (Todas as Células e Membros)</option>
+                        {groups.length > 0 && (
+                          <optgroup label="Células & Redes Ativas">
+                            {groups.map(g => (
+                              <option key={g.id} value={g.id}>
+                                👥 {g.name} {g.leader_name ? `• Líder: ${g.leader_name}` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Prefácio do Livro */}
                   <div className="form-group-modern">
-                    <label className="form-label-modern">Data de Liberação / Aplicação</label>
-                    <input 
-                      type="date" 
-                      className="input-modern"
-                      value={formData.date_published} 
-                      onChange={e => setFormData({...formData, date_published: e.target.value})} 
-                      required
+                    <label className="form-label-modern">Prefácio / Introdução Geral do Livro</label>
+                    <textarea 
+                      rows={4} 
+                      className="textarea-modern"
+                      value={formData.preface} 
+                      onChange={e => setFormData({ ...formData, preface: e.target.value })} 
+                      placeholder="Apresente aos líderes e discípulos o propósito espiritual desta série de estudos..." 
                     />
                   </div>
 
-                  {/* Toggle: Visibilidade */}
-                  <div className="toggle-card-modern" style={{ marginTop: 8 }}>
-                    <div className="toggle-card-info">
-                      <div className="toggle-card-title">
-                        <span style={{ color: '#059669' }}>👁️</span> Estudo Ativo no App
-                      </div>
-                      <div className="toggle-card-desc">
-                        Ficará visível imediatamente para os líderes
-                      </div>
+                  {/* Seletor de Cores da Capa */}
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Estilo Visual da Capa</label>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {COVER_GRADIENTS.map(grad => (
+                        <div
+                          key={grad.value}
+                          onClick={() => setFormData({ ...formData, cover_color: grad.value })}
+                          style={{
+                            background: grad.value,
+                            color: '#ffffff',
+                            padding: '10px 14px',
+                            borderRadius: 12,
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            border: formData.cover_color === grad.value ? '2.5px solid #ffffff' : '1px solid transparent',
+                            boxShadow: formData.cover_color === grad.value ? '0 0 0 2px var(--accent-primary)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {grad.label}
+                        </div>
+                      ))}
                     </div>
-                    <label className="switch-control">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.status === 'ACTIVE'} 
-                        onChange={e => setFormData({...formData, status: e.target.checked ? 'ACTIVE' : 'INACTIVE'})} 
-                      />
-                      <span className="switch-slider"></span>
-                    </label>
                   </div>
 
-                  {/* Live Preview Box */}
-                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 16, border: '1px solid var(--panel-border)' }}>
-                    <div style={{ fontSize: '0.70rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
-                      Preview para os Líderes
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: '0.90rem', color: 'var(--text-main)', marginBottom: 4 }}>
-                      {formData.title || 'Título do Estudo'}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      Formato: <strong>{formData.content_type}</strong> • Para: <strong>{groups.find(g => g.id === formData.target_group_id)?.name || 'Geral'}</strong>
-                    </div>
+                  {/* Preview da Capa */}
+                  <div style={{
+                    background: formData.cover_color,
+                    padding: 24,
+                    borderRadius: 18,
+                    color: '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6
+                  }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 900, background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 8, width: 'fit-content' }}>
+                      PREVIEW DA CAPA
+                    </span>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>{formData.title || 'Título do Livro'}</h3>
+                    <p style={{ fontSize: '0.82rem', margin: 0, opacity: 0.9 }}>{formData.subtitle || 'Subtítulo da série'}</p>
+                    <span style={{ fontSize: '0.74rem', opacity: 0.8, marginTop: 4 }}>Por {formData.author_name || 'Autor'}</span>
                   </div>
 
                 </div>
-              </div>
+              )}
+
+              {modalTab === 'chapters' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                        Encontros Semanais ({formData.chapters.length})
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                        Cada encontro corresponde a um capítulo do livro a ser aplicado em uma reunião de célula.
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn-secondary" 
+                      onClick={handleAddChapter}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800 }}
+                    >
+                      <PlusIcon /> + Adicionar Capítulo / Encontro
+                    </button>
+                  </div>
+
+                  {/* Lista de Capítulos */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {formData.chapters.map((ch, idx) => {
+                      const isExpanded = expandedChapterIndex === idx;
+                      return (
+                        <div 
+                          key={idx} 
+                          style={{
+                            background: '#ffffff',
+                            borderRadius: 16,
+                            border: isExpanded ? '1.5px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                            boxShadow: 'var(--shadow-sm)',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {/* Header do Capítulo (Acordeão) */}
+                          <div 
+                            onClick={() => setExpandedChapterIndex(isExpanded ? -1 : idx)}
+                            style={{
+                              padding: '12px 18px',
+                              background: isExpanded ? '#f0f9ff' : '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ 
+                                background: 'var(--accent-primary)', 
+                                color: '#ffffff', 
+                                width: 24, 
+                                height: 24, 
+                                borderRadius: '50%', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                fontSize: '0.74rem', 
+                                fontWeight: 900 
+                              }}>
+                                {ch.chapter_number}
+                              </span>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-main)' }}>
+                                  {ch.title || `Capítulo ${ch.chapter_number}`}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                  {ch.verse_reference ? `📖 ${ch.verse_reference}` : 'Sem versículo'} • 🗓️ {ch.scheduled_date ? ch.scheduled_date.split('-').reverse().join('/') : 'Sem data'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleRemoveChapter(idx); }}
+                                style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', padding: '4px 8px' }}
+                              >
+                                ✕ Remover
+                              </button>
+                              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                {isExpanded ? '▲' : '▼'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Conteúdo Expansível do Capítulo */}
+                          {isExpanded && (
+                            <div style={{ padding: 18, borderTop: '1px solid #e0f2fe', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                              
+                              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 12 }}>
+                                <div className="form-group-modern">
+                                  <label className="form-label-modern">Título do Capítulo *</label>
+                                  <input 
+                                    type="text" 
+                                    className="input-modern"
+                                    value={ch.title} 
+                                    onChange={e => handleUpdateChapter(idx, 'title', e.target.value)} 
+                                    placeholder="Ex: A Cabeça de Ouro - Babilônia" 
+                                    required 
+                                  />
+                                </div>
+
+                                <div className="form-group-modern">
+                                  <label className="form-label-modern">Versículo Chave</label>
+                                  <input 
+                                    type="text" 
+                                    className="input-modern"
+                                    value={ch.verse_reference} 
+                                    onChange={e => handleUpdateChapter(idx, 'verse_reference', e.target.value)} 
+                                    placeholder="Ex: Daniel 2:31-38" 
+                                  />
+                                </div>
+
+                                <div className="form-group-modern">
+                                  <label className="form-label-modern">Data do Encontro</label>
+                                  <input 
+                                    type="date" 
+                                    className="input-modern"
+                                    value={ch.scheduled_date} 
+                                    onChange={e => handleUpdateChapter(idx, 'scheduled_date', e.target.value)} 
+                                  />
+                                </div>
+                              </div>
+
+                              {/* 🧊 Quebra-Gelo */}
+                              <div className="form-group-modern">
+                                <label className="form-label-modern">🧊 Quebra-Gelo / Dinâmica de Abertura</label>
+                                <textarea 
+                                  rows={2} 
+                                  className="textarea-modern"
+                                  value={ch.icebreaker} 
+                                  onChange={e => handleUpdateChapter(idx, 'icebreaker', e.target.value)} 
+                                  placeholder="Pergunta ou brincadeira inicial para descontrair a célula antes da palavra..." 
+                                />
+                              </div>
+
+                              {/* 💡 Ministração / Esboço */}
+                              <div className="form-group-modern">
+                                <label className="form-label-modern">💡 Esboço & Conteúdo do Estudo (Ministração) *</label>
+                                <textarea 
+                                  rows={5} 
+                                  className="textarea-modern"
+                                  value={ch.content_text} 
+                                  onChange={e => handleUpdateChapter(idx, 'content_text', e.target.value)} 
+                                  placeholder="Estrutura do estudo bíblico, tópicos, explicações e contextualização..." 
+                                  required
+                                />
+                              </div>
+
+                              {/* 💬 Perguntas de Debate */}
+                              <div className="form-group-modern">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                  <label className="form-label-modern" style={{ margin: 0 }}>💬 Perguntas para Debate & Compartilhamento</label>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddQuestion(idx)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer' }}
+                                  >
+                                    + Adicionar Pergunta
+                                  </button>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {(ch.discussion_questions || []).map((q, qIdx) => (
+                                    <div key={qIdx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-muted)', width: 18 }}>{qIdx + 1}.</span>
+                                      <input 
+                                        type="text" 
+                                        className="input-modern"
+                                        style={{ padding: '8px 12px', fontSize: '0.80rem' }}
+                                        value={q} 
+                                        onChange={e => handleUpdateQuestion(idx, qIdx, e.target.value)} 
+                                        placeholder={`Pergunta ${qIdx + 1} para o grupo...`} 
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveQuestion(idx, qIdx)}
+                                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem' }}
+                                        title="Remover pergunta"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* 🎯 Desafio Prático & Mídia */}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+                                <div className="form-group-modern">
+                                  <label className="form-label-modern">🎯 Desafio Prático / Oração da Semana</label>
+                                  <input 
+                                    type="text" 
+                                    className="input-modern"
+                                    value={ch.practical_challenge} 
+                                    onChange={e => handleUpdateChapter(idx, 'practical_challenge', e.target.value)} 
+                                    placeholder="Ex: Orem por 3 pessoas que precisam de paz nesta semana." 
+                                  />
+                                </div>
+
+                                <div className="form-group-modern">
+                                  <label className="form-label-modern">🎥 Mídia de Apoio (Opcional)</label>
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <select 
+                                      className="select-modern" 
+                                      style={{ width: '90px' }}
+                                      value={ch.media_type} 
+                                      onChange={e => handleUpdateChapter(idx, 'media_type', e.target.value)}
+                                    >
+                                      <option value="NONE">Nenhum</option>
+                                      <option value="VIDEO">Vídeo</option>
+                                      <option value="PDF">PDF</option>
+                                    </select>
+                                    {ch.media_type !== 'NONE' && (
+                                      <input 
+                                        type="url" 
+                                        className="input-modern"
+                                        value={ch.media_link} 
+                                        onChange={e => handleUpdateChapter(idx, 'media_link', e.target.value)} 
+                                        placeholder="Link do YouTube / Drive..." 
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </form>
 
             {/* Modal Footer */}
-            <div className="modal-studio-footer">
+            <div className="modal-studio-footer" style={{ borderTop: '1px solid var(--panel-border)', padding: '16px 24px' }}>
               <button 
                 type="button" 
                 className="btn-secondary" 
@@ -458,14 +938,27 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
               >
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                form="study-studio-form" 
-                className="btn-primary" 
-                disabled={saving}
-              >
-                {saving ? 'Salvando...' : 'Salvar & Publicar Estudo'}
-              </button>
+              
+              <div style={{ display: 'flex', gap: 8 }}>
+                {modalTab === 'book' ? (
+                  <button 
+                    type="button" 
+                    className="btn-primary"
+                    onClick={() => setModalTab('chapters')}
+                  >
+                    Próximo: Gerenciar Capítulos ➔
+                  </button>
+                ) : (
+                  <button 
+                    type="submit" 
+                    form="study-book-form" 
+                    className="btn-primary" 
+                    disabled={saving}
+                  >
+                    {saving ? 'Salvando Livro...' : 'Salvar & Publicar Livro de Estudo'}
+                  </button>
+                )}
+              </div>
             </div>
 
           </div>
