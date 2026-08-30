@@ -19,10 +19,18 @@ import { ProposalPublicView } from './modules/ProposalPublicView';
 import { BibleConfig } from './modules/BibleConfig';
 import { FinancialTreasury } from './modules/FinancialTreasury';
 import { MySubscription } from './modules/MySubscription';
+import { FeatureFlagsManagement } from './modules/FeatureFlagsManagement';
+import { SecurityAuditLogs } from './modules/SecurityAuditLogs';
+import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { getAuthHeaders } from './services/apiClient';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
+
+const ShieldIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+);
 
 // Professional SVG Icons
 const BuildingIcon = () => (
@@ -84,7 +92,27 @@ const BabyIcon = () => (
 );
 
 // Navigation Structure
-const navigationGroups = [
+export interface NavigationSubItem {
+  id: string;
+  label: string;
+  featureFlagKey?: string;
+}
+
+export interface NavigationItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType;
+  hasSubmenu?: boolean;
+  featureFlagKey?: string;
+  subItems?: NavigationSubItem[];
+}
+
+export interface NavigationCategory {
+  category: string;
+  items: NavigationItem[];
+}
+
+const navigationGroups: NavigationCategory[] = [
   {
     category: 'Geral',
     items: [
@@ -99,9 +127,10 @@ const navigationGroups = [
         label: 'Membros & Equipe', 
         icon: UsersIcon,
         hasSubmenu: true,
+        featureFlagKey: 'members.module_enabled',
         subItems: [
-          { id: 'membros', label: 'Gestão de Membros' },
-          { id: 'celulas', label: 'Células & Redes' },
+          { id: 'membros', label: 'Gestão de Membros', featureFlagKey: 'members.module_enabled' },
+          { id: 'celulas', label: 'Células & Redes', featureFlagKey: 'cell_groups.module_enabled' },
         ]
       },
       { 
@@ -109,13 +138,14 @@ const navigationGroups = [
         label: 'Ministério Infantil (Kids)', 
         icon: BabyIcon,
         hasSubmenu: true,
+        featureFlagKey: 'kids.module_enabled',
         subItems: [
-          { id: 'kids_salas', label: 'Painel ao Vivo das Salas' },
-          { id: 'kids_checkin', label: 'Totem de Check-in Expresso' },
-          { id: 'kids_chamados', label: 'Central de Chamados' },
-          { id: 'kids_familias', label: 'Base de Famílias & Membros' },
-          { id: 'kids_config_salas', label: 'Configuração de Salas' },
-          { id: 'kids_relatorios', label: 'Relatórios & Exportação' },
+          { id: 'kids_salas', label: 'Painel ao Vivo das Salas', featureFlagKey: 'kids.live_rooms_dashboard' },
+          { id: 'kids_checkin', label: 'Totem de Check-in Expresso', featureFlagKey: 'kids.express_kiosk_checkin' },
+          { id: 'kids_chamados', label: 'Central de Chamados', featureFlagKey: 'kids.emergency_parent_call' },
+          { id: 'kids_familias', label: 'Base de Famílias & Membros', featureFlagKey: 'kids.module_enabled' },
+          { id: 'kids_config_salas', label: 'Configuração de Salas', featureFlagKey: 'kids.module_enabled' },
+          { id: 'kids_relatorios', label: 'Relatórios & Exportação', featureFlagKey: 'kids.reports_export' },
         ]
       },
       { 
@@ -124,10 +154,10 @@ const navigationGroups = [
         icon: BookIcon,
         hasSubmenu: true,
         subItems: [
-          { id: 'devocionais', label: 'Devocionais Diários' },
-          { id: 'estudos', label: 'Estudos e Mídias' },
-          { id: 'eventos', label: 'Eventos & Trilhas' },
-          { id: 'bible_config', label: 'Bíblias' },
+          { id: 'devocionais', label: 'Devocionais Diários', featureFlagKey: 'devotionals.module_enabled' },
+          { id: 'estudos', label: 'Estudos e Mídias', featureFlagKey: 'studies.module_enabled' },
+          { id: 'eventos', label: 'Eventos & Trilhas', featureFlagKey: 'events.module_enabled' },
+          { id: 'bible_config', label: 'Bíblias', featureFlagKey: 'bible.module_enabled' },
         ]
       },
     ]
@@ -140,12 +170,13 @@ const navigationGroups = [
         label: 'Ponto de Venda (PDV)',
         icon: CartIcon,
         hasSubmenu: true,
+        featureFlagKey: 'pdv.module_enabled',
         subItems: [
-          { id: 'pdv_produtos', label: 'Catálogo de Produtos' },
-          { id: 'pdv_pedidos', label: 'Monitor de Pedidos' },
+          { id: 'pdv_produtos', label: 'Catálogo de Produtos', featureFlagKey: 'pdv.stock_inventory' },
+          { id: 'pdv_pedidos', label: 'Monitor de Pedidos', featureFlagKey: 'pdv.order_kanban_monitor' },
         ]
       },
-      { id: 'transmissoes', label: 'Central de Cultos & Lives', icon: VideoIcon },
+      { id: 'transmissoes', label: 'Central de Cultos & Lives', icon: VideoIcon, featureFlagKey: 'broadcasts.module_enabled' },
     ]
   },
   {
@@ -156,10 +187,11 @@ const navigationGroups = [
         label: 'Finanças & Tesouraria',
         icon: CreditCardIcon,
         hasSubmenu: true,
+        featureFlagKey: 'financial.module_enabled',
         subItems: [
-          { id: 'financial_treasury', label: 'Painel & DRE da Igreja' },
-          { id: 'pagarme_financeiro', label: 'Gateway de Pagamento' },
-          { id: 'my_subscription', label: 'Minha Assinatura Faith-Hub' },
+          { id: 'financial_treasury', label: 'Painel & DRE da Igreja', featureFlagKey: 'financial.cashflow_ledger' },
+          { id: 'pagarme_financeiro', label: 'Gateway de Pagamento', featureFlagKey: 'financial.credit_card_gateway' },
+          { id: 'my_subscription', label: 'Minha Assinatura Faith-Hub', featureFlagKey: 'system.saas_subscription_portal' },
         ]
       },
     ]
@@ -167,12 +199,114 @@ const navigationGroups = [
   {
     category: 'Whitelabel & Sistema',
     items: [
-      { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon },
-      { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon },
+      { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon, featureFlagKey: 'system.multicampus_enabled' },
+      { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon, featureFlagKey: 'system.custom_theme_colors' },
+      { id: 'feature_flags', label: 'Feature Flags & Módulos', icon: SparklesIcon, featureFlagKey: 'system.saas_subscription_portal' },
+      { id: 'security_audit', label: 'Auditoria & LGPD', icon: ShieldIcon },
       { id: 'configuracoes', label: 'Configurações AWS', icon: SettingsIcon },
     ]
   }
 ];
+
+interface SidebarNavProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  openSubmenus: Record<string, boolean>;
+  toggleSubmenu: (groupId: string) => void;
+  setIsMobileSidebarOpen: (open: boolean) => void;
+}
+
+const SidebarNav: React.FC<SidebarNavProps> = ({
+  activeTab,
+  setActiveTab,
+  openSubmenus,
+  toggleSubmenu,
+  setIsMobileSidebarOpen
+}) => {
+  const { isFeatureEnabled } = useFeatureFlags();
+
+  const filteredGroups = navigationGroups
+    .map(group => {
+      const visibleItems = group.items
+        .filter(item => !item.featureFlagKey || isFeatureEnabled(item.featureFlagKey))
+        .map(item => {
+          if (!item.subItems) return item;
+          const visibleSubItems = item.subItems.filter(
+            sub => !sub.featureFlagKey || isFeatureEnabled(sub.featureFlagKey)
+          );
+          return { ...item, subItems: visibleSubItems };
+        })
+        .filter(item => !item.hasSubmenu || (item.subItems && item.subItems.length > 0));
+
+      return { ...group, items: visibleItems };
+    })
+    .filter(group => group.items.length > 0);
+
+  return (
+    <div className="sidebar-nav">
+      {filteredGroups.map((group, gIdx) => (
+        <div key={gIdx}>
+          <div className="nav-category">{group.category}</div>
+          {group.items.map(item => {
+            const IconComponent = item.icon;
+            const isGroupOpen = openSubmenus[item.id];
+            const isItemActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab));
+
+            if (item.hasSubmenu && item.subItems) {
+              return (
+                <div key={item.id}>
+                  <button
+                    className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
+                    onClick={() => toggleSubmenu(item.id)}
+                  >
+                    <div className="nav-item-left">
+                      <IconComponent />
+                      <span>{item.label}</span>
+                    </div>
+                    {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                  </button>
+
+                  {isGroupOpen && (
+                    <div className="submenu-tree">
+                      {item.subItems.map(sub => (
+                        <button
+                          key={sub.id}
+                          className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
+                          onClick={() => {
+                            setActiveTab(sub.id);
+                            setIsMobileSidebarOpen(false);
+                          }}
+                        >
+                          <span>{sub.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={item.id}
+                className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setIsMobileSidebarOpen(false);
+                }}
+              >
+                <div className="nav-item-left">
+                  <IconComponent />
+                  <span>{item.label}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -293,8 +427,9 @@ function App() {
 
   const loadCampuses = async () => {
     try {
+      const headers = await getAuthHeaders();
       const orgParam = selectedOrganization ? `?organization_id=${selectedOrganization.id}` : '';
-      const res = await fetch(`${API_URL}/campuses${orgParam}`);
+      const res = await fetch(`${API_URL}/campuses${orgParam}`, { headers });
       if (res.ok) {
         const json = await res.json();
         let list: Campus[] = json.data || [];
@@ -328,17 +463,18 @@ function App() {
 
   const loadDashboardStats = async () => {
     try {
+      const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
       const campusParam = selectedCampusId !== 'all' 
         ? `?organization_id=${orgId}&campus_id=${selectedCampusId}` 
         : `?organization_id=${orgId}`;
 
       const [membersRes, cellsRes, ordersRes, eventsRes, broadcastRes] = await Promise.allSettled([
-        fetch(`${API_URL}/members${campusParam}`),
-        fetch(`${API_URL}/cell-groups${campusParam}`),
-        fetch(`${API_URL}/pdv/orders${campusParam}`),
-        fetch(`${API_URL}/events${campusParam}`),
-        fetch(`${API_URL}/broadcasts/active`)
+        fetch(`${API_URL}/members${campusParam}`, { headers }),
+        fetch(`${API_URL}/cell-groups${campusParam}`, { headers }),
+        fetch(`${API_URL}/pdv/orders${campusParam}`, { headers }),
+        fetch(`${API_URL}/events${campusParam}`, { headers }),
+        fetch(`${API_URL}/broadcasts/active`, { headers })
       ]);
 
       let membersCount = 0;
@@ -438,7 +574,8 @@ function App() {
 
       // Consultar perfil de membro e vínculo com a igreja/organização
       try {
-        const res = await fetch(`${API_URL}/members?email=${encodeURIComponent(userEmail)}`);
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`${API_URL}/members?email=${encodeURIComponent(userEmail)}`, { headers: authHeaders });
         if (res.ok) {
           const json = await res.json();
           const membersList = json.data || [];
@@ -460,7 +597,7 @@ function App() {
             // Se NÃO for SuperAdmin, conecta automaticamente ao ambiente exclusivo da igreja dele
             if (!isSuper && profile.organization_id) {
               try {
-                const orgRes = await fetch(`${API_URL}/organizations/${profile.organization_id}`);
+                const orgRes = await fetch(`${API_URL}/organizations/${profile.organization_id}`, { headers: authHeaders });
                 if (orgRes.ok) {
                   const orgData = await orgRes.json();
                   setSelectedOrganization(orgData);
@@ -634,7 +771,8 @@ function App() {
     : campuses.find(c => c.id === selectedCampusId)?.name || 'Unidade Selecionada';
 
   return (
-    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <FeatureFlagProvider organizationId={selectedOrganization?.id || 'org_default'} campusId={selectedCampusId}>
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
       {/* ========================================================
           MASTER ADMIN IMPERSONATION BANNER (TOP BAR)
@@ -722,10 +860,18 @@ function App() {
                 alt="Logo da Igreja" 
                 style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover' }}
               />
+            ) : selectedOrganization.logo_url ? (
+              <img 
+                src={selectedOrganization.logo_url} 
+                alt="Logo da Igreja" 
+                style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover' }}
+              />
             ) : (
-              <div className="sidebar-logo" style={{ background: selectedOrganization.primary_color || 'var(--accent-primary-gradient)' }}>
-                {selectedOrganization.name.charAt(0).toUpperCase()}
-              </div>
+              <img 
+                src="/brand/logo-symbol.png" 
+                alt="Faith-Hub" 
+                style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'contain' }}
+              />
             )}
             <div className="sidebar-brand">
               <span className="sidebar-brand-title">{selectedOrganization.name}</span>
@@ -846,63 +992,13 @@ function App() {
           </div>
 
           {/* Navigation Categories */}
-          <div className="sidebar-nav">
-            {navigationGroups.map((group, gIdx) => (
-              <div key={gIdx}>
-                <div className="nav-category">{group.category}</div>
-                
-                {group.items.map((item) => {
-                  const IconComponent = item.icon;
-                  const isGroupOpen = openSubmenus[item.id];
-                  const isItemActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab));
-
-                  if (item.hasSubmenu && item.subItems) {
-                    return (
-                      <div key={item.id}>
-                        <button
-                          className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
-                          onClick={() => toggleSubmenu(item.id)}
-                        >
-                          <div className="nav-item-left">
-                            <IconComponent />
-                            <span>{item.label}</span>
-                          </div>
-                          {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                        </button>
-
-                        {isGroupOpen && (
-                          <div className="submenu-tree">
-                            {item.subItems.map((sub) => (
-                              <button
-                                key={sub.id}
-                                className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
-                                onClick={() => { setActiveTab(sub.id); setIsMobileSidebarOpen(false); }}
-                              >
-                                <span>{sub.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <button
-                      key={item.id}
-                      className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
-                      onClick={() => { setActiveTab(item.id); setIsMobileSidebarOpen(false); }}
-                    >
-                      <div className="nav-item-left">
-                        <IconComponent />
-                        <span>{item.label}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          <SidebarNav
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            openSubmenus={openSubmenus}
+            toggleSubmenu={toggleSubmenu}
+            setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+          />
 
           {/* Sidebar Footer User Area */}
           <div className="sidebar-footer">
@@ -969,6 +1065,8 @@ function App() {
                     {activeTab === 'my_subscription' && 'Minha Assinatura Faith-Hub'}
                     {activeTab === 'campuses' && 'Unidades & Filiais'}
                     {activeTab === 'church_branding' && 'Identidade Visual & PWA'}
+                    {activeTab === 'feature_flags' && 'Feature Flags & Módulos'}
+                    {activeTab === 'security_audit' && 'Trilha de Auditoria Forense & LGPD'}
                     {activeTab === 'pagarme_financeiro' && 'Gateway Pagar.me'}
                     {activeTab === 'configuracoes' && 'Configurações'}
                   </span>
@@ -1344,6 +1442,14 @@ function App() {
               {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'pagarme_financeiro' && <PagarmeSettings />}
               {activeTab === 'church_branding' && <ChurchBranding selectedOrganization={selectedOrganization} />}
+              {activeTab === 'feature_flags' && (
+                <FeatureFlagsManagement
+                  selectedOrganization={selectedOrganization}
+                  selectedCampusId={selectedCampusId}
+                  campuses={campuses}
+                />
+              )}
+              {activeTab === 'security_audit' && <SecurityAuditLogs selectedOrganization={selectedOrganization} />}
             </ErrorBoundary>
 
             {/* Settings View */}
@@ -1365,6 +1471,7 @@ function App() {
         </main>
       </div>
     </div>
+    </FeatureFlagProvider>
   );
 }
 

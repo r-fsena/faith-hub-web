@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { getAuthHeaders } from '../services/apiClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -45,7 +46,8 @@ export const SaasPlans: React.FC = () => {
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/saas-plans`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/saas-plans`, { headers });
       if (res.ok) {
         const json = await res.json();
         setPlans(json || []);
@@ -94,6 +96,7 @@ export const SaasPlans: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      const headers = await getAuthHeaders();
       const featuresArray = formData.featuresText
         .split('\n')
         .map(f => f.trim())
@@ -101,7 +104,7 @@ export const SaasPlans: React.FC = () => {
 
       const res = await fetch(`${API_URL}/saas-plans`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: formData.id || undefined,
           name: formData.name,
@@ -134,8 +137,10 @@ export const SaasPlans: React.FC = () => {
   const handleDeletePlan = async (planId: string) => {
     if (!confirm(`Deseja realmente excluir o plano "${planId}"?`)) return;
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/saas-plans/${planId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       });
       if (res.ok) {
         fetchPlans();

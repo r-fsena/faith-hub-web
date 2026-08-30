@@ -71,8 +71,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="login-hero-glow-2" />
 
         <div className="login-hero-content">
-          {/* Header Brand Badge */}
+          {/* Header Brand Badge with Official Logo */}
           <div>
+            <div style={{ marginBottom: '24px' }}>
+              <img 
+                src="/brand/logo-transparent.png" 
+                alt="Faith-Hub" 
+                style={{ height: '56px', maxWidth: '240px', objectFit: 'contain' }}
+              />
+            </div>
+
             <div className="login-badge-pill">
               <span className="login-badge-dot" />
               <span>ECOSSISTEMA FAITH-HUB • PORTAL DA LIDERANÇA</span>
@@ -145,23 +153,18 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="login-form-box">
           {/* Brand Header */}
           <div style={{ textAlign: 'left', marginBottom: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{
-                width: '46px',
-                height: '46px',
-                background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-                borderRadius: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                fontWeight: 900,
-                fontSize: '1.25rem',
-                boxShadow: '0 8px 20px rgba(15, 118, 110, 0.3)',
-                letterSpacing: '-0.5px'
-              }}>
-                FH
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+              <img
+                src="/brand/logo-symbol.png"
+                alt="Faith-Hub"
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  objectFit: 'contain',
+                  boxShadow: '0 4px 12px rgba(15, 118, 110, 0.15)'
+                }}
+              />
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
                   Faith-Hub Studio

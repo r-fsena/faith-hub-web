@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../services/apiClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -79,7 +80,8 @@ export const Campuses: React.FC = () => {
   const fetchCampuses = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/campuses`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/campuses`, { headers });
       if (res.ok) {
         const json = await res.json();
         setCampuses(json.data || []);
@@ -145,6 +147,7 @@ export const Campuses: React.FC = () => {
 
     setSaving(true);
     try {
+      const headers = await getAuthHeaders();
       const payload = {
         id: editingCampus ? editingCampus.id : undefined,
         ...formData
@@ -152,7 +155,7 @@ export const Campuses: React.FC = () => {
 
       const res = await fetch(`${API_URL}/campuses`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
 
@@ -180,7 +183,8 @@ export const Campuses: React.FC = () => {
     if (!confirm(`Tem certeza que deseja excluir a unidade "${campus.name}"?`)) return;
 
     try {
-      const res = await fetch(`${API_URL}/campuses/${campus.id}`, { method: 'DELETE' });
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/campuses/${campus.id}`, { method: 'DELETE', headers });
       if (res.ok) {
         fetchCampuses();
         window.dispatchEvent(new CustomEvent('campuses-updated'));

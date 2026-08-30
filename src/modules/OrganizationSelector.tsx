@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SaasPlans, type SaasPlan } from './SaasPlans';
+import { getAuthHeaders } from '../services/apiClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -71,6 +72,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+  const [savingOrg, setSavingOrg] = useState(false);
   const [openMenuOrgId, setOpenMenuOrgId] = useState<string | null>(null);
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
   const [orgFormData, setOrgFormData] = useState<{
@@ -162,7 +164,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
 
   const fetchAvailablePlans = async () => {
     try {
-      const res = await fetch(`${API_URL}/saas-plans`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/saas-plans`, { headers });
       if (res.ok) {
         const json = await res.json();
         setAvailablePlans(json || []);
@@ -175,7 +178,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const fetchOrganizations = async () => {
     setLoadingOrgs(true);
     try {
-      const res = await fetch(`${API_URL}/organizations`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/organizations`, { headers });
       if (res.ok) {
         const json = await res.json();
         setOrganizations(json.data || []);
@@ -190,7 +194,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const fetchProposals = async () => {
     setLoadingProposals(true);
     try {
-      const res = await fetch(`${API_URL}/proposals`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/proposals`, { headers });
       if (res.ok) {
         const json = await res.json();
         setProposals(json.proposals || []);
@@ -206,7 +211,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const fetchSubscriptions = async () => {
     setLoadingSubs(true);
     try {
-      const res = await fetch(`${API_URL}/saas-subscriptions`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/saas-subscriptions`, { headers });
       if (res.ok) {
         const json = await res.json();
         setSubscriptions(json || []);
@@ -229,9 +235,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     if (!window.confirm(confirmMessage)) return;
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/organizations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ id: org.id, status: newStatus })
       });
       if (res.ok) {
@@ -278,9 +285,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     e.preventDefault();
     setSavingOrg(true);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/organizations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(orgFormData)
       });
       if (res.ok) {
@@ -325,10 +333,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     e.preventDefault();
     setSavingProposal(true);
     try {
+      const headers = await getAuthHeaders();
       const selectedPlan = availablePlans.find(p => p.id === proposalForm.plan_tier);
       const res = await fetch(`${API_URL}/proposals`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ...proposalForm,
           discount_value: Number(proposalForm.discount_value || 0),
@@ -371,9 +380,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const handleSimulatePayment = async (proposalId: string) => {
     if (!confirm('Deseja simular o pagamento desta proposta e disparar o provisionamento automático na AWS?')) return;
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/proposals/${proposalId}/simulate-payment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers
       });
       const data = await res.json();
       if (res.ok) {
@@ -393,9 +403,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     e.preventDefault();
     setSavingUser(true);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/members/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: userFormData.name,
           email: userFormData.email,
@@ -459,21 +470,17 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         <div>
           {/* Top Brand Logo */}
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 900,
-              fontSize: '1.25rem',
-              boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
-            }}>
-              ✝
-            </div>
+            <img
+              src="/brand/logo-symbol.png"
+              alt="Faith-Hub Master"
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                objectFit: 'contain',
+                boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
+              }}
+            />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <h1 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>

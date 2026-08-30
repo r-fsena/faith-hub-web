@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './Members.css';
+import { getAuthHeaders } from '../services/apiClient';
 
 // Icons used in Members module
 const SearchIcon = () => (
@@ -84,8 +85,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const fetchCampuses = async () => {
     try {
+      const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
-      const response = await fetch(`${API_URL}/campuses?organization_id=${orgId}`);
+      const response = await fetch(`${API_URL}/campuses?organization_id=${orgId}`, { headers });
       if (response.ok) {
         const json = await response.json();
         setCampusesList(json.data || []);
@@ -95,9 +97,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const fetchCellGroups = async () => {
     try {
+      const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
       const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
-      const response = await fetch(`${API_URL}/cell-groups?organization_id=${orgId}${campusParam}`);
+      const response = await fetch(`${API_URL}/cell-groups?organization_id=${orgId}${campusParam}`, { headers });
       if (response.ok) {
         const json = await response.json();
         setCellGroups(json);
@@ -110,9 +113,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
+      const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
       const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
-      const response = await fetch(`${API_URL}/members?organization_id=${orgId}${campusParam}`);
+      const response = await fetch(`${API_URL}/members?organization_id=${orgId}${campusParam}`, { headers });
       if (response.ok) {
         const json = await response.json();
         setMembers((json.data || []).map((m: any) => ({
@@ -186,9 +190,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const handleStatusChange = async (member: Member, action: 'enable' | 'disable') => {
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/members/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email: member.email, action })
       });
       if (response.ok) {
@@ -205,6 +210,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     if (!inviteForm.name || !inviteForm.email) return alert("Preencha os campos obrigatórios.");
     setIsInviting(true);
     try {
+      const headers = await getAuthHeaders();
       const selectedCampuses = inviteForm.campusIds.length > 0 ? inviteForm.campusIds : ['campus_sede'];
       const payload = {
         name: inviteForm.name,
@@ -218,7 +224,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
       const resp = await fetch(`${API_URL}/members/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
       if (resp.ok) {
@@ -245,9 +251,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const handleSendResetPassword = async (email: string) => {
      try {
+       const headers = await getAuthHeaders();
        await fetch(`${API_URL}/members/reset-password`, {
          method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
+         headers,
          body: JSON.stringify({ email })
        });
        alert(`E-Mail de redefinição enviado para ${email}`);
@@ -271,9 +278,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     };
 
     try {
+       const headers = await getAuthHeaders();
        const resp = await fetch(`${API_URL}/members/${memberToEdit.id}`, {
          method: 'PUT',
-         headers: { 'Content-Type': 'application/json' },
+         headers,
          body: JSON.stringify(payload)
        });
        if(resp.ok) {
