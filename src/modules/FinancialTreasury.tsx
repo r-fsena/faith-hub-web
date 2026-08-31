@@ -375,6 +375,56 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     }
   };
 
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+
+  const handleOpenNewProjectModal = () => {
+    setEditingProjectId(null);
+    setProjectFormData({
+      title: '',
+      description: '',
+      image_url: '',
+      target_amount: '',
+      collected_amount: '0',
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: '',
+      pix_key: '',
+      status: 'ACTIVE'
+    });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleOpenEditProjectModal = (proj: SpecialProject) => {
+    setEditingProjectId(proj.id);
+    setProjectFormData({
+      title: proj.title || '',
+      description: proj.description || '',
+      image_url: proj.image_url || '',
+      target_amount: proj.target_amount ? String(proj.target_amount) : '',
+      collected_amount: proj.collected_amount ? String(proj.collected_amount) : '0',
+      start_date: proj.start_date ? proj.start_date.split('T')[0] : new Date().toISOString().split('T')[0],
+      end_date: proj.end_date ? proj.end_date.split('T')[0] : '',
+      pix_key: proj.pix_key || '',
+      status: proj.status || 'ACTIVE'
+    });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    if (!confirm('Deseja realmente excluir esta campanha?')) return;
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/financial/projects/${id}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok) {
+        loadAllFinancialData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectFormData.title || !projectFormData.target_amount) {
@@ -385,7 +435,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     setIsSaving(true);
     try {
       const headers = await getAuthHeaders();
-      const payload = {
+      const payload: any = {
         organization_id: orgId,
         campus_id: selectedCampusId !== 'all' ? selectedCampusId : null,
         title: projectFormData.title,
@@ -399,6 +449,10 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         status: projectFormData.status || 'ACTIVE'
       };
 
+      if (editingProjectId) {
+        payload.id = editingProjectId;
+      }
+
       const res = await fetch(`${API_URL}/financial/projects`, {
         method: 'POST',
         headers,
@@ -407,6 +461,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
 
       if (res.ok) {
         setIsProjectModalOpen(false);
+        setEditingProjectId(null);
         setProjectFormData({
           title: '',
           description: '',
@@ -420,7 +475,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         });
         loadAllFinancialData();
       } else {
-        alert('Erro ao criar campanha.');
+        alert('Erro ao salvar campanha.');
       }
     } catch (e) {
       console.error(e);
@@ -478,160 +533,379 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     : [];
   const totalMemberContributed = memberReportTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
+  const isProjectsOnlyMode = initialSubTab === 'projects';
+
+  const totalProjectsCollected = projects.reduce((acc, p) => acc + Number(p.collected_amount || 0), 0);
+  const totalProjectsTarget = projects.reduce((acc, p) => acc + Number(p.target_amount || 0), 0);
+  const globalProjectsPct = totalProjectsTarget > 0 ? Math.min(Math.round((totalProjectsCollected / totalProjectsTarget) * 100), 100) : 0;
+
   return (
     <div className="members-container animate-fade-in" style={{ paddingBottom: '60px' }}>
       
       {/* HEADER PRINCIPAL */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '46px', height: '46px', borderRadius: 'var(--radius-sm)', background: 'var(--accent-primary-gradient)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
-              <CreditCardIcon />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.4px' }}>
-                Gestão Financeira & Tesouraria
-              </h1>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
-                Controle unificado de Dízimos, Ofertas, Despesas, Campanhas e DRE da <strong>{selectedOrganization?.name || 'Igreja'}</strong>.
-              </p>
+      {isProjectsOnlyMode ? (
+        /* HEADER EXCLUSIVO PARA CAMPANHAS & PROJETOS */
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '46px', height: '46px', borderRadius: 'var(--radius-sm)', background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                <TargetIcon />
+              </div>
+              <div>
+                <h1 style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.4px' }}>
+                  Campanhas & Projetos Especiais
+                </h1>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+                  Metas de arrecadação, reformas, missões e projetos com barra de progresso no aplicativo da <strong>{selectedOrganization?.name || 'Igreja'}</strong>.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Ação Unificada Topo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => {
-              setModalTransactionType('INCOME');
-              setFormData({ ...formData, category: 'Dízimo', description: '' });
-              setIsTransactionModalOpen(true);
-            }}
-          >
-            <PlusIcon /> Nova Movimentação
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}
+              onClick={handleOpenNewProjectModal}
+            >
+              <PlusIcon /> Nova Campanha
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* HEADER GERAL DA TESOURARIA / DRE */
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '46px', height: '46px', borderRadius: 'var(--radius-sm)', background: 'var(--accent-primary-gradient)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                <CreditCardIcon />
+              </div>
+              <div>
+                <h1 style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.4px' }}>
+                  Gestão Financeira & Tesouraria
+                </h1>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+                  Controle unificado de Dízimos, Ofertas, Despesas, Campanhas e DRE da <strong>{selectedOrganization?.name || 'Igreja'}</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Ação Unificada Topo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setModalTransactionType('INCOME');
+                setFormData({ ...formData, category: 'Dízimo', description: '' });
+                setIsTransactionModalOpen(true);
+              }}
+            >
+              <PlusIcon /> Nova Movimentação
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI STATS CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '26px' }}>
-        
-        {/* Card 1: Saldo Líquido Consolidado */}
-        <div className="portal-card" style={{ padding: '22px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: 'var(--radius-md)', border: '1px solid #334155' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Saldo Consolidado em Caixa
-            </span>
-            <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 800, background: summary.net_balance >= 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: summary.net_balance >= 0 ? '#34d399' : '#f87171' }}>
-              {summary.net_balance >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}
-            </span>
+      {isProjectsOnlyMode ? (
+        /* KPIS ESPECÍFICOS DE CAMPANHAS & PROJETOS */
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '26px' }}>
+          
+          {/* Card 1: Campanhas Ativas */}
+          <div className="portal-card" style={{ padding: '20px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #7c3aed' }}>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Campanhas Ativas
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#7c3aed', marginTop: '6px' }}>
+              {projects.filter(p => p.status === 'ACTIVE').length} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>/ {projects.length} total</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Divulgadas com arrecadação no PWA
+            </div>
           </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 900, marginTop: '8px', color: summary.net_balance >= 0 ? '#34d399' : '#f87171', letterSpacing: '-0.5px' }}>
-            {formatCurrency(summary.net_balance)}
+
+          {/* Card 2: Total Já Arrecadado */}
+          <div className="portal-card" style={{ padding: '20px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #059669' }}>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Total Já Arrecadado
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#059669', marginTop: '6px' }}>
+              {formatCurrency(totalProjectsCollected)}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Doações recebidas via Pix e App
+            </div>
           </div>
-          <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '6px' }}>
-            Receitas Pagas menos Despesas Quitadas
+
+          {/* Card 3: Meta Global Estipulada */}
+          <div className="portal-card" style={{ padding: '20px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #2563eb' }}>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Meta Total das Campanhas
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#2563eb', marginTop: '6px' }}>
+              {formatCurrency(totalProjectsTarget)}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Objetivo financeiro somado
+            </div>
           </div>
+
+          {/* Card 4: Progresso Geral Médio */}
+          <div className="portal-card" style={{ padding: '20px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #059669' }}>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Progresso Geral Médio
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#059669', marginTop: '6px' }}>
+              {globalProjectsPct}%
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Alcançado do objetivo global
+            </div>
+          </div>
+
         </div>
+      ) : (
+        /* KPIS GERAIS DO FLUXO DE CAIXA E DRE */
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '26px' }}>
+          
+          {/* Card 1: Saldo Líquido Consolidado */}
+          <div className="portal-card" style={{ padding: '22px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: 'var(--radius-md)', border: '1px solid #334155' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Saldo Consolidado em Caixa
+              </span>
+              <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 800, background: summary.net_balance >= 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: summary.net_balance >= 0 ? '#34d399' : '#f87171' }}>
+                {summary.net_balance >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}
+              </span>
+            </div>
+            <div style={{ fontSize: '1.85rem', fontWeight: 900, marginTop: '8px', color: summary.net_balance >= 0 ? '#34d399' : '#f87171', letterSpacing: '-0.5px' }}>
+              {formatCurrency(summary.net_balance)}
+            </div>
+            <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '6px' }}>
+              Receitas Pagas menos Despesas Quitadas
+            </div>
+          </div>
 
-        {/* Card 2: Total de Receitas */}
-        <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #059669' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
-            Total de Entradas (Receitas)
+          {/* Card 2: Total de Receitas */}
+          <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #059669' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Total de Entradas (Receitas)
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#059669', marginTop: '8px' }}>
+              {formatCurrency(summary.total_income)}
+            </div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+              {summary.income_by_category.length} categorias ativas com lançamentos
+            </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#059669', marginTop: '8px' }}>
-            {formatCurrency(summary.total_income)}
+
+          {/* Card 3: Total de Despesas */}
+          <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #dc2626' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Total de Saídas (Despesas)
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#dc2626', marginTop: '8px' }}>
+              {formatCurrency(summary.total_expense)}
+            </div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+              Custos ministeriais, aluguéis e contas
+            </div>
           </div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-            {summary.income_by_category.length} categorias ativas com lançamentos
+
+          {/* Card 4: Campanhas & Projetos Ativos */}
+          <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #7c3aed' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
+              Campanhas & Metas Especiais
+            </div>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#7c3aed', marginTop: '8px' }}>
+              {projects.filter(p => p.status === 'ACTIVE').length} <span style={{ fontSize: '0.90rem', color: 'var(--text-muted)', fontWeight: 600 }}>ativas</span>
+            </div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+              Arrecadações direcionadas no PWA
+            </div>
           </div>
+
         </div>
+      )}
 
-        {/* Card 3: Total de Despesas */}
-        <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #dc2626' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
-            Total de Saídas (Despesas)
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#dc2626', marginTop: '8px' }}>
-            {formatCurrency(summary.total_expense)}
-          </div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-            Custos ministeriais, aluguéis e contas
-          </div>
+      {/* NAVEGAÇÃO DE SUB-ABAS (Ocultadas se estiver no modo exclusivo de campanhas) */}
+      {!isProjectsOnlyMode && (
+        <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '14px', marginBottom: '22px', overflowX: 'auto' }}>
+          <button
+            type="button"
+            className={`filter-pill ${activeSubTab === 'dre' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('dre')}
+          >
+            📊 Demonstrativo DRE
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeSubTab === 'tithes' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('tithes')}
+          >
+            💰 Dízimos & Ofertas ({tithesAndOfferings.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeSubTab === 'expenses' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('expenses')}
+          >
+            📉 Despesas & Contas ({expenseTransactions.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeSubTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('projects')}
+          >
+            🎯 Campanhas & Metas ({projects.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeSubTab === 'statement' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('statement')}
+          >
+            📋 Extrato Geral ({transactions.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeSubTab === 'report' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSubTab('report');
+              setIsMemberReportModalOpen(true);
+            }}
+          >
+            📊 Relatório
+          </button>
         </div>
-
-        {/* Card 4: Campanhas & Projetos Ativos */}
-        <div className="portal-card" style={{ padding: '22px', borderRadius: 'var(--radius-md)', borderLeft: '4px solid #7c3aed' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase' }}>
-            Campanhas & Metas Especiais
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#7c3aed', marginTop: '8px' }}>
-            {projects.filter(p => p.status === 'ACTIVE').length} <span style={{ fontSize: '0.90rem', color: 'var(--text-muted)', fontWeight: 600 }}>ativas</span>
-          </div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-            Arrecadações direcionadas no PWA
-          </div>
-        </div>
-
-      </div>
-
-      {/* NAVEGAÇÃO DE SUB-ABAS */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '14px', marginBottom: '22px', overflowX: 'auto' }}>
-        <button
-          type="button"
-          className={`filter-pill ${activeSubTab === 'dre' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('dre')}
-        >
-          📊 Demonstrativo DRE
-        </button>
-        <button
-          type="button"
-          className={`filter-pill ${activeSubTab === 'tithes' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('tithes')}
-        >
-          💰 Dízimos & Ofertas ({tithesAndOfferings.length})
-        </button>
-        <button
-          type="button"
-          className={`filter-pill ${activeSubTab === 'expenses' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('expenses')}
-        >
-          📉 Despesas & Contas ({expenseTransactions.length})
-        </button>
-        <button
-          type="button"
-          className={`filter-pill ${activeSubTab === 'projects' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('projects')}
-        >
-          🎯 Campanhas & Metas ({projects.length})
-        </button>
-        <button
-          type="button"
-          className={`filter-pill ${activeSubTab === 'statement' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('statement')}
-        >
-          📋 Extrato Geral ({transactions.length})
-        </button>
-        <button
-          type="button"
-          className={`filter-pill ${activeSubTab === 'report' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveSubTab('report');
-            setIsMemberReportModalOpen(true);
-          }}
-        >
-          📄 Declaração Anual de Renda
-        </button>
-      </div>
+      )}
 
       {/* CONTEÚDO DAS SUB-ABAS */}
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--accent-primary)', fontWeight: 700 }}>
           Carregando informações financeiras da tesouraria...
         </div>
+      ) : isProjectsOnlyMode || activeSubTab === 'projects' ? (
+        /* VISUALIZAÇÃO EXCLUSIVA DE CAMPANHAS & PROJETOS COM METAS */
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                Campanhas de Arrecadação com Metas
+              </h3>
+              <p style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                Projetos especiais divulgados com barra de progresso no aplicativo dos membros.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}
+              onClick={() => setIsProjectModalOpen(true)}
+            >
+              <PlusIcon /> Nova Campanha
+            </button>
+          </div>
+
+          {projects.length === 0 ? (
+            <div className="portal-card" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
+              <TargetIcon />
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '12px' }}>
+                Nenhuma campanha cadastrada ainda
+              </div>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '6px auto 16px auto' }}>
+                Crie campanhas como Reforma do Templo, Missões, Som ou Espaço Kids com metas financeiras interativas.
+              </p>
+              <button type="button" className="btn-primary" onClick={() => setIsProjectModalOpen(true)}>
+                + Criar Primeira Campanha
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+              {projects.map(proj => {
+                const collected = Number(proj.collected_amount || 0);
+                const target = Number(proj.target_amount || 1);
+                const pct = Math.min(Math.round((collected / target) * 100), 100);
+
+                return (
+                  <div key={proj.id} className="portal-card" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {proj.image_url ? (
+                      <img src={proj.image_url} alt={proj.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ height: '100px', background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
+                        <TargetIcon />
+                      </div>
+                    )}
+
+                    <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '0.70rem', fontWeight: 800, padding: '3px 8px', borderRadius: '999px', background: proj.status === 'ACTIVE' ? '#ecfdf5' : '#f1f5f9', color: proj.status === 'ACTIVE' ? '#059669' : '#64748b' }}>
+                            {proj.status === 'ACTIVE' ? 'EM ANDAMENTO' : 'CONCLUÍDA'}
+                          </span>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            Início: {new Date(proj.start_date).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+
+                        <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                          {proj.title}
+                        </h4>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 16px 0' }}>
+                          {proj.description || 'Sem descrição cadastrada.'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.80rem', marginBottom: '8px' }}>
+                            <strong style={{ color: '#059669' }}>{formatCurrency(collected)}</strong>
+                            <span style={{ color: 'var(--text-muted)' }}>Meta: {formatCurrency(target)} ({pct}%)</span>
+                          </div>
+                          <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #059669)', borderRadius: '999px' }} />
+                          </div>
+                        </div>
+
+                        {/* Ações do Card */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--panel-border)' }}>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            {proj.pix_key ? `🔑 Pix: ${proj.pix_key}` : '🔑 Pix: Chave da Igreja'}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '0.74rem', fontWeight: 700 }}
+                              onClick={() => handleOpenEditProjectModal(proj)}
+                              title="Editar Campanha"
+                            >
+                              ✏️ Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '0.74rem', color: '#dc2626', borderColor: '#fecaca', background: '#fff5f5' }}
+                              onClick={() => handleDeleteProject(proj.id)}
+                              title="Excluir Campanha"
+                            >
+                              <TrashIcon />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : (
+        /* MODO COMPLETO DO PAINEL & DRE DA TESOURARIA */
         <>
           {/* TAB 1: DRE CONSOLIDADO */}
           {activeSubTab === 'dre' && (
@@ -862,98 +1136,6 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
             </div>
           )}
 
-          {/* TAB 4: CAMPANHAS & METAS */}
-          {activeSubTab === 'projects' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    Campanhas de Arrecadação com Metas
-                  </h3>
-                  <p style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                    Projetos especiais divulgados com barra de progresso no aplicativo dos membros.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}
-                  onClick={() => setIsProjectModalOpen(true)}
-                >
-                  <PlusIcon /> Nova Campanha
-                </button>
-              </div>
-
-              {projects.length === 0 ? (
-                <div className="portal-card" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
-                  <TargetIcon />
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '12px' }}>
-                    Nenhuma campanha cadastrada ainda
-                  </div>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '6px auto 16px auto' }}>
-                    Crie campanhas como Reforma do Templo, Missões, Som ou Espaço Kids com metas financeiras interativas.
-                  </p>
-                  <button type="button" className="btn-primary" onClick={() => setIsProjectModalOpen(true)}>
-                    + Criar Primeira Campanha
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-                  {projects.map(proj => {
-                    const collected = Number(proj.collected_amount || 0);
-                    const target = Number(proj.target_amount || 1);
-                    const pct = Math.min(Math.round((collected / target) * 100), 100);
-
-                    return (
-                      <div key={proj.id} className="portal-card" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        {proj.image_url ? (
-                          <img src={proj.image_url} alt={proj.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ height: '100px', background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
-                            <TargetIcon />
-                          </div>
-                        )}
-
-                        <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '0.70rem', fontWeight: 800, padding: '3px 8px', borderRadius: '999px', background: proj.status === 'ACTIVE' ? '#ecfdf5' : '#f1f5f9', color: proj.status === 'ACTIVE' ? '#059669' : '#64748b' }}>
-                                {proj.status === 'ACTIVE' ? 'EM ANDAMENTO' : 'CONCLUÍDA'}
-                              </span>
-                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                                Início: {new Date(proj.start_date).toLocaleDateString('pt-BR')}
-                              </span>
-                            </div>
-
-                            <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
-                              {proj.title}
-                            </h4>
-                            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 16px 0' }}>
-                              {proj.description || 'Sem descrição cadastrada.'}
-                            </p>
-                          </div>
-
-                          <div>
-                            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.80rem', marginBottom: '8px' }}>
-                                <strong style={{ color: '#059669' }}>{formatCurrency(collected)}</strong>
-                                <span style={{ color: 'var(--text-muted)' }}>Meta: {formatCurrency(target)} ({pct}%)</span>
-                              </div>
-                              <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
-                                <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #059669)', borderRadius: '999px' }} />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* TAB 5: EXTRATO GERAL */}
           {activeSubTab === 'statement' && (
             <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
@@ -1035,7 +1217,6 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
               </div>
             </div>
           )}
-
         </>
       )}
 
