@@ -21,6 +21,7 @@ import { FinancialTreasury } from './modules/FinancialTreasury';
 import { MySubscription } from './modules/MySubscription';
 import { FeatureFlagsManagement } from './modules/FeatureFlagsManagement';
 import { SecurityAuditLogs } from './modules/SecurityAuditLogs';
+import { PastoralPrayers } from './modules/PastoralPrayers';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getAuthHeaders } from './services/apiClient';
@@ -124,13 +125,14 @@ const navigationGroups: NavigationCategory[] = [
     items: [
       { 
         id: 'membros_group', 
-        label: 'Membros & Equipe', 
+        label: 'Membros & Pastoral', 
         icon: UsersIcon,
         hasSubmenu: true,
         featureFlagKey: 'members.module_enabled',
         subItems: [
           { id: 'membros', label: 'Gestão de Membros', featureFlagKey: 'members.module_enabled' },
           { id: 'celulas', label: 'Células & Redes', featureFlagKey: 'cell_groups.module_enabled' },
+          { id: 'oracoes', label: 'Mural de Orações & Intercessão', featureFlagKey: 'prayers.module_enabled' },
         ]
       },
       { 
@@ -1063,6 +1065,8 @@ function App() {
                     {activeTab === 'pdv_pedidos' && 'PDV • Monitor de Pedidos'}
                     {activeTab === 'transmissoes' && 'Cultos & Transmissões'}
                     {activeTab === 'financial_treasury' && 'Finanças & Tesouraria'}
+                    {activeTab === 'financial_projects' && 'Campanhas & Projetos Especiais'}
+                    {activeTab === 'oracoes' && 'Mural de Orações & Intercessão Pastoral'}
                     {activeTab === 'my_subscription' && 'Minha Assinatura Faith-Hub'}
                     {activeTab === 'campuses' && 'Unidades & Filiais'}
                     {activeTab === 'church_branding' && 'Identidade Visual & PWA'}
@@ -1422,6 +1426,7 @@ function App() {
               {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'devocionais' && <Devotionals />}
+              {activeTab === 'oracoes' && <PastoralPrayers selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'bible_config' && (
                 <BibleConfig
                   organizationId={selectedOrganization?.id}
