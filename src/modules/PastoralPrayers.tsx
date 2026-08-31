@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { getAuthHeaders, authFetch } from '../services/apiClient';
 
 const HeartIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
@@ -119,10 +119,8 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
 
     setSavingResponse(true);
     try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/prayers/${selectedPrayerForResponse.id}/respond`, {
+      const res = await authFetch(`${API_URL}/prayers/${selectedPrayerForResponse.id}/respond`, {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           pastoral_response: pastoralMessage.trim(),
           pastoral_name: pastorName.trim() || 'Corpo Pastoral'
@@ -130,7 +128,7 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
       });
 
       if (res.ok) {
-        setPrayers(prayers.map(p => {
+        setPrayers(prev => prev.map(p => {
           if (p.id === selectedPrayerForResponse.id) {
             return {
               ...p,
@@ -142,12 +140,14 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
           return p;
         }));
         setSelectedPrayerForResponse(null);
-        alert('✓ Resposta pastoral salva e disponibilizada para o membro!');
+        alert('✓ Resposta pastoral salva e disponibilizada imediatamente no PWA do membro!');
       } else {
-        alert('Erro ao salvar resposta pastoral.');
+        const errJson = await res.json().catch(() => ({}));
+        alert(`Erro ao salvar resposta pastoral: ${errJson.message || 'Verifique suas permissões.'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro salvando resposta:', err);
+      alert('Erro de conexão ao salvar resposta.');
     } finally {
       setSavingResponse(false);
     }
@@ -157,13 +157,11 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
     if (!window.confirm('Tem certeza que deseja remover este pedido de oração do mural?')) return;
 
     try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/prayers/${id}`, {
-        method: 'DELETE',
-        headers
+      const res = await authFetch(`${API_URL}/prayers/${id}`, {
+        method: 'DELETE'
       });
       if (res.ok) {
-        setPrayers(prayers.filter(p => p.id !== id));
+        setPrayers(prev => prev.filter(p => p.id !== id));
       }
     } catch (e) {
       console.error('Erro ao excluir oração:', e);
@@ -462,67 +460,70 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
           MODAL RESPOSTA PASTORAL
           ======================================================== */}
       {selectedPrayerForResponse && createPortal(
-        <div className="portal-modal-backdrop" onClick={() => setSelectedPrayerForResponse(null)}>
-          <div className="portal-modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', width: '90%' }}>
+        <div className="modal-overlay animate-fade-in" style={{ zIndex: 1200 }} onClick={() => setSelectedPrayerForResponse(null)}>
+          <div className="modal-studio-container" style={{ maxWidth: '560px', width: '92%' }} onClick={e => e.stopPropagation()}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
                   <MessageIcon />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  <h2 className="modal-studio-title" style={{ fontSize: '1.20rem', margin: 0 }}>
                     Resposta / Acolhimento Pastoral
-                  </h3>
-                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                    Para: <strong>{selectedPrayerForResponse.author}</strong>
-                  </div>
+                  </h2>
+                  <p className="modal-studio-subtitle" style={{ margin: '2px 0 0 0' }}>
+                    Para o membro: <strong>{selectedPrayerForResponse.author}</strong>
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                className="btn-close"
+                className="modal-close-circle"
                 onClick={() => setSelectedPrayerForResponse(null)}
-                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                title="Fechar"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '16px', fontStyle: 'italic' }}>
-              "{selectedPrayerForResponse.content}"
-            </div>
+            <form onSubmit={handleSavePastoralResponse}>
+              <div className="modal-studio-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--panel-border)', fontSize: '0.84rem', color: 'var(--text-main)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                  "{selectedPrayerForResponse.content}"
+                </div>
 
-            <form onSubmit={handleSavePastoralResponse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px', display: 'block' }}>
-                  Assinatura Pastoral (Nome / Equipe)
-                </label>
-                <input
-                  type="text"
-                  className="input-modern"
-                  value={pastorName}
-                  onChange={e => setPastorName(e.target.value)}
-                  placeholder="Ex: Pr. Rafael / Equipe de Intercessão"
-                  required
-                />
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Assinatura Pastoral (Quem está respondendo) *
+                  </label>
+                  <input
+                    type="text"
+                    className="input-modern"
+                    value={pastorName}
+                    onChange={e => setPastorName(e.target.value)}
+                    placeholder="Ex: Pr. Rafael / Equipe de Intercessão"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                    Palavra de Bênção / Oração Pastoral *
+                  </label>
+                  <textarea
+                    rows={5}
+                    className="input-modern"
+                    value={pastoralMessage}
+                    onChange={e => setPastoralMessage(e.target.value)}
+                    placeholder="Escreva uma palavra bíblica de encorajamento, consolo, oração e cuidado para este irmão..."
+                    style={{ resize: 'vertical' }}
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px', display: 'block' }}>
-                  Palavra de Bênção / Oração Pastoral *
-                </label>
-                <textarea
-                  rows={5}
-                  className="input-modern"
-                  value={pastoralMessage}
-                  onChange={e => setPastoralMessage(e.target.value)}
-                  placeholder="Escreva uma palavra bíblica de encorajamento, oração e cuidado para este irmão..."
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <div className="modal-studio-footer" style={{ padding: '16px 24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button
                   type="button"
                   className="btn-secondary"
@@ -536,7 +537,7 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
                   disabled={savingResponse}
                   style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}
                 >
-                  {savingResponse ? 'Salvando...' : '✓ Salvar e Notificar Membro'}
+                  {savingResponse ? 'Salvando...' : '✓ Salvar e Enviar ao Membro'}
                 </button>
               </div>
             </form>
