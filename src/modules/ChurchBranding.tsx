@@ -53,6 +53,10 @@ export interface ChurchBrandingSettings {
   pwa_description: string;
   pwa_theme_color: string;
   pwa_splash_bg: string;
+  store_title?: string;
+  store_subtitle?: string;
+  store_tab_title?: string;
+  store_counter_label?: string;
 }
 
 const DEFAULT_SETTINGS: ChurchBrandingSettings = {
@@ -78,7 +82,11 @@ const DEFAULT_SETTINGS: ChurchBrandingSettings = {
   custom_domain: '',
   pwa_description: 'Aplicativo oficial da igreja para membros, células e eventos.',
   pwa_theme_color: '#0f766e',
-  pwa_splash_bg: '#0f172a'
+  pwa_splash_bg: '#0f172a',
+  store_title: 'Loja Oficial',
+  store_subtitle: 'Livros, vestuário, devocionais e itens com retirada expressa',
+  store_tab_title: 'Loja',
+  store_counter_label: 'Balcão da Loja da Igreja'
 };
 
 const COLOR_PRESETS = [
@@ -174,7 +182,11 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
             pwa_splash_bg: backendData.pwa_splash_bg || DEFAULT_SETTINGS.pwa_splash_bg,
             pwa_description: backendData.pwa_description || DEFAULT_SETTINGS.pwa_description,
             theme_mode: backendData.theme_mode || 'LIGHT',
-            custom_domain: backendData.custom_domain || ''
+            custom_domain: backendData.custom_domain || '',
+            store_title: backendData.store_config?.store_title || backendData.store_title || DEFAULT_SETTINGS.store_title,
+            store_subtitle: backendData.store_config?.store_subtitle || backendData.store_subtitle || DEFAULT_SETTINGS.store_subtitle,
+            store_tab_title: backendData.store_config?.store_tab_title || backendData.store_tab_title || DEFAULT_SETTINGS.store_tab_title,
+            store_counter_label: backendData.store_config?.store_counter_label || backendData.store_counter_label || DEFAULT_SETTINGS.store_counter_label
           };
           setSettings(merged);
           localStorage.setItem(cacheKey, JSON.stringify(merged));
@@ -224,6 +236,12 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
           headers,
           body: JSON.stringify({
             ...settings,
+            store_config: {
+              store_title: settings.store_title || 'Loja Oficial',
+              store_subtitle: settings.store_subtitle || 'Livros, vestuário, devocionais e itens com retirada expressa',
+              store_tab_title: settings.store_tab_title || 'Loja',
+              store_counter_label: settings.store_counter_label || 'Balcão da Loja da Igreja'
+            },
             organization_id: orgId,
             pwa_slug: settings.pwa_slug || orgSlug,
             id: `settings_${orgSlug.replace(/-/g, '_')}`
@@ -882,6 +900,70 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                 />
               </div>
 
+              {/* Personalização da Loja / Store no App */}
+              <div style={{ background: '#f8fafc', border: '1.5px solid var(--panel-border)', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '1.3rem' }}>🛍️</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)' }}>Personalização da Loja / Store no App</h4>
+                      <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', margin: 0 }}>Configure títulos, frases de destaque e instruções de retirada para a sua igreja.</p>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>DINÂMICO</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Título da Loja no App</label>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      value={settings.store_title} 
+                      onChange={e => setSettings({ ...settings, store_title: e.target.value })} 
+                      placeholder="Ex: Loja Oficial, Livraria & Café, Cantina..." 
+                    />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Exibido no topo do catálogo e nos atalhos da Home.</span>
+                  </div>
+
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">Nome da Aba no Menu Inferior</label>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      value={settings.store_tab_title} 
+                      onChange={e => setSettings({ ...settings, store_tab_title: e.target.value })} 
+                      placeholder="Ex: Loja, Store, Livraria, Cantina..." 
+                    />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Rótulo do ícone na barra inferior de navegação.</span>
+                  </div>
+                </div>
+
+                <div className="form-group-modern">
+                  <label className="form-label-modern">Frase / Subtítulo de Destaque da Loja</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={settings.store_subtitle} 
+                    onChange={e => setSettings({ ...settings, store_subtitle: e.target.value })} 
+                    placeholder="Ex: Livros, vestuário, devocionais e itens com retirada expressa" 
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Frase convidativa exibida abaixo do título no PWA.</span>
+                </div>
+
+                <div className="form-group-modern">
+                  <label className="form-label-modern">Instrução de Retirada (Balcão / Secretaria)</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    value={settings.store_counter_label} 
+                    onChange={e => setSettings({ ...settings, store_counter_label: e.target.value })} 
+                    placeholder="Ex: balcão da loja da igreja, balcão da cantina, secretaria..." 
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Exibido na confirmação de pedidos no App.</span>
+                </div>
+              </div>
+
               {/* Botão de Exportar Placa QR Code */}
               <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1145,7 +1227,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                         { label: 'Cultos', icon: '🔴', bg: 'rgba(239, 68, 68, 0.1)' },
                         { label: 'Palavra', icon: '📖', bg: 'rgba(2, 132, 199, 0.1)' },
                         { label: 'Células', icon: '📍', bg: 'rgba(15, 118, 110, 0.1)' },
-                        { label: 'Loja', icon: '🛍️', bg: 'rgba(5, 150, 105, 0.1)' },
+                        { label: settings.store_tab_title || 'Loja', icon: '🛍️', bg: 'rgba(5, 150, 105, 0.1)' },
                         { label: 'Dízimos', icon: '💜', bg: 'rgba(147, 51, 234, 0.1)' },
                         { label: 'Eventos', icon: '🎟️', bg: 'rgba(234, 88, 12, 0.1)' },
                         { label: 'Bíblia', icon: '📜', bg: 'rgba(71, 85, 105, 0.1)' },
@@ -1195,7 +1277,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                     { label: 'Início', icon: '🏠', active: true },
                     { label: 'Ensino', icon: '📖', active: false },
                     { label: 'Células', icon: '👥', active: false },
-                    { label: 'Loja', icon: '🛍️', active: false },
+                    { label: settings.store_tab_title || 'Loja', icon: '🛍️', active: false },
                     { label: 'Perfil', icon: '👤', active: false },
                   ].map((tab, idx) => (
                     <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}>
