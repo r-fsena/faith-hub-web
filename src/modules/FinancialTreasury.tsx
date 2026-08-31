@@ -114,6 +114,7 @@ export interface FinancialSummaryData {
 interface FinancialTreasuryProps {
   selectedCampusId?: string;
   selectedOrganization?: any;
+  initialSubTab?: 'dre' | 'tithes' | 'expenses' | 'projects' | 'statement' | 'report';
 }
 
 const INCOME_CATEGORIES = [
@@ -142,9 +143,16 @@ const EXPENSE_CATEGORIES = [
 
 export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   selectedCampusId = 'all',
-  selectedOrganization
+  selectedOrganization,
+  initialSubTab = 'dre'
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'tithes' | 'expenses' | 'projects' | 'statement' | 'report'>('dre');
+  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'tithes' | 'expenses' | 'projects' | 'statement' | 'report'>(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [projects, setProjects] = useState<SpecialProject[]>([]);

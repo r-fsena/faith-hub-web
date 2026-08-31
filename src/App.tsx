@@ -190,6 +190,7 @@ const navigationGroups: NavigationCategory[] = [
         featureFlagKey: 'financial.module_enabled',
         subItems: [
           { id: 'financial_treasury', label: 'Painel & DRE da Igreja', featureFlagKey: 'financial.cashflow_ledger' },
+          { id: 'financial_projects', label: 'Campanhas & Projetos', featureFlagKey: 'financial.cashflow_ledger' },
           { id: 'pagarme_financeiro', label: 'Gateway de Pagamento', featureFlagKey: 'financial.credit_card_gateway' },
           { id: 'my_subscription', label: 'Minha Assinatura Faith-Hub', featureFlagKey: 'system.saas_subscription_portal' },
         ]
@@ -1427,10 +1428,11 @@ function App() {
                   churchSlug={selectedOrganization?.slug}
                 />
               )}
-              {activeTab === 'financial_treasury' && (
+              {(activeTab === 'financial_treasury' || activeTab === 'financial_projects') && (
                 <FinancialTreasury
                   selectedCampusId={selectedCampusId}
                   selectedOrganization={selectedOrganization}
+                  initialSubTab={activeTab === 'financial_projects' ? 'projects' : 'dre'}
                 />
               )}
               {activeTab === 'my_subscription' && (
