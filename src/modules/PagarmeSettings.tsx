@@ -56,7 +56,7 @@ export interface PaymentGatewayConfig {
   boleto_enabled: boolean;
   max_installments: number;
   pix_key: string;
-  pix_key_type: 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
+  pix_key_type: 'CNPJ' | 'CPF' | 'EMAIL' | 'PHONE' | 'RANDOM';
   boleto_due_days: number;
 
   // 3. Fluxo de Transferência / Payout
@@ -327,6 +327,7 @@ export default function PagarmeSettings() {
                         style={{ maxWidth: '140px' }}
                       >
                         <option value="CNPJ">Chave CNPJ</option>
+                        <option value="CPF">Chave CPF</option>
                         <option value="EMAIL">Chave E-mail</option>
                         <option value="PHONE">Celular</option>
                         <option value="RANDOM">Chave Aleatória</option>
@@ -336,7 +337,13 @@ export default function PagarmeSettings() {
                         className="input-modern"
                         value={config.pix_key} 
                         onChange={e => setConfig({ ...config, pix_key: e.target.value })}
-                        placeholder="Chave Pix Oficial"
+                        placeholder={
+                          config.pix_key_type === 'CPF' ? '000.000.000-00' :
+                          config.pix_key_type === 'CNPJ' ? '00.000.000/0000-00' :
+                          config.pix_key_type === 'EMAIL' ? 'financeiro@igreja.com.br' :
+                          config.pix_key_type === 'PHONE' ? '(11) 99999-9999' :
+                          'Chave Aleatória (EVP)'
+                        }
                         style={{ maxWidth: '280px' }}
                       />
                     </div>
