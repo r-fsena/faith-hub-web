@@ -37,11 +37,9 @@ export type ProductGroup = {
 };
 
 const DEFAULT_GROUPS: ProductGroup[] = [
-  { id: 'grp_1', name: 'Salgados & Lanches', active: true },
-  { id: 'grp_2', name: 'Doces e Sobremesas', active: true },
-  { id: 'grp_3', name: 'Bebidas & Cafeteria', active: true },
-  { id: 'grp_4', name: 'Livraria & Bíblias', active: true },
-  { id: 'grp_5', name: 'Vestuário & Camisas', active: true }
+  { id: 'grp_1', name: 'Livraria & Bíblias', active: true },
+  { id: 'grp_2', name: 'Vestuário & Camisas', active: true },
+  { id: 'grp_3', name: 'Café & Alimentação', active: true }
 ];
 
 type Product = {
@@ -61,7 +59,7 @@ interface PdvProdutosProps {
 
 export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [groups, setGroups] = useState<ProductGroup[]>(DEFAULT_GROUPS);
+  const [groups, setGroups] = useState<ProductGroup[]>([]);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -88,7 +86,6 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
 
   useEffect(() => {
     loadProducts();
-    loadGroups();
   }, [selectedCampusId, selectedOrganization]);
 
   const sortGroupsWithInactiveAtBottom = (list: ProductGroup[]): ProductGroup[] => {
@@ -97,37 +94,98 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
     return [...active, ...inactive];
   };
 
-  const loadGroups = () => {
-    const saved = localStorage.getItem('faithhub_pdv_groups');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Normaliza formato caso antes fosse array de strings
-          const normalized: ProductGroup[] = parsed.map((item: any, idx: number) => {
-            if (typeof item === 'string') {
-              return { id: `grp_${idx}_${Date.now()}`, name: item, active: true };
-            }
-            return {
-              id: item.id || `grp_${idx}_${Date.now()}`,
-              name: item.name || 'Sem nome',
-              active: item.active !== false
-            };
-          });
-          setGroups(sortGroupsWithInactiveAtBottom(normalized));
-          return;
+  const loadGroups = async (loadedProducts?: Product[]) => {
+    const orgId = selectedOrganization?.id || 'org_default';
+    const cacheKey = `faithhub_pdv_groups_${orgId}`;
+    
+    // 1. Tenta carregar do backend church-settings
+    let backendGroups: ProductGroup[] | null = null;
+    try {
+      const res = await fetch(`${API_URL}/church-settings?organization_id=${encodeURIComponent(orgId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.store_config?.product_groups && Array.isArray(data.store_config.product_groups)) {
+          backendGroups = data.store_config.product_groups.map((g: any, idx: number) => ({
+            id: g.id || `grp_${idx}`,
+            name: typeof g === 'string' ? g : (g.name || 'Geral'),
+            active: typeof g === 'string' ? true : g.active !== false
+          }));
         }
-      } catch (e) {
-        console.error("Erro ao carregar grupos do PDV", e);
+      }
+    } catch {}
+
+    // 2. Se não veio do backend, tenta do cache local da organização
+    let initialList = backendGroups;
+    if (!initialList) {
+      const saved = localStorage.getItem(cacheKey) || localStorage.getItem('faithhub_pdv_groups');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            initialList = parsed.map((item: any, idx: number) => ({
+              id: item.id || `grp_${idx}`,
+              name: typeof item === 'string' ? item : (item.name || 'Geral'),
+              active: typeof item === 'string' ? true : item.active !== false
+            }));
+          }
+        } catch {}
       }
     }
-    setGroups(DEFAULT_GROUPS);
+
+    // 3. Mescla com categorias existentes nos produtos cadastrados
+    const prods = loadedProducts || products;
+    const existingFromProducts = Array.from(new Set(prods.map(p => p.category?.trim()).filter(Boolean)));
+
+    let finalGroups: ProductGroup[] = initialList || [];
+    
+    existingFromProducts.forEach(catName => {
+      if (!finalGroups.some(g => g.name.toLowerCase() === catName.toLowerCase())) {
+        finalGroups.push({
+          id: `grp_prod_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+          name: catName,
+          active: true
+        });
+      }
+    });
+
+    // Se ainda assim não houver nenhum grupo e não houver produtos, fornece grupos padrão limpos
+    if (finalGroups.length === 0 && prods.length === 0) {
+      finalGroups = DEFAULT_GROUPS;
+    }
+
+    setGroups(sortGroupsWithInactiveAtBottom(finalGroups));
   };
 
-  const saveGroupsList = (newGroupsList: ProductGroup[]) => {
+  const saveGroupsList = async (newGroupsList: ProductGroup[]) => {
     const sorted = sortGroupsWithInactiveAtBottom(newGroupsList);
     setGroups(sorted);
+    const orgId = selectedOrganization?.id || 'org_default';
+    localStorage.setItem(`faithhub_pdv_groups_${orgId}`, JSON.stringify(sorted));
     localStorage.setItem('faithhub_pdv_groups', JSON.stringify(sorted));
+
+    // Salva no backend church-settings para sincronizar com PWA de todos os membros
+    try {
+      const headers = await getAuthHeaders();
+      const getRes = await fetch(`${API_URL}/church-settings?organization_id=${encodeURIComponent(orgId)}`);
+      let currentSettings = {};
+      if (getRes.ok) {
+        currentSettings = await getRes.json();
+      }
+      await fetch(`${API_URL}/church-settings`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...currentSettings,
+          organization_id: orgId,
+          store_config: {
+            ...(currentSettings as any).store_config,
+            product_groups: sorted
+          }
+        })
+      });
+    } catch (e) {
+      console.warn("Erro ao sincronizar grupos de produtos com backend", e);
+    }
   };
 
   const handleDragStart = (index: number) => {
@@ -222,7 +280,11 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
       const res = await fetch(`${API_URL}/pdv/products?admin=true&organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setProducts(Array.isArray(data) ? data : (data.data || []));
+        const loaded = Array.isArray(data) ? data : (data.data || []);
+        setProducts(loaded);
+        await loadGroups(loaded);
+      } else {
+        await loadGroups([]);
       }
     } catch (err) {
       console.error(err);
