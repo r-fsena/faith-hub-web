@@ -362,8 +362,8 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
       {/* Header */}
       <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 20 }}>
         <div>
-          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Catálogo do Ponto de Venda (PDV)</h1>
-          <p className="card-subtitle">Cadastre e gerencie os itens da cantina, livraria e vestuário disponíveis para compra no App.</p>
+          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Loja Oficial & Ponto de Venda (PDV)</h1>
+          <p className="card-subtitle">Cadastre e gerencie os livros, devocionais, vestuário, cursos e produtos disponíveis para compra no App.</p>
         </div>
         
         <div style={{ display: 'flex', gap: 10 }}>

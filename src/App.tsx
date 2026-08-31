@@ -169,7 +169,7 @@ const navigationGroups: NavigationCategory[] = [
     items: [
       {
         id: 'pdv_group',
-        label: 'Ponto de Venda (PDV)',
+        label: 'Loja Oficial & PDV',
         icon: CartIcon,
         hasSubmenu: true,
         featureFlagKey: 'pdv.module_enabled',
@@ -1153,7 +1153,7 @@ function App() {
                     {/* KPI 3: Monitor de PDV */}
                     <div className="kpi-card" onClick={() => setActiveTab('pdv_pedidos')}>
                       <div className="kpi-top-row">
-                        <span className="kpi-title-tag">Vendas na Cantina / PDV</span>
+                        <span className="kpi-title-tag">Vendas na Loja / PDV</span>
                         <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
                           <CartIcon />
                         </div>
@@ -1165,7 +1165,7 @@ function App() {
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span className="kpi-subtext">Pedidos via App & Caixa</span>
+                        <span className="kpi-subtext">Pedidos via App & Loja Física</span>
                         <span className="kpi-arrow-btn"><ArrowRightIcon /></span>
                       </div>
                     </div>
@@ -1252,8 +1252,8 @@ function App() {
                           <CartIcon />
                         </div>
                         <div className="project-details">
-                          <span className="project-title" style={{ fontSize: '0.88rem' }}>Cardápio da Cantina</span>
-                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre lanches, cafés e itens da loja</div>
+                          <span className="project-title" style={{ fontSize: '0.88rem' }}>Catálogo da Loja</span>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Cadastre livros, vestuário e produtos</div>
                         </div>
                       </div>
                     </div>

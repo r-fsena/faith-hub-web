@@ -1145,7 +1145,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                         { label: 'Cultos', icon: '🔴', bg: 'rgba(239, 68, 68, 0.1)' },
                         { label: 'Palavra', icon: '📖', bg: 'rgba(2, 132, 199, 0.1)' },
                         { label: 'Células', icon: '📍', bg: 'rgba(15, 118, 110, 0.1)' },
-                        { label: 'Cantina', icon: '🛍️', bg: 'rgba(5, 150, 105, 0.1)' },
+                        { label: 'Loja', icon: '🛍️', bg: 'rgba(5, 150, 105, 0.1)' },
                         { label: 'Dízimos', icon: '💜', bg: 'rgba(147, 51, 234, 0.1)' },
                         { label: 'Eventos', icon: '🎟️', bg: 'rgba(234, 88, 12, 0.1)' },
                         { label: 'Bíblia', icon: '📜', bg: 'rgba(71, 85, 105, 0.1)' },

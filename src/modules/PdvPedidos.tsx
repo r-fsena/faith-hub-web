@@ -422,7 +422,7 @@ export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all'
                                         📍 Logística de Retirada
                                       </span>
                                       <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0f172a', display: 'block', lineHeight: 1.3 }}>
-                                        {order.delivery_details || (order.delivery_method === 'counter' ? 'Retirada no Balcão da Cantina' : 'Entrega')}
+                                        {order.delivery_details || (order.delivery_method === 'counter' ? 'Retirada no Balcão da Loja' : 'Entrega')}
                                       </span>
                                       {order.delivery_method === 'home' && (
                                         <span style={{ fontSize: '0.68rem', color: '#f59e0b', marginTop: 6, display: 'inline-block', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 6px', borderRadius: 4, fontWeight: 800 }}>
