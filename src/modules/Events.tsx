@@ -239,7 +239,9 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
       status: s.status || 'PUBLISHED',
       is_featured: !!s.is_featured,
       show_as_popup: !!s.show_as_popup,
-      lots: s.lots?.length ? s.lots : [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
+      lots: s.lots?.length 
+        ? s.lots.map((l: any) => ({ ...l, price: Number(l.price) || 0, total_capacity: Number(l.total_capacity) || 0 })) 
+        : [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
     });
     setShowModal(true);
   };
@@ -740,7 +742,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
                       {formData.title || 'Título do Evento'}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                      📍 {formData.location || 'Localização'} • {formData.lots?.[0] ? `A partir de R$ ${formData.lots[0].price.toFixed(2)}` : 'Gratuito'}
+                      📍 {formData.location || 'Localização'} • {formData.lots?.[0] ? (Number(formData.lots[0].price) === 0 ? 'Gratuito' : `A partir de R$ ${Number(formData.lots[0].price).toFixed(2).replace('.', ',')}`) : 'Gratuito'}
                     </div>
                   </div>
 
