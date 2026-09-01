@@ -200,13 +200,21 @@ const navigationGroups: NavigationCategory[] = [
     ]
   },
   {
-    category: 'Whitelabel & Sistema',
+    category: 'Configurações & Whitelabel',
     items: [
-      { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon, featureFlagKey: 'system.multicampus_enabled' },
-      { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon, featureFlagKey: 'system.custom_theme_colors' },
-      { id: 'feature_flags', label: 'Feature Flags & Módulos', icon: SparklesIcon, featureFlagKey: 'system.saas_subscription_portal' },
-      { id: 'security_audit', label: 'Auditoria & LGPD', icon: ShieldIcon },
-      { id: 'configuracoes', label: 'Configurações AWS', icon: SettingsIcon },
+      {
+        id: 'configuracoes_group',
+        label: 'Configurações & Whitelabel',
+        icon: SettingsIcon,
+        hasSubmenu: true,
+        subItems: [
+          { id: 'church_branding', label: 'Identidade & PWA Studio', featureFlagKey: 'system.custom_theme_colors' },
+          { id: 'campuses', label: 'Unidades & Filiais', featureFlagKey: 'system.multicampus_enabled' },
+          { id: 'feature_flags', label: 'Feature Flags & Módulos', featureFlagKey: 'system.saas_subscription_portal' },
+          { id: 'security_audit', label: 'Auditoria & LGPD' },
+          { id: 'configuracoes', label: 'Infraestrutura AWS' }
+        ]
+      }
     ]
   }
 ];
