@@ -63,6 +63,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
     location: string;
     status: string;
     is_featured: boolean;
+    show_as_popup: boolean;
     lots: { id?: string, name: string, price: number, total_capacity: number }[];
   }>({
     id: '',
@@ -76,6 +77,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
     location: '',
     status: 'PUBLISHED',
     is_featured: false,
+    show_as_popup: false,
     lots: [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
   });
 
@@ -217,6 +219,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
       location: '', 
       status: 'PUBLISHED', 
       is_featured: false, 
+      show_as_popup: false, 
       lots: [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }] 
     });
     setShowModal(true);
@@ -235,6 +238,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
       location: s.location || '',
       status: s.status || 'PUBLISHED',
       is_featured: !!s.is_featured,
+      show_as_popup: !!s.show_as_popup,
       lots: s.lots?.length ? s.lots : [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
     });
     setShowModal(true);
@@ -670,10 +674,10 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
                     <div className="toggle-card-modern">
                       <div className="toggle-card-info">
                         <div className="toggle-card-title">
-                          <span style={{ color: '#d97706' }}>🌟</span> Destacar no Início do App
+                          <span style={{ color: '#d97706' }}>🌟</span> Exibir em Destaque na Home
                         </div>
                         <div className="toggle-card-desc">
-                          Ficará fixado no carrossel de topo para todos os membros
+                          Ficará fixado no Carrossel de Destaques para todos os membros
                         </div>
                       </div>
                       <label className="switch-control">
@@ -681,6 +685,26 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
                           type="checkbox" 
                           checked={formData.is_featured} 
                           onChange={e => setFormData({...formData, is_featured: e.target.checked})} 
+                        />
+                        <span className="switch-slider"></span>
+                      </label>
+                    </div>
+
+                    {/* Toggle: Pop-up ao Entrar no App */}
+                    <div className="toggle-card-modern">
+                      <div className="toggle-card-info">
+                        <div className="toggle-card-title">
+                          <span style={{ color: '#3b82f6' }}>🔔</span> Abrir como Pop-up ao Entrar
+                        </div>
+                        <div className="toggle-card-desc">
+                          Exibe este evento em destaque de entrada ao abrir o PWA
+                        </div>
+                      </div>
+                      <label className="switch-control">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.show_as_popup} 
+                          onChange={e => setFormData({...formData, show_as_popup: e.target.checked})} 
                         />
                         <span className="switch-slider"></span>
                       </label>

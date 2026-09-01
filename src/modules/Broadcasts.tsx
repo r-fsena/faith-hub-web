@@ -25,6 +25,8 @@ type BroadcastData = {
   observation: string;
   youtube_url: string;
   is_available: boolean;
+  is_featured?: boolean;
+  show_as_popup?: boolean;
   scheduled_for: string;
 };
 
@@ -49,6 +51,8 @@ export default function Broadcasts({ selectedCampusId = 'all', selectedOrganizat
     observation: '',
     youtube_url: '',
     is_available: false,
+    is_featured: false,
+    show_as_popup: false,
     scheduled_for: ''
   });
 
@@ -134,18 +138,37 @@ export default function Broadcasts({ selectedCampusId = 'all', selectedOrganizat
   };
 
   const openNewModal = () => {
-    setFormData({ id: '', title: '', description: '', observation: '', youtube_url: '', is_available: false, scheduled_for: '' });
+    setFormData({ 
+      id: '', 
+      title: '', 
+      description: '', 
+      observation: '', 
+      youtube_url: '', 
+      is_available: false, 
+      is_featured: false, 
+      show_as_popup: false, 
+      scheduled_for: '' 
+    });
     setShowModal(true);
   };
 
   const openEditModal = (b: BroadcastData) => {
-    setFormData({ ...b, scheduled_for: b.scheduled_for ? new Date(b.scheduled_for).toISOString().slice(0, 16) : '' });
+    setFormData({ 
+      ...b, 
+      is_featured: !!b.is_featured,
+      show_as_popup: !!b.show_as_popup,
+      scheduled_for: b.scheduled_for ? new Date(b.scheduled_for).toISOString().slice(0, 16) : '' 
+    });
     setShowModal(true);
   };
 
   const openDefaultModal = () => {
     if (defaultBroadcast) {
-      setFormData(defaultBroadcast);
+      setFormData({
+        ...defaultBroadcast,
+        is_featured: !!defaultBroadcast.is_featured,
+        show_as_popup: !!defaultBroadcast.show_as_popup
+      });
       setShowModal(true);
     } else {
       setFormData({ 
@@ -155,6 +178,8 @@ export default function Broadcasts({ selectedCampusId = 'all', selectedOrganizat
         observation: '', 
         youtube_url: '', 
         is_available: true, 
+        is_featured: false, 
+        show_as_popup: false, 
         scheduled_for: '' 
       });
       setShowModal(true);
@@ -384,7 +409,7 @@ export default function Broadcasts({ selectedCampusId = 'all', selectedOrganizat
                         <span style={{ color: '#059669' }}>🔴</span> Disponível no App Agora
                       </div>
                       <div className="toggle-card-desc">
-                        O player ao vivo será exibido com destaque máximo na home
+                        Habilita a transmissão para ser visualizada no aplicativo
                       </div>
                     </div>
                     <label className="switch-control">
@@ -392,6 +417,46 @@ export default function Broadcasts({ selectedCampusId = 'all', selectedOrganizat
                         type="checkbox" 
                         checked={formData.is_available} 
                         onChange={e => setFormData({...formData, is_available: e.target.checked})} 
+                      />
+                      <span className="switch-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Toggle: Destaque no Carrossel da Home */}
+                  <div className="toggle-card-modern">
+                    <div className="toggle-card-info">
+                      <div className="toggle-card-title">
+                        <span style={{ color: '#eab308' }}>🌟</span> Exibir em Destaque na Home
+                      </div>
+                      <div className="toggle-card-desc">
+                        Insere este vídeo no Carrossel de Destaques principal do PWA
+                      </div>
+                    </div>
+                    <label className="switch-control">
+                      <input 
+                        type="checkbox" 
+                        checked={!!formData.is_featured} 
+                        onChange={e => setFormData({...formData, is_featured: e.target.checked})} 
+                      />
+                      <span className="switch-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Toggle: Pop-up de Entrada */}
+                  <div className="toggle-card-modern">
+                    <div className="toggle-card-info">
+                      <div className="toggle-card-title">
+                        <span style={{ color: '#3b82f6' }}>🔔</span> Abrir como Pop-up ao Entrar
+                      </div>
+                      <div className="toggle-card-desc">
+                        Exibe um modal de destaque para o membro ao abrir o aplicativo
+                      </div>
+                    </div>
+                    <label className="switch-control">
+                      <input 
+                        type="checkbox" 
+                        checked={!!formData.show_as_popup} 
+                        onChange={e => setFormData({...formData, show_as_popup: e.target.checked})} 
                       />
                       <span className="switch-slider"></span>
                     </label>
