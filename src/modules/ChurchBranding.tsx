@@ -447,7 +447,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
             <SparklesIcon />
             <span style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Whitelabel Studio & PWA
+              Personalização do Aplicativo & PWA
             </span>
           </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.3px', margin: 0 }}>
@@ -797,7 +797,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
             <div className="portal-card animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
               <div className="card-header-row" style={{ margin: 0, paddingBottom: 16, borderBottom: '1px solid var(--panel-border)' }}>
                 <div>
-                  <h3 className="card-title">Link do PWA & Parametrizações Whitelabel</h3>
+                  <h3 className="card-title">Link do PWA & Parametrizações da Igreja</h3>
                   <p className="card-subtitle">Endereço de acesso dos membros no ecossistema faithhubs.com e instalação nos celulares.</p>
                 </div>
               </div>
@@ -838,11 +838,11 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                 </div>
               </div>
 
-              {/* Domínio Próprio Personalizado (Whitelabel Total) */}
+              {/* Domínio Próprio Personalizado */}
               <div className="form-group-modern">
                 <label className="form-label-modern">
                   <span>Domínio Próprio Personalizado (Opcional)</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Whitelabel Total</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Exclusivo</span>
                 </label>
                 <input 
                   type="text" 

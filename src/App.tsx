@@ -200,11 +200,11 @@ const navigationGroups: NavigationCategory[] = [
     ]
   },
   {
-    category: 'Configurações & Whitelabel',
+    category: 'Configurações',
     items: [
       {
         id: 'configuracoes_group',
-        label: 'Configurações & Whitelabel',
+        label: 'Configurações',
         icon: SettingsIcon,
         hasSubmenu: true,
         subItems: [
