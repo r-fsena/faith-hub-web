@@ -1421,7 +1421,12 @@ function App() {
                   onNavigateSubtab={(subtab) => setActiveTab(subtab)}
                 />
               )}
-              {activeTab === 'transmissoes' && <Broadcasts />}
+              {activeTab === 'transmissoes' && (
+                <Broadcasts 
+                  selectedCampusId={selectedCampusId} 
+                  selectedOrganization={selectedOrganization} 
+                />
+              )}
               {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}

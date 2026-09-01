@@ -28,12 +28,19 @@ type BroadcastData = {
   scheduled_for: string;
 };
 
-export default function Broadcasts() {
+interface BroadcastsProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export default function Broadcasts({ selectedCampusId = 'all', selectedOrganization }: BroadcastsProps = {}) {
   const [broadcasts, setBroadcasts] = useState<BroadcastData[]>([]);
   const [defaultBroadcast, setDefaultBroadcast] = useState<BroadcastData | null>(null);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const orgId = selectedOrganization?.id || 'org_default';
 
   const [formData, setFormData] = useState<BroadcastData>({
     id: '',
@@ -47,7 +54,7 @@ export default function Broadcasts() {
 
   useEffect(() => {
     loadBroadcasts();
-  }, []);
+  }, [selectedCampusId, selectedOrganization]);
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
@@ -69,10 +76,11 @@ export default function Broadcasts() {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/broadcasts`, { headers });
+      const campusParam = selectedCampusId !== 'all' ? `&campus_id=${encodeURIComponent(selectedCampusId)}` : '';
+      const res = await fetch(`${API_URL}/broadcasts?organization_id=${encodeURIComponent(orgId)}${campusParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        const all: BroadcastData[] = data.data || [];
+        const all: BroadcastData[] = Array.isArray(data) ? data : (data.data || []);
         const def = all.find(b => b.id === 'default') || null;
         const customs = all.filter(b => b.id !== 'default');
         setDefaultBroadcast(def);
@@ -93,11 +101,15 @@ export default function Broadcasts() {
       const res = await fetch(`${API_URL}/broadcasts`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          organization_id: orgId,
+          campus_id: selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede'
+        })
       });
       if (res.ok) {
         setShowModal(false);
-        loadBroadcasts();
+        await loadBroadcasts();
       } else {
         alert("Erro ao salvar transmissão");
       }
