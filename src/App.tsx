@@ -313,13 +313,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSubmenus, setOpenSubmenus] = useState<{ [key: string]: boolean }>({
-    membros_group: true,
-    kids_group: true,
-    ensino_group: true,
-    pdv_group: true,
-    financas_group: true,
-  });
+  const [openSubmenus, setOpenSubmenus] = useState<{ [key: string]: boolean }>({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [user, setUser] = useState<any>(null);
