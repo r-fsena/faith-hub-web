@@ -202,19 +202,11 @@ const navigationGroups: NavigationCategory[] = [
   {
     category: 'Configurações',
     items: [
-      {
-        id: 'configuracoes_group',
-        label: 'Configurações',
-        icon: SettingsIcon,
-        hasSubmenu: true,
-        subItems: [
-          { id: 'church_branding', label: 'Identidade & PWA Studio', featureFlagKey: 'system.custom_theme_colors' },
-          { id: 'campuses', label: 'Unidades & Filiais', featureFlagKey: 'system.multicampus_enabled' },
-          { id: 'feature_flags', label: 'Feature Flags & Módulos', featureFlagKey: 'system.saas_subscription_portal' },
-          { id: 'security_audit', label: 'Auditoria & LGPD' },
-          { id: 'configuracoes', label: 'Infraestrutura AWS' }
-        ]
-      }
+      { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon, featureFlagKey: 'system.custom_theme_colors' },
+      { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon, featureFlagKey: 'system.multicampus_enabled' },
+      { id: 'feature_flags', label: 'Feature Flags & Módulos', icon: SparklesIcon, featureFlagKey: 'system.saas_subscription_portal' },
+      { id: 'security_audit', label: 'Auditoria & LGPD', icon: ShieldIcon },
+      { id: 'configuracoes', label: 'Infraestrutura AWS', icon: SettingsIcon },
     ]
   }
 ];
