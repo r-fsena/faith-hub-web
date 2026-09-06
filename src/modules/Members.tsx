@@ -36,6 +36,15 @@ interface Member {
   status: 'Ativo' | 'Inativo' | 'Pendente' | 'ACTIVE' | 'INACTIVE';
   joinedAt: string;
   phone?: string;
+  birth_date?: string;
+  address?: string;
+  address_street?: string;
+  address_number?: string;
+  address_complement?: string;
+  address_neighborhood?: string;
+  address_city?: string;
+  address_state?: string;
+  address_zip?: string;
   baptismDate?: string;
   memberSince?: string;
   cellGroup?: string;
@@ -64,11 +73,21 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const [inviteForm, setInviteForm] = useState({ 
     name: '', 
     email: '', 
+    phone: '',
+    birth_date: '',
     role: 'Membro', 
     cellGroupId: '', 
-    campusIds: ['campus_sede'] as string[]
+    campusIds: ['campus_sede'] as string[],
+    address_zip: '',
+    address_street: '',
+    address_number: '',
+    address_complement: '',
+    address_neighborhood: '',
+    address_city: '',
+    address_state: ''
   });
   const [isInviting, setIsInviting] = useState(false);
+  const [loadingCepInvite, setLoadingCepInvite] = useState(false);
   const [cellGroups, setCellGroups] = useState<{id: string, name: string}[]>([]);
   const [campusesList, setCampusesList] = useState<{id: string, name: string, is_headquarters?: number}[]>([]);
   
@@ -76,6 +95,57 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
   const [editCampusIds, setEditCampusIds] = useState<string[]>([]);
+  const [loadingCepEdit, setLoadingCepEdit] = useState(false);
+  const [editAddress, setEditAddress] = useState({
+    birth_date: '',
+    phone: '',
+    cpf: '',
+    address_zip: '',
+    address_street: '',
+    address_number: '',
+    address_complement: '',
+    address_neighborhood: '',
+    address_city: '',
+    address_state: ''
+  });
+
+  const handleCepLookup = async (rawCep: string, target: 'invite' | 'edit') => {
+    const cleanCep = rawCep.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      if (target === 'invite') setLoadingCepInvite(true);
+      else setLoadingCepEdit(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.erro) {
+            if (target === 'invite') {
+              setInviteForm(prev => ({
+                ...prev,
+                address_street: data.logradouro || prev.address_street,
+                address_neighborhood: data.bairro || prev.address_neighborhood,
+                address_city: data.localidade || prev.address_city,
+                address_state: data.uf || prev.address_state
+              }));
+            } else {
+              setEditAddress(prev => ({
+                ...prev,
+                address_street: data.logradouro || prev.address_street,
+                address_neighborhood: data.bairro || prev.address_neighborhood,
+                address_city: data.localidade || prev.address_city,
+                address_state: data.uf || prev.address_state
+              }));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao consultar ViaCEP:', e);
+      } finally {
+        if (target === 'invite') setLoadingCepInvite(false);
+        else setLoadingCepEdit(false);
+      }
+    }
+  };
 
   useEffect(() => {
     fetchMembers();
@@ -122,6 +192,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         setMembers((json.data || []).map((m: any) => ({
           ...m,
           joinedAt: m.created_at,
+          birth_date: m.birth_date ? m.birth_date.split('T')[0] : '',
+          address: m.address,
+          address_street: m.address_street,
+          address_number: m.address_number,
+          address_complement: m.address_complement,
+          address_neighborhood: m.address_neighborhood,
+          address_city: m.address_city,
+          address_state: m.address_state,
+          address_zip: m.address_zip,
           baptismDate: m.baptism_date,
           cellGroup: m.cell_group_id,
           campus_ids: Array.isArray(m.campus_ids) ? m.campus_ids : (m.campus_ids ? JSON.parse(m.campus_ids) : [m.campus_id || 'campus_sede']),
@@ -148,6 +227,18 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const handleEditClick = (member: Member) => {
     setMemberToEdit(member);
+    setEditAddress({
+      birth_date: member.birth_date ? member.birth_date.split('T')[0] : '',
+      phone: member.phone || '',
+      cpf: member.cpf || '',
+      address_zip: member.address_zip || '',
+      address_street: member.address_street || '',
+      address_number: member.address_number || '',
+      address_complement: member.address_complement || '',
+      address_neighborhood: member.address_neighborhood || '',
+      address_city: member.address_city || '',
+      address_state: member.address_state || ''
+    });
     const initialCampuses = member.campus_ids && member.campus_ids.length > 0 
       ? member.campus_ids 
       : (member.campus_id ? [member.campus_id] : ['campus_sede']);
@@ -212,14 +303,28 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     try {
       const headers = await getAuthHeaders();
       const selectedCampuses = inviteForm.campusIds.length > 0 ? inviteForm.campusIds : ['campus_sede'];
+      const fullInviteAddr = inviteForm.address_street
+        ? `${inviteForm.address_street}, ${inviteForm.address_number || 'S/N'}${inviteForm.address_complement ? ` - ${inviteForm.address_complement}` : ''} - ${inviteForm.address_neighborhood}, ${inviteForm.address_city} - ${inviteForm.address_state}`
+        : null;
+
       const payload = {
         name: inviteForm.name,
         email: inviteForm.email,
+        phone: inviteForm.phone || null,
+        birth_date: inviteForm.birth_date || null,
         role: inviteForm.role,
         cellGroupId: inviteForm.cellGroupId || null,
         organization_id: selectedOrganization?.id || 'org_default',
         campus_id: selectedCampuses[0] || 'campus_sede',
-        campus_ids: selectedCampuses
+        campus_ids: selectedCampuses,
+        address: fullInviteAddr,
+        address_zip: inviteForm.address_zip || null,
+        address_street: inviteForm.address_street || null,
+        address_number: inviteForm.address_number || null,
+        address_complement: inviteForm.address_complement || null,
+        address_neighborhood: inviteForm.address_neighborhood || null,
+        address_city: inviteForm.address_city || null,
+        address_state: inviteForm.address_state || null
       };
 
       const resp = await fetch(`${API_URL}/members/invite`, {
@@ -232,9 +337,18 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         setInviteForm({ 
           name: '', 
           email: '', 
+          phone: '',
+          birth_date: '',
           role: 'Membro', 
           cellGroupId: '', 
-          campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede'] 
+          campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede'],
+          address_zip: '',
+          address_street: '',
+          address_number: '',
+          address_complement: '',
+          address_neighborhood: '',
+          address_city: '',
+          address_state: ''
         });
         alert("Convite enviado com sucesso! O membro foi cadastrado no sistema.");
         fetchMembers();
@@ -266,15 +380,28 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     if (!memberToEdit) return;
     const formData = new FormData(e.currentTarget);
     const selectedCampuses = editCampusIds.length > 0 ? editCampusIds : ['campus_sede'];
+    const fullEditAddr = editAddress.address_street 
+      ? `${editAddress.address_street}, ${editAddress.address_number || 'S/N'}${editAddress.address_complement ? ` - ${editAddress.address_complement}` : ''} - ${editAddress.address_neighborhood}, ${editAddress.address_city} - ${editAddress.address_state}`
+      : (memberToEdit.address || null);
+
     const payload = {
       name: formData.get('name'),
-      cpf: formData.get('cpf'),
+      cpf: editAddress.cpf || formData.get('cpf') || null,
       baptismDate: formData.get('baptismDate') || null,
       role: formData.get('role'),
       cellGroupId: formData.get('cellGroup') || null,
       campus_id: selectedCampuses[0] || 'campus_sede',
       campus_ids: selectedCampuses,
-      phone: formData.get('phone') || null
+      phone: editAddress.phone || formData.get('phone') || null,
+      birth_date: editAddress.birth_date || null,
+      address: fullEditAddr,
+      address_zip: editAddress.address_zip || null,
+      address_street: editAddress.address_street || null,
+      address_number: editAddress.address_number || null,
+      address_complement: editAddress.address_complement || null,
+      address_neighborhood: editAddress.address_neighborhood || null,
+      address_city: editAddress.address_city || null,
+      address_state: editAddress.address_state || null
     };
 
     try {
@@ -526,7 +653,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
             <div className="modal-studio-body">
               <div className="modal-studio-grid">
-                {/* Left Column: Identificação */}
+                {/* Left Column: Identificação & Contato */}
                 <div className="modal-studio-column">
                   <div className="form-group-modern">
                     <label className="form-label-modern">Nome Completo *</label>
@@ -552,34 +679,133 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     />
                   </div>
 
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Função / Cargo</label>
-                    <select 
-                      className="select-modern"
-                      value={inviteForm.role} 
-                      onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
-                    >
-                      <option value="Membro">Membro Comum</option>
-                      <option value="Líder de Célula">Líder de Célula / GC</option>
-                      <option value="Pastor de Unidade">Pastor de Unidade / Filial</option>
-                      <option value="Pastor Regional">Pastor Regional / Multi-Campi</option>
-                      <option value="Tesouraria">Tesouraria / Finanças</option>
-                      <option value="ADMIN">Administrador Geral</option>
-                    </select>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Telefone / WhatsApp</label>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="(00) 00000-0000" 
+                        value={inviteForm.phone} 
+                        onChange={e => setInviteForm({...inviteForm, phone: e.target.value})} 
+                      />
+                    </div>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Data de Nascimento</label>
+                      <input 
+                        type="date" 
+                        className="input-modern"
+                        value={inviteForm.birth_date} 
+                        onChange={e => setInviteForm({...inviteForm, birth_date: e.target.value})} 
+                      />
+                    </div>
                   </div>
 
-                  <div className="form-group-modern">
-                    <label className="form-label-modern">Alocar em Célula</label>
-                    <select 
-                      className="select-modern"
-                      value={inviteForm.cellGroupId} 
-                      onChange={e => setInviteForm({...inviteForm, cellGroupId: e.target.value})}
-                    >
-                      <option value="">Não Alocar Inicialmente</option>
-                      {cellGroups.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Função / Cargo</label>
+                      <select 
+                        className="select-modern"
+                        value={inviteForm.role} 
+                        onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
+                      >
+                        <option value="Membro">Membro Comum</option>
+                        <option value="Líder de Célula">Líder de Célula / GC</option>
+                        <option value="Pastor de Unidade">Pastor de Unidade / Filial</option>
+                        <option value="Pastor Regional">Pastor Regional / Multi-Campi</option>
+                        <option value="Tesouraria">Tesouraria / Finanças</option>
+                        <option value="ADMIN">Administrador Geral</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Alocar em Célula</label>
+                      <select 
+                        className="select-modern"
+                        value={inviteForm.cellGroupId} 
+                        onChange={e => setInviteForm({...inviteForm, cellGroupId: e.target.value})}
+                      >
+                        <option value="">Não Alocar Inicialmente</option>
+                        {cellGroups.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Endereço Residencial no Convite */}
+                  <div style={{ marginTop: 8, padding: '10px 12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)' }}>📍 Endereço Residencial</span>
+                      {loadingCepInvite && <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>Buscando CEP...</span>}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, marginBottom: 8 }}>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="CEP (00000-000)" 
+                        value={inviteForm.address_zip} 
+                        maxLength={9}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setInviteForm(prev => ({ ...prev, address_zip: val }));
+                          if (val.replace(/\D/g, '').length === 8) {
+                            handleCepLookup(val, 'invite');
+                          }
+                        }}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Logradouro / Rua" 
+                        value={inviteForm.address_street} 
+                        onChange={e => setInviteForm(prev => ({ ...prev, address_street: e.target.value }))}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8, marginBottom: 8 }}>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Nº" 
+                        value={inviteForm.address_number} 
+                        onChange={e => setInviteForm(prev => ({ ...prev, address_number: e.target.value }))}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Complemento" 
+                        value={inviteForm.address_complement} 
+                        onChange={e => setInviteForm(prev => ({ ...prev, address_complement: e.target.value }))}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 60px', gap: 8 }}>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Bairro" 
+                        value={inviteForm.address_neighborhood} 
+                        onChange={e => setInviteForm(prev => ({ ...prev, address_neighborhood: e.target.value }))}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Cidade" 
+                        value={inviteForm.address_city} 
+                        onChange={e => setInviteForm(prev => ({ ...prev, address_city: e.target.value }))}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="UF" 
+                        maxLength={2}
+                        style={{ textAlign: 'center' }}
+                        value={inviteForm.address_state} 
+                        onChange={e => setInviteForm(prev => ({ ...prev, address_state: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -712,7 +938,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             <div className="modal-studio-body">
               <div className="modal-studio-grid">
                 
-                {/* Left Column: Dados Pessoais */}
+                {/* Left Column: Dados Pessoais & Contato */}
                 <div className="modal-studio-column">
                   <div className="form-group-modern">
                     <label className="form-label-modern">Nome Completo</label>
@@ -724,36 +950,60 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <input type="email" className="input-modern" defaultValue={memberToEdit.email} disabled style={{ opacity: 0.7 }} />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div className="form-group-modern">
                       <label className="form-label-modern">Telefone / WhatsApp</label>
-                      <input type="text" name="phone" className="input-modern" defaultValue={memberToEdit.phone || ''} placeholder="(00) 00000-0000" />
+                      <input 
+                        type="text" 
+                        name="phone" 
+                        className="input-modern" 
+                        value={editAddress.phone} 
+                        onChange={e => setEditAddress({ ...editAddress, phone: e.target.value })}
+                        placeholder="(00) 00000-0000" 
+                      />
                     </div>
                     <div className="form-group-modern">
-                      <label className="form-label-modern">CPF (Opcional)</label>
-                      <input type="text" name="cpf" className="input-modern" defaultValue={memberToEdit.cpf || ''} />
+                      <label className="form-label-modern">Data de Nascimento</label>
+                      <input 
+                        type="date" 
+                        className="input-modern" 
+                        value={editAddress.birth_date} 
+                        onChange={e => setEditAddress({ ...editAddress, birth_date: e.target.value })}
+                      />
                     </div>
                   </div>
 
-                  <div className="form-group-modern">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label className="form-label-modern" style={{ margin: 0 }}>Função / Cargo</label>
-                      <button 
-                        type="button"
-                        style={{ color: 'var(--accent-primary)', fontSize: '0.74rem', fontWeight: 700 }}
-                        onClick={() => handleSendResetPassword(memberToEdit.email)}
-                      >
-                        Redefinir Senha
-                      </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">CPF (Opcional)</label>
+                      <input 
+                        type="text" 
+                        name="cpf" 
+                        className="input-modern" 
+                        value={editAddress.cpf} 
+                        onChange={e => setEditAddress({ ...editAddress, cpf: e.target.value })}
+                      />
                     </div>
-                    <select name="role" className="select-modern" defaultValue={memberToEdit.role || 'Membro'}>
-                      <option value="Membro">Membro Comum</option>
-                      <option value="Líder de Célula">Líder de Célula / GC</option>
-                      <option value="Pastor de Unidade">Pastor de Unidade / Filial</option>
-                      <option value="Pastor Regional">Pastor Regional / Multi-Campi</option>
-                      <option value="Tesouraria">Tesouraria / Finanças</option>
-                      <option value="ADMIN">Administrador Geral</option>
-                    </select>
+                    <div className="form-group-modern">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label-modern" style={{ margin: 0 }}>Função / Cargo</label>
+                        <button 
+                          type="button"
+                          style={{ color: 'var(--accent-primary)', fontSize: '0.74rem', fontWeight: 700 }}
+                          onClick={() => handleSendResetPassword(memberToEdit.email)}
+                        >
+                          Redefinir Senha
+                        </button>
+                      </div>
+                      <select name="role" className="select-modern" defaultValue={memberToEdit.role || 'Membro'}>
+                        <option value="Membro">Membro Comum</option>
+                        <option value="Líder de Célula">Líder de Célula / GC</option>
+                        <option value="Pastor de Unidade">Pastor de Unidade / Filial</option>
+                        <option value="Pastor Regional">Pastor Regional / Multi-Campi</option>
+                        <option value="Tesouraria">Tesouraria / Finanças</option>
+                        <option value="ADMIN">Administrador Geral</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="form-group-modern">
@@ -764,6 +1014,81 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Endereço Residencial Segregado na Edição */}
+                  <div style={{ marginTop: 8, padding: '10px 12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)' }}>📍 Endereço Residencial</span>
+                      {loadingCepEdit && <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>Buscando CEP...</span>}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, marginBottom: 8 }}>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="CEP (00000-000)" 
+                        value={editAddress.address_zip} 
+                        maxLength={9}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setEditAddress(prev => ({ ...prev, address_zip: val }));
+                          if (val.replace(/\D/g, '').length === 8) {
+                            handleCepLookup(val, 'edit');
+                          }
+                        }}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Logradouro / Rua" 
+                        value={editAddress.address_street} 
+                        onChange={e => setEditAddress(prev => ({ ...prev, address_street: e.target.value }))}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8, marginBottom: 8 }}>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Nº" 
+                        value={editAddress.address_number} 
+                        onChange={e => setEditAddress(prev => ({ ...prev, address_number: e.target.value }))}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Complemento" 
+                        value={editAddress.address_complement} 
+                        onChange={e => setEditAddress(prev => ({ ...prev, address_complement: e.target.value }))}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 60px', gap: 8 }}>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Bairro" 
+                        value={editAddress.address_neighborhood} 
+                        onChange={e => setEditAddress(prev => ({ ...prev, address_neighborhood: e.target.value }))}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Cidade" 
+                        value={editAddress.address_city} 
+                        onChange={e => setEditAddress(prev => ({ ...prev, address_city: e.target.value }))}
+                      />
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="UF" 
+                        maxLength={2}
+                        style={{ textAlign: 'center' }}
+                        value={editAddress.address_state} 
+                        onChange={e => setEditAddress(prev => ({ ...prev, address_state: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
                   </div>
                 </div>
 
