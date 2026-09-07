@@ -31,6 +31,7 @@ type DevotionalData = {
   pastoral_author_avatar?: string;
   pastoral_comment?: string;
   status?: 'DRAFT' | 'PUBLISHED';
+  notify_members?: boolean;
 };
 
 export const Devotionals = () => {
@@ -46,7 +47,8 @@ export const Devotionals = () => {
     id: '', available_date: new Date().toISOString().split('T')[0],
     title: '', source_type: 'LOCAL', source_name: '', suggested_song_title: '', suggested_song_youtube_id: '',
     central_text: '', context_text: '', prayer_indication: '', pastoral_author_name: '', 
-    pastoral_author_role: '', pastoral_author_avatar: '', pastoral_comment: ''
+    pastoral_author_role: '', pastoral_author_avatar: '', pastoral_comment: '',
+    notify_members: false
   });
 
   const [formData, setFormData] = useState<DevotionalData>(defaultForm());
@@ -420,6 +422,72 @@ export const Devotionals = () => {
                           </div>
                         </div>
 
+                      </div>
+
+                      {/* Flag de Notificação no App */}
+                      <div style={{
+                        background: formData.notify_members ? 'rgba(15, 118, 110, 0.06)' : 'var(--bg-card, #ffffff)',
+                        border: formData.notify_members ? '1.5px solid var(--accent-primary, #0f766e)' : '1px solid var(--panel-border, #e2e8f0)',
+                        borderRadius: 14,
+                        padding: '14px 18px',
+                        marginTop: 18,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 10,
+                            background: formData.notify_members ? 'var(--accent-primary, #0f766e)' : 'var(--bg-main, #f1f5f9)',
+                            color: formData.notify_members ? '#ffffff' : 'var(--text-muted, #64748b)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.1rem'
+                          }}>
+                            🔔
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-main)' }}>
+                              Notificar membros no App
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {formData.notify_members 
+                                ? 'Ativo: Ao publicar, os membros da congregação receberão um alerta do devocional no app.' 
+                                : 'Inativo: O devocional ficará disponível no app sem gerar alerta ativo.'}
+                            </div>
+                          </div>
+                        </div>
+                        <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, margin: 0, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!formData.notify_members}
+                            onChange={e => setFormData({ ...formData, notify_members: e.target.checked })}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span style={{
+                            position: 'absolute',
+                            cursor: 'pointer',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: formData.notify_members ? 'var(--accent-primary, #0f766e)' : '#cbd5e1',
+                            transition: '0.3s',
+                            borderRadius: 24
+                          }}>
+                            <span style={{
+                              position: 'absolute',
+                              height: 18, width: 18,
+                              left: formData.notify_members ? 23 : 3,
+                              bottom: 3,
+                              backgroundColor: 'white',
+                              transition: '0.3s',
+                              borderRadius: '50%',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }} />
+                          </span>
+                        </label>
                       </div>
 
                     </div>

@@ -64,6 +64,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
     status: string;
     is_featured: boolean;
     show_as_popup: boolean;
+    notify_members: boolean;
     lots: { id?: string, name: string, price: number, total_capacity: number }[];
   }>({
     id: '',
@@ -78,6 +79,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
     status: 'PUBLISHED',
     is_featured: false,
     show_as_popup: false,
+    notify_members: false,
     lots: [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
   });
 
@@ -220,6 +222,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
       status: 'PUBLISHED', 
       is_featured: false, 
       show_as_popup: false, 
+      notify_members: false,
       lots: [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }] 
     });
     setShowModal(true);
@@ -239,6 +242,7 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
       status: s.status || 'PUBLISHED',
       is_featured: !!s.is_featured,
       show_as_popup: !!s.show_as_popup,
+      notify_members: !!s.notify_members,
       lots: s.lots?.length 
         ? s.lots.map((l: any) => ({ ...l, price: Number(l.price) || 0, total_capacity: Number(l.total_capacity) || 0 })) 
         : [{ name: '1º Lote Geral', price: 0, total_capacity: 100 }]
@@ -707,6 +711,29 @@ export default function Events({ selectedCampusId = 'all', selectedOrganization 
                           type="checkbox" 
                           checked={formData.show_as_popup} 
                           onChange={e => setFormData({...formData, show_as_popup: e.target.checked})} 
+                        />
+                        <span className="switch-slider"></span>
+                      </label>
+                    </div>
+
+                    {/* Toggle: Notificar Membros no App */}
+                    <div className="toggle-card-modern" style={{
+                      background: formData.notify_members ? 'rgba(15, 118, 110, 0.05)' : undefined,
+                      borderColor: formData.notify_members ? 'var(--accent-primary)' : undefined
+                    }}>
+                      <div className="toggle-card-info">
+                        <div className="toggle-card-title">
+                          <span style={{ color: '#0f766e' }}>📲</span> Notificar Membros no App
+                        </div>
+                        <div className="toggle-card-desc">
+                          Dispara aviso em tempo real de novo evento ou abertura de lotes no feed
+                        </div>
+                      </div>
+                      <label className="switch-control">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.notify_members} 
+                          onChange={e => setFormData({...formData, notify_members: e.target.checked})} 
                         />
                         <span className="switch-slider"></span>
                       </label>

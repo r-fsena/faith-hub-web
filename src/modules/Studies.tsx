@@ -54,6 +54,7 @@ export type StudyBook = {
   last_scheduled_date?: string;
   chapters?: Chapter[];
   created_at?: string;
+  notify_members?: boolean;
 };
 
 interface StudiesProps {
@@ -101,6 +102,7 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
     cover_url: string;
     status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
     target_group_id: string;
+    notify_members: boolean;
     chapters: Chapter[];
   }>({
     id: '',
@@ -112,6 +114,7 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
     cover_url: '',
     status: 'ACTIVE',
     target_group_id: '',
+    notify_members: false,
     chapters: []
   });
 
@@ -195,7 +198,8 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
           scheduled_date: today,
           status: 'ACTIVE'
         }
-      ]
+      ],
+      notify_members: false
     });
     setModalTab('book');
     setExpandedChapterIndex(0);
@@ -220,6 +224,7 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
           cover_url: fullBook.cover_url || '',
           status: fullBook.status || 'ACTIVE',
           target_group_id: fullBook.target_group_id || '',
+          notify_members: Boolean(fullBook.notify_members),
           chapters: (fullBook.chapters && fullBook.chapters.length > 0) ? fullBook.chapters : [
             {
               chapter_number: 1,
@@ -687,6 +692,71 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
                     <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>{formData.title || 'Título do Livro'}</h3>
                     <p style={{ fontSize: '0.82rem', margin: 0, opacity: 0.9 }}>{formData.subtitle || 'Subtítulo da série'}</p>
                     <span style={{ fontSize: '0.74rem', opacity: 0.8, marginTop: 4 }}>Por {formData.author_name || 'Autor'}</span>
+                  </div>
+
+                  {/* Flag de Notificação no App */}
+                  <div style={{
+                    background: formData.notify_members ? 'rgba(15, 118, 110, 0.06)' : '#ffffff',
+                    border: formData.notify_members ? '1.5px solid var(--accent-primary, #0f766e)' : '1px solid var(--panel-border, #e2e8f0)',
+                    borderRadius: 14,
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
+                        background: formData.notify_members ? 'var(--accent-primary, #0f766e)' : 'var(--bg-main, #f1f5f9)',
+                        color: formData.notify_members ? '#ffffff' : 'var(--text-muted, #64748b)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.1rem'
+                      }}>
+                        🔔
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-main)' }}>
+                          Notificar membros e células no App
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {formData.notify_members 
+                            ? 'Ativo: Os membros e líderes de células receberão um aviso de novo estudo bíblico disponível.' 
+                            : 'Inativo: O livro ficará acessível no app sem disparar alerta ativo.'}
+                        </div>
+                      </div>
+                    </div>
+                    <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, margin: 0, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!formData.notify_members}
+                        onChange={e => setFormData({ ...formData, notify_members: e.target.checked })}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        cursor: 'pointer',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: formData.notify_members ? 'var(--accent-primary, #0f766e)' : '#cbd5e1',
+                        transition: '0.3s',
+                        borderRadius: 24
+                      }}>
+                        <span style={{
+                          position: 'absolute',
+                          height: 18, width: 18,
+                          left: formData.notify_members ? 23 : 3,
+                          bottom: 3,
+                          backgroundColor: 'white',
+                          transition: '0.3s',
+                          borderRadius: '50%',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                        }} />
+                      </span>
+                    </label>
                   </div>
 
                 </div>
