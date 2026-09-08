@@ -694,6 +694,7 @@ function App() {
         onSelectOrg={handleSelectOrg}
         onSignOut={handleSignOut}
         userName={formattedUserName}
+        userEmail={user?.signInDetails?.loginId || userProfile?.email || ''}
       />
     );
   }

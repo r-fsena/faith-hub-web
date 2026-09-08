@@ -57,13 +57,27 @@ export interface Subscription {
   payment_link?: string;
 }
 
+export interface MasterUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  status: string;
+  organization_id?: string;
+  campus_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface OrganizationSelectorProps {
   onSelectOrg: (org: Organization) => void;
   onSignOut: () => void;
   userName: string;
+  userEmail?: string;
 }
 
-export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName }) => {
+export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName, userEmail }) => {
   const [activeTab, setActiveTab] = useState<'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users'>('orgs');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   
@@ -137,6 +151,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const [loadingSubs, setLoadingSubs] = useState(false);
 
   // Master Users State
+  const [masterUsers, setMasterUsers] = useState<MasterUser[]>([]);
+  const [loadingMasterUsers, setLoadingMasterUsers] = useState(false);
+  const [masterUserSearch, setMasterUserSearch] = useState('');
+  const [actionLoadingEmail, setActionLoadingEmail] = useState<string | null>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [savingUser, setSavingUser] = useState(false);
   const [userFormData, setUserFormData] = useState({
@@ -155,12 +173,29 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     fetchProposals();
     fetchSubscriptions();
     fetchAvailablePlans();
+    fetchMasterUsers();
 
     // Fecha o menu de 3 pontinhos ao clicar em qualquer lugar da tela
     const handleClickOutside = () => setOpenMenuOrgId(null);
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const fetchMasterUsers = async () => {
+    setLoadingMasterUsers(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/members?is_master=true`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        setMasterUsers(json.data || []);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar usuários master:', e);
+    } finally {
+      setLoadingMasterUsers(false);
+    }
+  };
 
   const fetchAvailablePlans = async () => {
     try {
@@ -402,6 +437,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const handleCreateMasterUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingUser(true);
+    const sentEmail = userFormData.email;
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/members/invite`, {
@@ -421,7 +457,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       if (res.ok) {
         setIsUserModalOpen(false);
         setUserFormData({ name: '', email: '', phone: '', role: 'MASTER_ADMIN' });
-        alert(`✓ Usuário Master criado com sucesso! Um e-mail com a senha provisória foi enviado para ${userFormData.email}.`);
+        await fetchMasterUsers();
+        alert(`✓ Usuário Master criado com sucesso! Um e-mail com a senha provisória foi enviado para ${sentEmail}.`);
       } else {
         const err = await res.json();
         alert(`Erro ao criar usuário master: ${err.error || err.message}`);
@@ -432,6 +469,69 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       setSavingUser(false);
     }
   };
+
+  const handleResendMasterInvite = async (user: MasterUser) => {
+    if (!confirm(`Deseja reenviar o e-mail de ativação / redefinição de senha para ${user.name} (${user.email})?`)) return;
+    setActionLoadingEmail(user.email);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/members/reset-password`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: user.email })
+      });
+      if (res.ok) {
+        alert(`✓ E-mail de redefinição/ativação reenviado com sucesso para ${user.email}!`);
+      } else {
+        const err = await res.json();
+        alert(`Erro ao reenviar e-mail: ${err.error || err.message || 'Falha na requisição'}`);
+      }
+    } catch (e) {
+      alert('Erro de conexão ao reenviar convite.');
+    } finally {
+      setActionLoadingEmail(null);
+    }
+  };
+
+  const handleToggleMasterStatus = async (user: MasterUser) => {
+    const isCurrentlyActive = (user.status || '').toUpperCase() === 'ATIVO' || (user.status || '').toUpperCase() === 'ACTIVE';
+    const action = isCurrentlyActive ? 'disable' : 'enable';
+    const actionLabel = isCurrentlyActive ? 'inativar' : 'reativar';
+
+    if (userEmail && user.email.toLowerCase() === userEmail.toLowerCase()) {
+      alert('Ação bloqueada: você não pode inativar seu próprio usuário master.');
+      return;
+    }
+
+    if (!confirm(`Tem certeza que deseja ${actionLabel} o acesso do usuário Master ${user.name} (${user.email})?`)) return;
+
+    setActionLoadingEmail(user.email);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/members/status`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ email: user.email, action })
+      });
+      if (res.ok) {
+        alert(`✓ Usuário ${user.name} ${isCurrentlyActive ? 'inativado' : 'reativado'} com sucesso!`);
+        await fetchMasterUsers();
+      } else {
+        const err = await res.json();
+        alert(`Erro ao alterar status: ${err.error || err.message || 'Falha na requisição'}`);
+      }
+    } catch (e) {
+      alert('Erro de conexão ao alterar status.');
+    } finally {
+      setActionLoadingEmail(null);
+    }
+  };
+
+  const filteredMasterUsers = masterUsers.filter(u =>
+    (u.name || '').toLowerCase().includes(masterUserSearch.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(masterUserSearch.toLowerCase()) ||
+    (u.role || '').toLowerCase().includes(masterUserSearch.toLowerCase())
+  );
 
   const filteredOrgs = organizations.filter(o =>
     o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -511,7 +611,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               { id: 'proposals', label: 'Funil de Propostas', icon: '📊', count: proposals.length },
               { id: 'subscriptions', label: 'Assinaturas Asaas', icon: '💳', count: subscriptions.length },
               { id: 'plans', label: 'Planos & Preços', icon: '💎', count: availablePlans.length },
-              { id: 'master_users', label: 'Equipe Master', icon: '🛡️', count: null }
+              { id: 'master_users', label: 'Equipe Master', icon: '🛡️', count: masterUsers.length > 0 ? masterUsers.length : null }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1220,45 +1320,292 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           {/* TAB 5: EQUIPE MASTER */}
           {activeTab === 'master_users' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                  <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    🛡️ Usuários com Acesso Master Global
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🛡️</span> Usuários com Acesso Master Global
                   </h2>
-                  <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                    Superusuários que têm permissão de criar propostas, alternar entre igrejas e gerenciar o ecossistema.
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                    Superusuários e administradores com credenciais globais para alternar entre redes, criar propostas e gerenciar o ecossistema.
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setIsUserModalOpen(true)}
-                  style={{
-                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.84rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)'
-                  }}
-                >
-                  + Novo Usuário Master
-                </button>
-              </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={fetchMasterUsers}
+                    disabled={loadingMasterUsers}
+                    style={{
+                      background: '#f8fafc',
+                      color: '#475569',
+                      border: '1px solid #e2e8f0',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="Atualizar lista"
+                  >
+                    <span>🔄</span> {loadingMasterUsers ? 'Carregando...' : 'Atualizar'}
+                  </button>
 
-              <div className="portal-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem' }}>
-                    👑
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-main)' }}>{userName || 'Super Admin'}</div>
-                    <span style={{ fontSize: '0.74rem', color: '#059669', fontWeight: 700 }}>● MASTER_ADMIN (Permissão Total)</span>
-                  </div>
+                  <button
+                    onClick={() => setIsUserModalOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '10px 18px',
+                      borderRadius: '12px',
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>+</span> Novo Usuário Master
+                  </button>
                 </div>
               </div>
+
+              {/* Barra de Filtro e Busca */}
+              <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1, maxWidth: '420px' }}>
+                  <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.9rem' }}>🔍</span>
+                  <input
+                    type="text"
+                    value={masterUserSearch}
+                    onChange={(e) => setMasterUserSearch(e.target.value)}
+                    placeholder="Buscar por nome ou e-mail..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px 10px 38px',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      background: '#ffffff',
+                      fontSize: '0.85rem',
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                {masterUserSearch && (
+                  <button
+                    onClick={() => setMasterUserSearch('')}
+                    style={{ border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    Limpar filtro
+                  </button>
+                )}
+              </div>
+
+              {/* Loading State */}
+              {loadingMasterUsers && (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '1.8rem', marginBottom: '12px' }}>🔄</div>
+                  <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>Carregando equipe Master...</p>
+                </div>
+              )}
+
+              {/* Grid de Usuários Master */}
+              {!loadingMasterUsers && (
+                filteredMasterUsers.length === 0 ? (
+                  <div className="portal-card" style={{ padding: '40px 20px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '12px' }}>🛡️</div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                      {masterUserSearch ? 'Nenhum usuário master encontrado' : 'Nenhum usuário master cadastrado'}
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
+                      {masterUserSearch ? 'Tente pesquisar por outro termo.' : 'Clique em "+ Novo Usuário Master" para convidar um administrador com privilégios globais.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
+                    {filteredMasterUsers.map((user) => {
+                      const isCurrentUser = userEmail && user.email.toLowerCase() === userEmail.toLowerCase();
+                      const statusUpper = (user.status || '').toUpperCase();
+                      const isPending = statusUpper === 'PENDENTE' || statusUpper === 'PENDING';
+                      const isInactive = statusUpper === 'INACTIVE' || statusUpper === 'INATIVO';
+                      const isActive = !isPending && !isInactive;
+                      const isSuper = (user.role || '').toUpperCase() === 'SUPERADMIN';
+                      const isActionBusy = actionLoadingEmail === user.email;
+
+                      return (
+                        <div
+                          key={user.id || user.email}
+                          className="portal-card"
+                          style={{
+                            padding: '22px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            borderRadius: '16px',
+                            border: isCurrentUser ? '2px solid #0f766e' : '1px solid #e2e8f0',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {isCurrentUser && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '12px',
+                              right: '12px',
+                              background: '#f0fdfa',
+                              color: '#0f766e',
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '20px',
+                              border: '1px solid #ccfbf1'
+                            }}>
+                              VOCÊ
+                            </div>
+                          )}
+
+                          <div>
+                            {/* Avatar & Identificação */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
+                              <div
+                                style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '14px',
+                                  background: isSuper
+                                    ? 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)'
+                                    : 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                                  color: '#ffffff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 900,
+                                  fontSize: '1.1rem',
+                                  flexShrink: 0,
+                                  boxShadow: isSuper ? '0 4px 12px rgba(124, 58, 237, 0.25)' : '0 4px 12px rgba(15, 118, 110, 0.25)'
+                                }}
+                              >
+                                {isSuper ? '👑' : (user.name ? user.name.trim().charAt(0).toUpperCase() : '🛡️')}
+                              </div>
+
+                              <div style={{ flex: 1, minWidth: 0, paddingRight: isCurrentUser ? '40px' : '0' }}>
+                                <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {user.name || 'Administrador Master'}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <span>✉️</span> {user.email}
+                                </div>
+                                {user.phone && (
+                                  <div style={{ fontSize: '0.74rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                    <span>📞</span> {user.phone}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Tags & Badges */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                              {/* Role Badge */}
+                              <span
+                                style={{
+                                  fontSize: '0.70rem',
+                                  fontWeight: 800,
+                                  padding: '4px 10px',
+                                  borderRadius: '8px',
+                                  background: isSuper ? '#f3e8ff' : '#f0fdfa',
+                                  color: isSuper ? '#7e22ce' : '#0f766e',
+                                  border: `1px solid ${isSuper ? '#e9d5ff' : '#ccfbf1'}`
+                                }}
+                              >
+                                {isSuper ? '👑 SUPERADMIN' : '🛡️ MASTER_ADMIN'}
+                              </span>
+
+                              {/* Status Badge */}
+                              <span
+                                style={{
+                                  fontSize: '0.70rem',
+                                  fontWeight: 800,
+                                  padding: '4px 10px',
+                                  borderRadius: '8px',
+                                  background: isActive ? '#ecfdf5' : isPending ? '#fffbeb' : '#fef2f2',
+                                  color: isActive ? '#059669' : isPending ? '#b45309' : '#dc2626',
+                                  border: `1px solid ${isActive ? '#a7f3d0' : isPending ? '#fde68a' : '#fecaca'}`
+                                }}
+                              >
+                                {isActive ? '● Ativo' : isPending ? '⏳ Pendente (1º Acesso)' : '✕ Inativo'}
+                              </span>
+                            </div>
+
+                            {user.created_at && (
+                              <div style={{ fontSize: '0.70rem', color: '#94a3b8', marginBottom: '14px' }}>
+                                Convidado em {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Botões de Ação */}
+                          <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '14px', marginTop: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleResendMasterInvite(user)}
+                              disabled={isActionBusy}
+                              style={{
+                                flex: 1,
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                background: '#ffffff',
+                                color: '#334155',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                cursor: isActionBusy ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                              title="Reenviar e-mail de ativação e redefinição de senha pelo AWS Cognito"
+                            >
+                              <span>🔑</span> {isActionBusy ? 'Enviando...' : 'Reenviar Acesso'}
+                            </button>
+
+                            {!isCurrentUser && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleMasterStatus(user)}
+                                disabled={isActionBusy}
+                                style={{
+                                  padding: '8px 12px',
+                                  borderRadius: '8px',
+                                  border: `1px solid ${isInactive ? '#a7f3d0' : '#fecaca'}`,
+                                  background: isInactive ? '#ecfdf5' : '#fef2f2',
+                                  color: isInactive ? '#059669' : '#dc2626',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  cursor: isActionBusy ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px'
+                                }}
+                                title={isInactive ? 'Reativar usuário master' : 'Inativar usuário master'}
+                              >
+                                {isInactive ? 'Reativar' : 'Inativar'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
             </div>
           )}
 
