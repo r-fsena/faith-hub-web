@@ -51,7 +51,15 @@ const UsersIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
 );
 
-export const Campuses: React.FC = () => {
+export interface CampusesProps {
+  selectedOrganization?: {
+    id: string;
+    name: string;
+    slug?: string;
+  } | null;
+}
+
+export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,15 +81,12 @@ export const Campuses: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  useEffect(() => {
-    fetchCampuses();
-  }, []);
-
   const fetchCampuses = async () => {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/campuses`, { headers });
+      const orgParam = selectedOrganization?.id ? `?organization_id=${encodeURIComponent(selectedOrganization.id)}` : '';
+      const res = await fetch(`${API_URL}/campuses${orgParam}`, { headers });
       if (res.ok) {
         const json = await res.json();
         setCampuses(json.data || []);
@@ -93,12 +98,19 @@ export const Campuses: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    fetchCampuses();
+  }, [selectedOrganization?.id]);
+
   const handleOpenCreateModal = () => {
     setEditingCampus(null);
+    const churchName = selectedOrganization?.name || '';
+    const isFirst = campuses.length === 0;
+    const defaultName = isFirst && churchName ? `${churchName} - Sede` : '';
     setFormData({
-      name: '',
-      slug: '',
-      is_headquarters: campuses.length === 0,
+      name: defaultName,
+      slug: defaultName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+      is_headquarters: isFirst,
       pastor_name: '',
       phone: '',
       whatsapp: '',
@@ -150,6 +162,7 @@ export const Campuses: React.FC = () => {
       const headers = await getAuthHeaders();
       const payload = {
         id: editingCampus ? editingCampus.id : undefined,
+        organization_id: selectedOrganization?.id,
         ...formData
       };
 
@@ -227,13 +240,13 @@ export const Campuses: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.9, fontWeight: 700 }}>
-              Estrutura Organizacional & Franquias
+              Estrutura Organizacional • {selectedOrganization?.name || 'Igreja'}
             </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '4px 0 0 0' }}>
-              Gestão de Unidades & Campi da Igreja
+              Gestão de Unidades & Campi
             </h2>
             <div style={{ fontSize: '0.85rem', opacity: 0.85, marginTop: '4px' }}>
-              Cadastre suas filiais, defina a Sede Principal e gerencie a liderança de cada congregação.
+              Cadastre suas filiais, defina a Sede e gerencie a liderança de cada congregação da <strong>{selectedOrganization?.name || 'sua igreja'}</strong>.
             </div>
           </div>
         </div>
@@ -269,7 +282,7 @@ export const Campuses: React.FC = () => {
           <BuildingIcon />
           <h3 style={{ marginTop: '12px', color: 'var(--text-main)' }}>Nenhuma unidade encontrada</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>
-            Clique em "Nova Unidade" para cadastrar sua Sede ou filiais.
+            Nenhuma unidade ou filial cadastrada para a congregação <strong>{selectedOrganization?.name || 'selecionada'}</strong>.
           </p>
         </div>
       ) : (

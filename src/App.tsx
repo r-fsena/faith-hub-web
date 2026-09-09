@@ -1406,7 +1406,7 @@ function App() {
                 ACTIVE MODULE RENDERERS (Multi-Campus Enabled)
                 ========================================== */}
             <ErrorBoundary fallbackTitle="Erro ao carregar o módulo">
-              {activeTab === 'campuses' && <Campuses />}
+              {activeTab === 'campuses' && <Campuses selectedOrganization={selectedOrganization} />}
               {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {(activeTab.startsWith('kids_') || activeTab === 'kids_ministerio') && (
                 <KidsMinistry 
