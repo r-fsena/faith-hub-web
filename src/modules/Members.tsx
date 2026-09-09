@@ -635,7 +635,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           ======================================================== */}
       {isInviteModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setInviteModalOpen(false)}>
-          <div className="modal-studio-container" style={{ maxWidth: 840 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-studio-container" style={{ maxWidth: 1140, maxHeight: '94vh' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon">
@@ -651,8 +651,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
               <button className="modal-close-circle" onClick={() => setInviteModalOpen(false)}>✕</button>
             </div>
 
-            <div className="modal-studio-body">
-              <div className="modal-studio-grid">
+            <div className="modal-studio-body" style={{ padding: '24px 32px' }}>
+              <div className="modal-studio-grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: 28 }}>
                 {/* Left Column: Identificação & Contato */}
                 <div className="modal-studio-column">
                   <div className="form-group-modern">
@@ -827,7 +827,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '6px',
-                      maxHeight: '260px',
+                      maxHeight: '340px',
                       overflowY: 'auto'
                     }}>
                       {/* Opção Todas as Unidades */}
@@ -919,7 +919,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           ======================================================== */}
       {isEditModalOpen && memberToEdit && createPortal(
         <form className="modal-overlay animate-fade-in" onClick={() => setEditModalOpen(false)} onSubmit={submitEditProfile}>
-          <div className="modal-studio-container" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-studio-container" style={{ maxWidth: 1160, maxHeight: '94vh' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
@@ -935,8 +935,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
               <button type="button" className="modal-close-circle" onClick={() => setEditModalOpen(false)}>✕</button>
             </div>
 
-            <div className="modal-studio-body">
-              <div className="modal-studio-grid">
+            <div className="modal-studio-body" style={{ padding: '24px 32px' }}>
+              <div className="modal-studio-grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: 28 }}>
                 
                 {/* Left Column: Dados Pessoais & Contato */}
                 <div className="modal-studio-column">
@@ -1110,7 +1110,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '6px',
-                      maxHeight: '280px',
+                      maxHeight: '360px',
                       overflowY: 'auto'
                     }}>
                       <div 

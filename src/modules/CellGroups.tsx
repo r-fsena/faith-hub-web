@@ -544,7 +544,7 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
         <div className="modal-overlay animate-fade-in" onClick={() => setSelectedCell(null)}>
           <div 
             className="modal-studio-container" 
-            style={{ maxWidth: 940, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} 
+            style={{ maxWidth: 1140, maxHeight: '94vh', display: 'flex', flexDirection: 'column' }} 
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header do Workspace */}

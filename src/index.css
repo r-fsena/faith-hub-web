@@ -1307,9 +1307,9 @@ ul { list-style: none; }
 
 .modal-studio-container {
   background-color: #ffffff;
-  width: 100%;
-  max-width: 1040px;
-  max-height: 92vh;
+  width: 96%;
+  max-width: 1180px;
+  max-height: 94vh;
   border-radius: var(--radius-xl);
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
   overflow: hidden;
