@@ -46,6 +46,26 @@ interface SaasInvoice {
   receipt_url?: string;
 }
 
+interface SubscriptionData {
+  id: string;
+  organization_id: string;
+  church_name: string;
+  org_plan?: string;
+  plan?: string;
+  plan_name?: string;
+  plan_description?: string;
+  plan_badge?: string;
+  value: number | string;
+  cycle: string;
+  billing_type: string;
+  next_due_date: string;
+  status: string;
+  plan_features?: string | string[];
+  features?: string[];
+  max_members?: number;
+  max_campuses?: number;
+}
+
 interface MySubscriptionProps {
   selectedOrganization?: any;
 }
@@ -53,6 +73,7 @@ interface MySubscriptionProps {
 export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganization }) => {
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<SaasInvoice[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<SaasInvoice | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [copiedPix, setCopiedPix] = useState(false);
@@ -61,8 +82,41 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
   const churchName = selectedOrganization?.name || 'Nossa Igreja';
 
   useEffect(() => {
+    loadSubscription();
     loadInvoices();
   }, [orgId]);
+
+  const loadSubscription = async () => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_URL}/saas-subscriptions?organization_id=${encodeURIComponent(orgId)}`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json) ? json : json.data || [];
+        if (list.length > 0) {
+          const item = list[0];
+          let feats: string[] = [];
+          if (item.plan_features) {
+            try {
+              feats = typeof item.plan_features === 'string' ? JSON.parse(item.plan_features) : item.plan_features;
+            } catch {
+              feats = [];
+            }
+          }
+          setSubscription({
+            ...item,
+            features: feats
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar dados da assinatura:', e);
+    }
+  };
 
   const loadInvoices = async () => {
     setLoading(true);
@@ -118,6 +172,12 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
 
   const pendingInvoice = invoices.find(i => i.status === 'PENDING' || i.status === 'OVERDUE');
 
+  // Determina o nome do plano de forma resiliente
+  const effectivePlanName = subscription?.plan_name || (selectedOrganization?.plan === 'ENTERPRISE' ? 'Enterprise' : selectedOrganization?.plan === 'STARTER' ? 'Starter' : 'Pro');
+  const effectiveBadge = subscription?.plan_badge || (selectedOrganization?.plan === 'ENTERPRISE' ? 'Redes & Sedes' : selectedOrganization?.plan === 'STARTER' ? 'Iniciante' : 'Mais Popular');
+  const isYearly = subscription?.cycle === 'YEARLY';
+  const effectiveValue = Number(subscription?.value || (selectedOrganization?.plan === 'ENTERPRISE' ? 597 : selectedOrganization?.plan === 'STARTER' ? 99 : 399.90));
+
   return (
     <div className="members-container animate-fade-in" style={{ paddingBottom: '60px' }}>
       
@@ -169,24 +229,43 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
         {/* Card 1: Detalhes do Plano */}
         <div className="portal-card" style={{ padding: '24px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: 'var(--radius-md)', border: '1px solid #334155' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ background: '#059669', color: '#ffffff', padding: '4px 10px', borderRadius: '999px', fontSize: '0.70rem', fontWeight: 900 }}>
-              PLANO PROFISSIONAL ATIVO
+            <span style={{
+              background: (subscription?.status === 'ACTIVE' || !subscription) ? '#059669' : '#eab308',
+              color: '#ffffff',
+              padding: '4px 10px',
+              borderRadius: '999px',
+              fontSize: '0.70rem',
+              fontWeight: 900,
+              letterSpacing: '0.04em'
+            }}>
+              PLANO {effectiveBadge.toUpperCase()} ATIVO
             </span>
-            <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>Renovação Mensal</span>
+            <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+              {isYearly ? 'Renovação Anual' : 'Renovação Mensal'}
+            </span>
           </div>
 
           <h2 style={{ fontSize: '1.65rem', fontWeight: 900, margin: '0 0 6px 0', letterSpacing: '-0.4px' }}>
-            Faith-Hub Pro
+            Faith-Hub {effectivePlanName}
           </h2>
           <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#38bdf8', marginBottom: '16px' }}>
-            R$ 297,00 <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>/ mês</span>
+            {formatCurrency(effectiveValue)} <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>{isYearly ? '/ ano' : '/ mês'}</span>
           </div>
 
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: '#cbd5e1' }}>
-            <div>✓ Aplicativo PWA Whitelabel Personalizado</div>
-            <div>✓ Membros, Células, Ensino & Dízimos Ilimitados</div>
-            <div>✓ Módulo Financeiro, DRE e Gateway Pagar.me</div>
-            <div>✓ Notificações Push & Central de Cultos</div>
+            {subscription?.features && subscription.features.length > 0 ? (
+              subscription.features.slice(0, 5).map((feat, idx) => (
+                <div key={idx}>✓ {feat}</div>
+              ))
+            ) : (
+              <>
+                <div>✓ Aplicativo PWA Whitelabel Personalizado</div>
+                <div>✓ Membros, Células, Ensino & Dízimos Ilimitados</div>
+                <div>✓ Módulo Financeiro, DRE e Gateway Pagar.me</div>
+                <div>✓ Notificações Push & Central de Cultos</div>
+                <div>✓ Suporte Dedicado & Nuvem Serverless AWS</div>
+              </>
+            )}
           </div>
         </div>
 
@@ -224,7 +303,11 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
                   Tudo em Dia!
                 </div>
                 <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                  Nenhuma fatura pendente para a sua congregação.
+                  {subscription?.next_due_date ? (
+                    <>Próxima renovação em: <strong>{new Date(subscription.next_due_date).toLocaleDateString('pt-BR')}</strong>.</>
+                  ) : (
+                    'Nenhuma fatura pendente para a sua congregação.'
+                  )}
                 </div>
               </>
             )}
