@@ -14,6 +14,18 @@ const TrashIcon = () => (
 const BookOpenIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
 );
+const EditIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+);
+const SearchIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+);
+const CopyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+);
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
 
 type DevotionalData = {
   id: string;
@@ -34,6 +46,8 @@ type DevotionalData = {
   pastoral_comment?: string;
   status?: 'DRAFT' | 'PUBLISHED';
   notify_members?: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export interface DevotionalsProps {
@@ -50,6 +64,10 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessPrompt, setShowSuccessPrompt] = useState(false);
   const [successStatus, setSuccessStatus] = useState<'DRAFT' | 'PUBLISHED' | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const orgId = selectedOrganization?.id || 'org_default';
   const churchName = selectedOrganization?.name || 'Igreja';
@@ -125,6 +143,89 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
     loadDevotionals();
   }, [orgId, selectedCampusId]);
 
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatDateOnly = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'UTC'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleCopyId = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleToggleStatus = async (dev: DevotionalData, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isPublished = dev.status === 'PUBLISHED';
+    const newStatus: 'DRAFT' | 'PUBLISHED' = isPublished ? 'DRAFT' : 'PUBLISHED';
+    setTogglingId(dev.id);
+
+    // Atualização otimista
+    setDevotionals(prev => prev.map(item => item.id === dev.id ? { ...item, status: newStatus } : item));
+
+    try {
+      const headers = await getAuthHeaders();
+      let avDate = dev.available_date;
+      if (avDate && avDate.includes('T')) {
+        avDate = avDate.split('T')[0];
+      }
+      const payload = {
+        ...dev,
+        available_date: avDate,
+        organization_id: dev.organization_id || orgId,
+        campus_id: dev.campus_id || null,
+        status: newStatus
+      };
+
+      const res = await fetch(`${API_URL}/devotionals`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        setDevotionals(prev => prev.map(item => item.id === dev.id ? { ...item, status: dev.status } : item));
+        alert("Não foi possível alterar a situação do devocional.");
+      } else {
+        loadDevotionals();
+      }
+    } catch (err) {
+      console.error(err);
+      setDevotionals(prev => prev.map(item => item.id === dev.id ? { ...item, status: dev.status } : item));
+      alert("Erro de conexão ao alterar status.");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const openNewModal = () => {
     setFormData(defaultForm());
     setShowSuccessPrompt(false);
@@ -133,7 +234,15 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
   };
 
   const openEditModal = (d: DevotionalData) => {
-    setFormData(d);
+    let avDate = d.available_date;
+    if (avDate && avDate.includes('T')) {
+      avDate = avDate.split('T')[0];
+    }
+    setFormData({
+      ...d,
+      available_date: avDate,
+      campus_id: d.campus_id || ''
+    });
     setShowSuccessPrompt(false);
     setActiveModalTab('editor');
     setShowModal(true);
@@ -188,16 +297,43 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
     }
   };
 
+  const filteredDevotionals = devotionals.filter(dev => {
+    const matchesStatus = 
+      statusFilter === 'ALL' ? true :
+      statusFilter === 'PUBLISHED' ? dev.status === 'PUBLISHED' :
+      dev.status === 'DRAFT';
+
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return matchesStatus;
+
+    const matchesTerm = 
+      (dev.id && dev.id.toLowerCase().includes(term)) ||
+      (dev.title && dev.title.toLowerCase().includes(term)) ||
+      (dev.source_name && dev.source_name.toLowerCase().includes(term)) ||
+      (dev.central_text && dev.central_text.toLowerCase().includes(term)) ||
+      (dev.pastoral_author_name && dev.pastoral_author_name.toLowerCase().includes(term));
+
+    return matchesStatus && matchesTerm;
+  });
+
+  const publishedCount = devotionals.filter(d => d.status === 'PUBLISHED').length;
+  const draftCount = devotionals.filter(d => d.status === 'DRAFT').length;
+
   return (
     <div className="members-container animate-fade-in" style={{ width: '100%' }}>
       {/* Header */}
-      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 24 }}>
+      <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 20 }}>
         <div>
-          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>
-            Devocionais e Palavra Diária • {churchName}
-          </h1>
-          <p className="card-subtitle">
-            Café com Deus, Pão Diário e reflexões oficiais publicadas no app dos membros da <strong>{churchName}</strong>.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <h1 className="card-title" style={{ fontSize: '1.4rem', margin: 0 }}>
+              Devocionais e Palavra Diária • {churchName}
+            </h1>
+            <span style={{ fontSize: '0.8rem', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>
+              {devotionals.length} cadastrados
+            </span>
+          </div>
+          <p className="card-subtitle" style={{ margin: 0 }}>
+            Gerenciamento completo das reflexões e leituras diárias no app dos membros da <strong>{churchName}</strong>.
           </p>
         </div>
         <button className="btn-primary" onClick={openNewModal}>
@@ -205,60 +341,353 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
         </button>
       </div>
 
+      {/* Toolbar / Filtros */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        flexWrap: 'wrap', 
+        gap: 14, 
+        marginBottom: 20, 
+        background: 'var(--panel-bg, #ffffff)', 
+        padding: '12px 18px', 
+        borderRadius: 14, 
+        border: '1px solid var(--panel-border, #e2e8f0)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+      }}>
+        {/* Search */}
+        <div style={{ position: 'relative', flex: '1 1 300px', maxWidth: 460 }}>
+          <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex' }}>
+            <SearchIcon />
+          </div>
+          <input 
+            type="text" 
+            placeholder="Buscar por título, ID, passagem bíblica ou autor..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '9px 14px 9px 38px',
+              borderRadius: 10,
+              border: '1px solid var(--panel-border, #cbd5e1)',
+              background: '#f8fafc',
+              fontSize: '0.88rem',
+              color: 'var(--text-main)',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Filter Badges */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('ALL')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              border: '1px solid',
+              borderColor: statusFilter === 'ALL' ? 'var(--accent-primary, #0f766e)' : 'var(--panel-border, #e2e8f0)',
+              background: statusFilter === 'ALL' ? 'rgba(15, 118, 110, 0.1)' : 'transparent',
+              color: statusFilter === 'ALL' ? 'var(--accent-primary, #0f766e)' : 'var(--text-secondary)',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer'
+            }}
+          >
+            Todos ({devotionals.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('PUBLISHED')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              border: '1px solid',
+              borderColor: statusFilter === 'PUBLISHED' ? '#10b981' : 'var(--panel-border, #e2e8f0)',
+              background: statusFilter === 'PUBLISHED' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              color: statusFilter === 'PUBLISHED' ? '#059669' : 'var(--text-secondary)',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer'
+            }}
+          >
+            ● Publicados ({publishedCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('DRAFT')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              border: '1px solid',
+              borderColor: statusFilter === 'DRAFT' ? '#f59e0b' : 'var(--panel-border, #e2e8f0)',
+              background: statusFilter === 'DRAFT' ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
+              color: statusFilter === 'DRAFT' ? '#d97706' : 'var(--text-secondary)',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer'
+            }}
+          >
+            ○ Rascunhos / Inativos ({draftCount})
+          </button>
+        </div>
+      </div>
+
+      {/* Dica de interação */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 8, 
+        fontSize: '0.80rem', 
+        color: 'var(--text-muted)', 
+        marginBottom: 12,
+        paddingLeft: 4 
+      }}>
+        <span>💡 <em>Dica: Clique sobre qualquer linha da tabela para abrir o modal e editar o devocional.</em></span>
+      </div>
+
+      {/* Tabela de Devocionais */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Carregando devocionais...</div>
-      ) : devotionals.length === 0 ? (
-        <div className="empty-state">
+      ) : filteredDevotionals.length === 0 ? (
+        <div className="empty-state" style={{ background: 'var(--panel-bg, #ffffff)', borderRadius: 16, border: '1px solid var(--panel-border)', padding: 48 }}>
           <BookOpenIcon />
-          <h3>Nenhum devocional publicado para {churchName}</h3>
-          <p>Clique em Adicionar Devocional para redigir a primeira palavra inspiracional desta congregação.</p>
+          <h3>{searchTerm || statusFilter !== 'ALL' ? 'Nenhum devocional encontrado para os filtros' : `Nenhum devocional publicado para ${churchName}`}</h3>
+          <p>{searchTerm || statusFilter !== 'ALL' ? 'Tente limpar a busca ou mudar o filtro de status.' : 'Clique em Adicionar Devocional para redigir a primeira palavra inspiracional desta congregação.'}</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 20 }}>
-          {devotionals.map((dev) => {
-            const parsedDate = new Date(dev.available_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-            return (
-              <div key={dev.id} className="portal-card" onClick={() => openEditModal(dev)} style={{ padding: 22, cursor: 'pointer', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <span style={{ fontSize: '0.80rem', color: 'var(--accent-primary)', fontWeight: 800, letterSpacing: '0.04em' }}>{parsedDate}</span>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {dev.status === 'DRAFT' ? (
-                      <span className="status-badge pending">RASCUNHO</span>
-                    ) : (
-                      <span className="status-badge excellent">PUBLICADO</span>
-                    )}
-                    <button 
-                      className="action-circle-btn" 
-                      style={{ width: 28, height: 28, color: 'var(--danger)' }} 
-                      onClick={(e) => handleDelete(dev.id, e)}
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                </div>
+        <div style={{
+          background: 'var(--panel-bg, #ffffff)',
+          borderRadius: 16,
+          border: '1px solid var(--panel-border, #e2e8f0)',
+          overflow: 'hidden',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 920 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--panel-border, #e2e8f0)' }}>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 110 }}>
+                    ID
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Título & Conteúdo
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 130 }}>
+                    Status
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 140 }}>
+                    Data Criação
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 140 }}>
+                    Data Atualização
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 130 }}>
+                    Publicado
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 130, textAlign: 'center' }}>
+                    Ativar / Desativar
+                  </th>
+                  <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 90, textAlign: 'center' }}>
+                    Ações
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDevotionals.map((dev) => {
+                  const isPublished = dev.status === 'PUBLISHED';
+                  const shortId = dev.id ? dev.id.substring(0, 8) : '---';
+                  const isCopied = copiedId === dev.id;
+                  const isToggling = togglingId === dev.id;
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8, lineHeight: 1.3 }}>{dev.title}</h3>
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
-                  {dev.context_text}
-                </p>
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                  <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: 8, fontSize: '0.76rem', color: 'var(--text-secondary)', border: '1px solid var(--panel-border)' }}>
-                    Fonte: <strong style={{ color: 'var(--text-main)' }}>{dev.source_type === 'LOCAL' ? 'Igreja / Base' : dev.source_name}</strong>
-                  </div>
-                  {dev.campus_id ? (
-                    <span style={{ fontSize: '0.70rem', background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                      📍 {campuses.find(c => c.id === dev.campus_id)?.name || 'Filial'}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '0.70rem', background: '#f1f5f9', color: '#64748b', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                      🌐 Geral
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                  return (
+                    <tr 
+                      key={dev.id} 
+                      onClick={() => openEditModal(dev)}
+                      title="Clique para editar este devocional"
+                      style={{ 
+                        cursor: 'pointer',
+                        transition: 'background 0.15s ease',
+                        borderBottom: '1px solid var(--panel-border, #f1f5f9)'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {/* ID */}
+                      <td style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyId(dev.id, e)}
+                          title={`Copiar ID completo: ${dev.id}`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontFamily: 'monospace',
+                            fontSize: '0.75rem',
+                            padding: '4px 8px',
+                            background: '#f1f5f9',
+                            color: '#475569',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 6,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isCopied ? (
+                            <>
+                              <span style={{ color: '#059669', display: 'flex' }}><CheckIcon /></span>
+                              <span style={{ color: '#059669', fontWeight: 700 }}>Copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ display: 'flex' }}><CopyIcon /></span>
+                              <span>#{shortId}</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Título & Conteúdo */}
+                      <td style={{ padding: '14px 18px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', marginBottom: 4, lineHeight: 1.3 }}>
+                          {dev.title}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            📖 {dev.source_name || 'Passagem Bíblica'}
+                          </span>
+                          {dev.pastoral_author_name && (
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                              • {dev.pastoral_author_name}
+                            </span>
+                          )}
+                          {dev.campus_id ? (
+                            <span style={{ fontSize: '0.68rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>
+                              📍 {campuses.find(c => c.id === dev.campus_id)?.name || 'Filial'}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.68rem', background: '#f1f5f9', color: '#64748b', padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>
+                              🌐 Todas as Filiais
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                        {isPublished ? (
+                          <span className="status-badge excellent" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            ● PUBLICADO
+                          </span>
+                        ) : (
+                          <span className="status-badge pending" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            ○ RASCUNHO
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Data Criação */}
+                      <td style={{ padding: '14px 18px', fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {formatDate(dev.created_at)}
+                      </td>
+
+                      {/* Data Atualização */}
+                      <td style={{ padding: '14px 18px', fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {formatDate(dev.updated_at || dev.created_at)}
+                      </td>
+
+                      {/* Publicado (Data Disponível) */}
+                      <td style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: isPublished ? 'var(--accent-primary, #0f766e)' : 'var(--text-muted)' }}>
+                          📅 {formatDateOnly(dev.available_date)}
+                        </span>
+                      </td>
+
+                      {/* Flag Desativar / Ativar */}
+                      <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div 
+                          onClick={(e) => handleToggleStatus(dev, e)}
+                          title={isPublished ? "Clique para desativar este devocional" : "Clique para ativar/publicar este devocional"}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '4px 10px',
+                            borderRadius: 20,
+                            background: isPublished ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
+                            border: `1px solid ${isPublished ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0'}`,
+                            cursor: isToggling ? 'wait' : 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {/* Toggle Switch */}
+                          <div style={{
+                            width: 32,
+                            height: 18,
+                            borderRadius: 18,
+                            background: isPublished ? '#10b981' : '#cbd5e1',
+                            position: 'relative',
+                            transition: 'background 0.2s ease',
+                            display: 'inline-block'
+                          }}>
+                            <div style={{
+                              width: 14,
+                              height: 14,
+                              borderRadius: '50%',
+                              background: '#ffffff',
+                              position: 'absolute',
+                              top: 2,
+                              left: isPublished ? 16 : 2,
+                              transition: 'left 0.2s ease',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+
+                          {/* Label */}
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700, 
+                            color: isPublished ? '#059669' : '#64748b' 
+                          }}>
+                            {isToggling ? 'Salvando...' : isPublished ? 'Ativo' : 'Desativado'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Ações */}
+                      <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="action-circle-btn"
+                            title="Editar devocional"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(dev);
+                            }}
+                            style={{ width: 30, height: 30, color: 'var(--accent-primary, #0f766e)' }}
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="action-circle-btn"
+                            title="Excluir devocional"
+                            onClick={(e) => handleDelete(dev.id, e)}
+                            style={{ width: 30, height: 30, color: 'var(--danger, #ef4444)' }}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
