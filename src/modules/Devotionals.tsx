@@ -239,9 +239,24 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
       avDate = avDate.split('T')[0];
     }
     setFormData({
-      ...d,
-      available_date: avDate,
-      campus_id: d.campus_id || ''
+      id: d.id,
+      organization_id: d.organization_id || orgId,
+      campus_id: d.campus_id || '',
+      available_date: avDate || new Date().toISOString().split('T')[0],
+      title: d.title || '',
+      source_type: d.source_type || 'LOCAL',
+      source_name: d.source_name || '',
+      suggested_song_title: d.suggested_song_title || '',
+      suggested_song_youtube_id: d.suggested_song_youtube_id || '',
+      central_text: d.central_text || '',
+      context_text: d.context_text || '',
+      prayer_indication: d.prayer_indication || '',
+      pastoral_author_name: d.pastoral_author_name || (selectedOrganization?.name ? `Pastoral • ${selectedOrganization.name}` : ''),
+      pastoral_author_role: d.pastoral_author_role || 'Pastor Titular',
+      pastoral_author_avatar: d.pastoral_author_avatar || '',
+      pastoral_comment: d.pastoral_comment || '',
+      status: d.status || 'DRAFT',
+      notify_members: !!d.notify_members
     });
     setShowSuccessPrompt(false);
     setActiveModalTab('editor');
@@ -695,22 +710,22 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
           MODAL STUDIO (2-Column Horizontal Split Architecture)
           ======================================================== */}
       {showModal && createPortal(
-        <div className="modal-studio-backdrop animate-fade-in" onClick={() => setShowModal(false)}>
-          <div className="modal-studio-window" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-studio-container animate-scale-up" onClick={e => e.stopPropagation()}>
             
             {/* Top Bar Header */}
-            <div className="modal-studio-topbar">
-              <div className="modal-studio-title-area">
-                <div className="modal-studio-icon">
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'rgba(15, 118, 110, 0.1)', color: 'var(--accent-primary, #0f766e)' }}>
                   <BookOpenIcon />
                 </div>
                 <div>
-                  <h2 className="modal-studio-title">
+                  <div className="modal-studio-title">
                     {formData.id ? 'Editar Devocional Diário' : `Novo Devocional Diário • ${churchName}`}
-                  </h2>
-                  <p className="modal-studio-subtitle">
+                  </div>
+                  <div className="modal-studio-subtitle">
                     Alinhe a reflexão, a palavra bíblica e o louvor para o dia da congregação.
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -773,10 +788,11 @@ export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'al
                         <label className="form-label-modern">Origem do Conteúdo</label>
                         <select 
                           className="select-modern"
-                          value={formData.source_type} 
+                          value={formData.source_type || 'LOCAL'} 
                           onChange={e => setFormData({...formData, source_type: e.target.value})}
                         >
                           <option value="LOCAL">Autoral (Sua Igreja)</option>
+                          <option value="BIBLE">Passagem Bíblica / Estudo</option>
                           <option value="GLOBAL">Global (Redes externas)</option>
                         </select>
                       </div>
@@ -1065,7 +1081,13 @@ const TextPreviewMobile = ({ data }: { data: DevotionalData }) => {
         {data.pastoral_comment && (
            <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, marginBottom: 16, border: '1px solid #e2e8f0' }}>
              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                <img src={data.pastoral_author_avatar} alt="pr" style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }} />
+                {data.pastoral_author_avatar ? (
+                  <img src={data.pastoral_author_avatar} alt="pr" style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8, objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: 32, height: 32, borderRadius: 16, background: '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, fontSize: '0.85rem' }}>
+                    ✝️
+                  </div>
+                )}
                 <div>
                   <div style={{ color: '#1e293b', fontWeight: 700, fontSize: '0.80rem' }}>{data.pastoral_author_name}</div>
                   <div style={{ color: '#64748b', fontSize: '0.70rem' }}>{data.pastoral_author_role}</div>
