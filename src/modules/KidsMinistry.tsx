@@ -284,9 +284,12 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
   // Load Families (Membros e filhos integrados)
   const loadFamilies = async (query = '') => {
     try {
+      const headers = await getAuthHeaders();
       const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
-      const res = await fetch(`${API_URL}/kids/families?organization_id=${encodeURIComponent(orgId)}${campusParam}${searchParam}`);
+      const res = await fetch(`${API_URL}/kids/families?organization_id=${encodeURIComponent(orgId)}${campusParam}${searchParam}`, {
+        headers
+      });
       if (res.ok) {
         const json = await res.json();
         setFamilies(json.data || []);
