@@ -52,6 +52,7 @@ interface Member {
   campus_ids?: string[];
   campusName?: string;
   cpf?: string;
+  operational_permissions?: string[] | string;
 }
 
 interface MembersProps {
@@ -84,7 +85,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     address_complement: '',
     address_neighborhood: '',
     address_city: '',
-    address_state: ''
+    address_state: '',
+    operational_permissions: [] as string[]
   });
   const [isInviting, setIsInviting] = useState(false);
   const [loadingCepInvite, setLoadingCepInvite] = useState(false);
@@ -95,6 +97,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
   const [editCampusIds, setEditCampusIds] = useState<string[]>([]);
+  const [editOperationalPermissions, setEditOperationalPermissions] = useState<string[]>([]);
   const [loadingCepEdit, setLoadingCepEdit] = useState(false);
   const [editAddress, setEditAddress] = useState({
     birth_date: '',
@@ -496,8 +499,39 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       ? member.campus_ids 
       : (member.campus_id ? [member.campus_id] : ['campus_sede']);
     setEditCampusIds(initialCampuses);
+
+    let initialPerms: string[] = [];
+    if (Array.isArray(member.operational_permissions)) {
+      initialPerms = member.operational_permissions;
+    } else if (typeof member.operational_permissions === 'string') {
+      try {
+        initialPerms = JSON.parse(member.operational_permissions);
+      } catch {
+        initialPerms = [];
+      }
+    }
+    setEditOperationalPermissions(initialPerms);
+
     setEditModalOpen(true);
     setActiveDropdownId(null);
+  };
+
+  const toggleInviteOperational = (permId: string) => {
+    setInviteForm(prev => {
+      const exists = prev.operational_permissions.includes(permId);
+      return {
+        ...prev,
+        operational_permissions: exists 
+          ? prev.operational_permissions.filter(p => p !== permId) 
+          : [...prev.operational_permissions, permId]
+      };
+    });
+  };
+
+  const toggleEditOperational = (permId: string) => {
+    setEditOperationalPermissions(prev => {
+      return prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId];
+    });
   };
 
   const toggleInviteCampus = (cId: string) => {
@@ -577,7 +611,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         address_complement: inviteForm.address_complement || null,
         address_neighborhood: inviteForm.address_neighborhood || null,
         address_city: inviteForm.address_city || null,
-        address_state: inviteForm.address_state || null
+        address_state: inviteForm.address_state || null,
+        operational_permissions: inviteForm.operational_permissions
       };
 
       const resp = await fetch(`${API_URL}/members/invite`, {
@@ -654,7 +689,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       address_complement: editAddress.address_complement || null,
       address_neighborhood: editAddress.address_neighborhood || null,
       address_city: editAddress.address_city || null,
-      address_state: editAddress.address_state || null
+      address_state: editAddress.address_state || null,
+      operational_permissions: editOperationalPermissions
     };
 
     try {
@@ -1356,6 +1392,71 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       Selecione uma ou mais congregações para liberar o acesso a este usuário.
                     </span>
                   </div>
+
+                  {/* Permissões Operacionais PWA */}
+                  <div className="form-group-modern" style={{ marginTop: '16px' }}>
+                    <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🛠️ Permissões Operacionais (PWA & Celular)</span>
+                      <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                        {inviteForm.operational_permissions.length} habilitada(s)
+                      </span>
+                    </label>
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid var(--panel-border)',
+                      borderRadius: '10px',
+                      padding: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      {[
+                        { id: 'kids_checkin', icon: '🚸', label: 'Check-in Kids', desc: 'Entrada de crianças nas salas e totem' },
+                        { id: 'kids_checkout', icon: '🛡️', label: 'Checkout Kids', desc: 'Leitor QR/PIN e devolução aos pais' },
+                        { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
+                        { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' }
+                      ].map(perm => {
+                        const isChecked = inviteForm.operational_permissions.includes(perm.id);
+                        return (
+                          <div
+                            key={perm.id}
+                            onClick={() => toggleInviteOperational(perm.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: isChecked ? 'var(--accent-primary-light, #e6fffa)' : '#ffffff',
+                              border: isChecked ? '1px solid var(--accent-primary, #0f766e)' : '1px solid var(--panel-border)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1rem' }}>{perm.icon}</span>
+                              <div>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                                  {perm.label}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  {perm.desc}
+                                </div>
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      Define as ferramentas que estarão liberadas no menu "Operacional" no celular deste usuário.
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1633,6 +1734,71 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         );
                       })}
                     </div>
+                  </div>
+
+                  {/* Permissões Operacionais PWA */}
+                  <div className="form-group-modern" style={{ marginTop: '16px' }}>
+                    <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🛠️ Permissões Operacionais (PWA & Celular)</span>
+                      <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                        {editOperationalPermissions.length} habilitada(s)
+                      </span>
+                    </label>
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid var(--panel-border)',
+                      borderRadius: '10px',
+                      padding: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      {[
+                        { id: 'kids_checkin', icon: '🚸', label: 'Check-in Kids', desc: 'Entrada de crianças nas salas e totem' },
+                        { id: 'kids_checkout', icon: '🛡️', label: 'Checkout Kids', desc: 'Leitor QR/PIN e devolução aos pais' },
+                        { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
+                        { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' }
+                      ].map(perm => {
+                        const isChecked = editOperationalPermissions.includes(perm.id);
+                        return (
+                          <div
+                            key={perm.id}
+                            onClick={() => toggleEditOperational(perm.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: isChecked ? 'var(--accent-primary-light, #e6fffa)' : '#ffffff',
+                              border: isChecked ? '1px solid var(--accent-primary, #0f766e)' : '1px solid var(--panel-border)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1rem' }}>{perm.icon}</span>
+                              <div>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                                  {perm.label}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  {perm.desc}
+                                </div>
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      Define as ferramentas que estarão liberadas no menu "Operacional" no celular deste usuário.
+                    </span>
                   </div>
                 </div>
 
