@@ -1425,7 +1425,12 @@ function App() {
               {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-              {activeTab === 'devocionais' && <Devotionals />}
+              {activeTab === 'devocionais' && (
+                <Devotionals 
+                  selectedCampusId={selectedCampusId} 
+                  selectedOrganization={selectedOrganization} 
+                />
+              )}
               {activeTab === 'oracoes' && <PastoralPrayers selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'bible_config' && (
                 <BibleConfig

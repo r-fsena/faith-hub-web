@@ -17,6 +17,8 @@ const BookOpenIcon = () => (
 
 type DevotionalData = {
   id: string;
+  organization_id?: string;
+  campus_id?: string | null;
   available_date: string;
   title: string;
   source_type: string;
@@ -34,8 +36,14 @@ type DevotionalData = {
   notify_members?: boolean;
 };
 
-export const Devotionals = () => {
+export interface DevotionalsProps {
+  selectedCampusId?: string;
+  selectedOrganization?: any;
+}
+
+export const Devotionals: React.FC<DevotionalsProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
   const [devotionals, setDevotionals] = useState<DevotionalData[]>([]);
+  const [campuses, setCampuses] = useState<{ id: string; name: string; is_headquarters?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState<'editor' | 'preview'>('editor');
@@ -43,11 +51,26 @@ export const Devotionals = () => {
   const [showSuccessPrompt, setShowSuccessPrompt] = useState(false);
   const [successStatus, setSuccessStatus] = useState<'DRAFT' | 'PUBLISHED' | null>(null);
 
+  const orgId = selectedOrganization?.id || 'org_default';
+  const churchName = selectedOrganization?.name || 'Igreja';
+
   const defaultForm = () => ({
-    id: '', available_date: new Date().toISOString().split('T')[0],
-    title: '', source_type: 'LOCAL', source_name: '', suggested_song_title: '', suggested_song_youtube_id: '',
-    central_text: '', context_text: '', prayer_indication: '', pastoral_author_name: '', 
-    pastoral_author_role: '', pastoral_author_avatar: '', pastoral_comment: '',
+    id: '',
+    organization_id: orgId,
+    campus_id: selectedCampusId !== 'all' ? selectedCampusId : '',
+    available_date: new Date().toISOString().split('T')[0],
+    title: '',
+    source_type: 'LOCAL',
+    source_name: '',
+    suggested_song_title: '',
+    suggested_song_youtube_id: '',
+    central_text: '',
+    context_text: '',
+    prayer_indication: '',
+    pastoral_author_name: selectedOrganization?.name ? `Pastoral • ${selectedOrganization.name}` : '', 
+    pastoral_author_role: 'Pastor Titular',
+    pastoral_author_avatar: '',
+    pastoral_comment: '',
     notify_members: false
   });
 
@@ -63,10 +86,31 @@ export const Devotionals = () => {
     }
   };
 
+  useEffect(() => {
+    const fetchCampuses = async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${API_URL}/campuses?organization_id=${encodeURIComponent(orgId)}`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          setCampuses(json.data || []);
+        }
+      } catch (e) {
+        console.error('Erro ao buscar campi:', e);
+      }
+    };
+    fetchCampuses();
+  }, [orgId]);
+
   const loadDevotionals = async () => {
+    setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/devotionals`, { headers });
+      const params = new URLSearchParams();
+      params.append('admin', 'true');
+      if (orgId) params.append('organization_id', orgId);
+      if (selectedCampusId && selectedCampusId !== 'all') params.append('campus_id', selectedCampusId);
+      const res = await fetch(`${API_URL}/devotionals?${params.toString()}`, { headers });
       if (res.ok) {
         setDevotionals(await res.json());
       }
@@ -77,7 +121,9 @@ export const Devotionals = () => {
     }
   };
 
-  useEffect(() => { loadDevotionals(); }, []);
+  useEffect(() => {
+    loadDevotionals();
+  }, [orgId, selectedCampusId]);
 
   const openNewModal = () => {
     setFormData(defaultForm());
@@ -103,7 +149,12 @@ export const Devotionals = () => {
     setIsSaving(true);
     try {
       const headers = await getAuthHeaders();
-      const payload = { ...formData, status: desiredStatus };
+      const payload = {
+        ...formData,
+        organization_id: orgId,
+        campus_id: formData.campus_id && formData.campus_id !== 'all' ? formData.campus_id : null,
+        status: desiredStatus
+      };
 
       const res = await fetch(`${API_URL}/devotionals`, {
         method: 'POST',
@@ -142,8 +193,12 @@ export const Devotionals = () => {
       {/* Header */}
       <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 24 }}>
         <div>
-          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Devocionais e Palavra Diária</h1>
-          <p className="card-subtitle">Café com Deus, Pão Diário e reflexões oficiais publicadas no app dos membros.</p>
+          <h1 className="card-title" style={{ fontSize: '1.4rem' }}>
+            Devocionais e Palavra Diária • {churchName}
+          </h1>
+          <p className="card-subtitle">
+            Café com Deus, Pão Diário e reflexões oficiais publicadas no app dos membros da <strong>{churchName}</strong>.
+          </p>
         </div>
         <button className="btn-primary" onClick={openNewModal}>
           <PlusIcon /> Adicionar Devocional
@@ -155,8 +210,8 @@ export const Devotionals = () => {
       ) : devotionals.length === 0 ? (
         <div className="empty-state">
           <BookOpenIcon />
-          <h3>Nenhum devocional publicado</h3>
-          <p>Clique em Adicionar Devocional para redigir a primeira palavra inspiracional.</p>
+          <h3>Nenhum devocional publicado para {churchName}</h3>
+          <p>Clique em Adicionar Devocional para redigir a primeira palavra inspiracional desta congregação.</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 20 }}>
@@ -187,8 +242,19 @@ export const Devotionals = () => {
                   {dev.context_text}
                 </p>
                 
-                <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: 8, display: 'inline-block', fontSize: '0.76rem', color: 'var(--text-secondary)', border: '1px solid var(--panel-border)' }}>
-                  Fonte: <strong style={{ color: 'var(--text-main)' }}>{dev.source_type === 'LOCAL' ? 'Igreja / Base' : dev.source_name}</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: 8, fontSize: '0.76rem', color: 'var(--text-secondary)', border: '1px solid var(--panel-border)' }}>
+                    Fonte: <strong style={{ color: 'var(--text-main)' }}>{dev.source_type === 'LOCAL' ? 'Igreja / Base' : dev.source_name}</strong>
+                  </div>
+                  {dev.campus_id ? (
+                    <span style={{ fontSize: '0.70rem', background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                      📍 {campuses.find(c => c.id === dev.campus_id)?.name || 'Filial'}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.70rem', background: '#f1f5f9', color: '#64748b', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                      🌐 Geral
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -200,102 +266,92 @@ export const Devotionals = () => {
           MODAL STUDIO (2-Column Horizontal Split Architecture)
           ======================================================== */}
       {showModal && createPortal(
-        <div className="modal-overlay animate-fade-in" onClick={() => setShowModal(false)}>
-          <div className="modal-studio-container" style={{ maxWidth: 1060 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-studio-backdrop animate-fade-in" onClick={() => setShowModal(false)}>
+          <div className="modal-studio-window" onClick={e => e.stopPropagation()}>
             
-            {showSuccessPrompt ? (
-               <div style={{ padding: '60px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', overflowY: 'auto' }}>
-                 <div style={{ background: successStatus === 'PUBLISHED' ? '#ecfdf5' : '#fffbeb', color: successStatus === 'PUBLISHED' ? '#059669' : '#d97706', width: 72, height: 72, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                   <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                 </div>
-                 <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 10 }}>
-                   {successStatus === 'PUBLISHED' ? 'Publicado no App com Sucesso!' : 'Rascunho Salvo'}
-                 </h2>
-                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: 32, maxWidth: 480 }}>
-                   {successStatus === 'PUBLISHED' 
-                     ? 'O devocional foi sincronizado e o App de todos os membros consumirá a nova mensagem inspiracional.'
-                     : 'Seu texto foi salvo de forma privada e permanecerá invisível no App até sua publicação definitiva.'}
-                 </p>
+            {/* Top Bar Header */}
+            <div className="modal-studio-topbar">
+              <div className="modal-studio-title-area">
+                <div className="modal-studio-icon">
+                  <BookOpenIcon />
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">
+                    {formData.id ? 'Editar Devocional Diário' : `Novo Devocional Diário • ${churchName}`}
+                  </h2>
+                  <p className="modal-studio-subtitle">
+                    Alinhe a reflexão, a palavra bíblica e o louvor para o dia da congregação.
+                  </p>
+                </div>
+              </div>
 
-                 <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-                   <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                     Voltar à Área de Gestão
-                   </button>
-                   <button type="button" className="btn-primary" onClick={() => { setShowSuccessPrompt(false); setSuccessStatus(null); setFormData(defaultForm()); setActiveModalTab('editor'); }}>
-                     + Redigir Próximo Devocional
-                   </button>
-                 </div>
-               </div>
-            ) : (
-              <>
-                {/* Modal Header */}
-                <div className="modal-studio-header">
-                  <div className="modal-studio-header-left">
-                    <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-orange-bg)', color: 'var(--pastel-orange-text)' }}>
-                      <BookOpenIcon />
-                    </div>
-                    <div>
-                      <h2 className="modal-studio-title">
-                        {formData.id ? 'Editar Devocional' : 'Novo Devocional Diário'}
-                      </h2>
-                      <p className="modal-studio-subtitle">
-                        Escreva a reflexão, indique música de louvor e adicione comentários pastorais.
-                      </p>
-                    </div>
+              {/* Segmented Control & Close */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="segmented-control">
+                  <div 
+                    className={`segmented-btn ${activeModalTab === 'editor' ? 'active' : ''}`}
+                    onClick={() => setActiveModalTab('editor')}
+                  >
+                    ✍️ Redação & Campos
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {/* Tabs Segmented */}
-                    <div className="segmented-control">
-                      <div 
-                        className={`segmented-btn ${activeModalTab === 'editor' ? 'active' : ''}`}
-                        onClick={() => setActiveModalTab('editor')}
-                      >
-                        ✍️ Redação & Campos
-                      </div>
-                      <div 
-                        className={`segmented-btn ${activeModalTab === 'preview' ? 'active' : ''}`}
-                        onClick={() => setActiveModalTab('preview')}
-                      >
-                        📱 Visualização no App
-                      </div>
-                    </div>
-
-                    <button className="modal-close-circle" onClick={() => setShowModal(false)} title="Fechar">
-                      &times;
-                    </button>
+                  <div 
+                    className={`segmented-btn ${activeModalTab === 'preview' ? 'active' : ''}`}
+                    onClick={() => setActiveModalTab('preview')}
+                  >
+                    📱 Visualização no App
                   </div>
                 </div>
 
-                {/* Modal Body */}
-                <div className="modal-studio-body">
-                  {activeModalTab === 'editor' && (
-                    <div className="modal-studio-grid">
-                      
-                      {/* Left Column (60%) */}
-                      <div className="modal-studio-column">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                          <div className="form-group-modern">
-                            <label className="form-label-modern">Data da Leitura *</label>
-                            <input 
-                              type="date" 
-                              className="input-modern"
-                              value={formData.available_date} 
-                              onChange={e => setFormData({...formData, available_date: e.target.value})} 
-                            />
-                          </div>
-                          <div className="form-group-modern">
-                            <label className="form-label-modern">Origem do Conteúdo</label>
-                            <select 
-                              className="select-modern"
-                              value={formData.source_type} 
-                              onChange={e => setFormData({...formData, source_type: e.target.value})}
-                            >
-                              <option value="LOCAL">Autoral (Escrito pela sua Igreja)</option>
-                              <option value="GLOBAL">Global (Redes externas)</option>
-                            </select>
-                          </div>
-                        </div>
+                <button className="modal-close-circle" onClick={() => setShowModal(false)} title="Fechar">
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-studio-body">
+              {activeModalTab === 'editor' && (
+                <div className="modal-studio-grid">
+                  
+                  {/* Left Column (60%) */}
+                  <div className="modal-studio-column">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
+                      <div className="form-group-modern">
+                        <label className="form-label-modern">Data da Leitura *</label>
+                        <input 
+                          type="date" 
+                          className="input-modern"
+                          value={formData.available_date} 
+                          onChange={e => setFormData({...formData, available_date: e.target.value})} 
+                        />
+                      </div>
+                      <div className="form-group-modern">
+                        <label className="form-label-modern">Unidade / Filial</label>
+                        <select 
+                          className="select-modern"
+                          value={formData.campus_id || 'all'} 
+                          onChange={e => setFormData({...formData, campus_id: e.target.value === 'all' ? '' : e.target.value})}
+                        >
+                          <option value="all">Todas as Filiais (Geral)</option>
+                          {campuses.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.is_headquarters ? `👑 ${c.name} (Sede)` : c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group-modern">
+                        <label className="form-label-modern">Origem do Conteúdo</label>
+                        <select 
+                          className="select-modern"
+                          value={formData.source_type} 
+                          onChange={e => setFormData({...formData, source_type: e.target.value})}
+                        >
+                          <option value="LOCAL">Autoral (Sua Igreja)</option>
+                          <option value="GLOBAL">Global (Redes externas)</option>
+                        </select>
+                      </div>
+                    </div>
 
                         <div className="form-group-modern">
                           <label className="form-label-modern">Título da Mensagem do Dia *</label>
@@ -528,8 +584,6 @@ export const Devotionals = () => {
                     {isSaving ? 'Publicando...' : 'Aprovar & Publicar no App'}
                   </button>
                 </div>
-              </>
-            )}
 
           </div>
         </div>,
