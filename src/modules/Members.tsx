@@ -675,9 +675,91 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const getStatusBadge = (status: string) => {
     const s = status ? status.toUpperCase() : 'PENDENTE';
-    if (s === 'ATIVO' || s === 'ACTIVE') return <span className="status-badge good">Ativo</span>;
-    if (s === 'INATIVO' || s === 'INACTIVE') return <span className="status-badge bad">Inativo</span>;
-    return <span className="status-badge warn">Pendente</span>;
+    if (s === 'ATIVO' || s === 'ACTIVE') {
+      return (
+        <span style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          gap: '6px', 
+          background: '#ecfdf5', 
+          color: '#047857', 
+          padding: '3px 10px', 
+          borderRadius: '9999px', 
+          fontSize: '0.74rem', 
+          fontWeight: 700, 
+          border: '1px solid #a7f3d0' 
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+          Ativo
+        </span>
+      );
+    }
+    if (s === 'INATIVO' || s === 'INACTIVE') {
+      return (
+        <span style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          gap: '6px', 
+          background: '#fef2f2', 
+          color: '#b91c1c', 
+          padding: '3px 10px', 
+          borderRadius: '9999px', 
+          fontSize: '0.74rem', 
+          fontWeight: 700, 
+          border: '1px solid #fecaca' 
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+          Inativo
+        </span>
+      );
+    }
+    return (
+      <span style={{ 
+        display: 'inline-flex', 
+        alignItems: 'center', 
+        gap: '6px', 
+        background: '#fffbeb', 
+        color: '#b45309', 
+        padding: '3px 10px', 
+        borderRadius: '9999px', 
+        fontSize: '0.74rem', 
+        fontWeight: 700, 
+        border: '1px solid #fde68a' 
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+        Pendente
+      </span>
+    );
+  };
+
+  const getRoleBadge = (role: string) => {
+    const r = (role || 'Membro').toUpperCase();
+    if (r === 'ADMIN' || r === 'SUPERADMIN') {
+      return (
+        <span style={{ background: '#ede9fe', color: '#6d28d9', border: '1px solid #ddd6fe', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800 }}>
+          ⚡ {role || 'ADMIN'}
+        </span>
+      );
+    }
+    if (r.includes('LÍDER') || r.includes('LIDER')) {
+      return (
+        <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800 }}>
+          👥 {role}
+        </span>
+      );
+    }
+    if (r.includes('PASTOR')) {
+      return (
+        <span style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800 }}>
+          🕊️ {role}
+        </span>
+      );
+    }
+    return (
+      <span style={{ background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
+        {role || 'Membro'}
+      </span>
+    );
   };
 
   const filteredMembers = members.filter(m => {
@@ -688,7 +770,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   });
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -775,55 +857,104 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       </div>
 
       {/* Table Area */}
-      <div className="portal-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="members-table-container">
-          <table className="custom-table">
+      <div style={{
+        background: '#ffffff',
+        borderRadius: 16,
+        border: '1px solid var(--panel-border)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+        overflow: 'visible',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <div style={{
+          overflowX: 'auto',
+          width: '100%',
+          minHeight: filteredMembers.length <= 2 ? 360 : 'auto',
+          paddingBottom: filteredMembers.length <= 2 ? 110 : 16
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 960 }}>
             <thead>
-              <tr>
-                <th>Membro</th>
-                <th>Cargo / Função</th>
-                <th>Unidades / Campi Autorizados</th>
-                <th>Célula</th>
-                <th>Status</th>
-                <th>Cadastro</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--panel-border)' }}>
+                <th style={{ padding: '14px 20px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Membro
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 170 }}>
+                  Cargo / Função
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Unidades / Campi Autorizados
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 160 }}>
+                  Célula
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 120 }}>
+                  Status
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 120 }}>
+                  Cadastro
+                </th>
+                <th style={{ padding: '14px 20px', fontSize: '0.76rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', width: 170 }}>
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    Carregando membros cadastrados...
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                      <div className="spinner" style={{ width: 28, height: 28 }} />
+                      <span>Carregando membros cadastrados...</span>
+                    </div>
                   </td>
                 </tr>
               ) : filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    Nenhum membro encontrado nesta seleção.
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 8 }}>👥</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--text-main)', marginBottom: 4 }}>
+                      Nenhum membro encontrado nesta seleção
+                    </div>
+                    <div style={{ fontSize: '0.84rem' }}>
+                      Tente alterar os termos de busca, limpar o filtro de cargo ou clique em "Convidar Membro" para cadastrar.
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredMembers.map((member) => {
                   const isAllCampuses = member.campus_ids?.includes('all');
                   return (
-                    <tr key={member.id}>
-                      <td>
+                    <tr 
+                      key={member.id}
+                      onClick={() => handleEditClick(member)}
+                      style={{ 
+                        borderBottom: '1px solid #f1f5f9', 
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      title="Clique sobre a linha para editar o membro"
+                    >
+                      <td style={{ padding: '16px 20px' }}>
                         <div className="user-cell">
                           <div className="member-avatar" style={{ background: 'var(--accent-primary-gradient)' }}>
                             {member.name ? member.name.charAt(0).toUpperCase() : 'M'}
                           </div>
                           <div>
-                            <div className="member-meta-title">{member.name}</div>
-                            <div className="member-meta-sub">{member.email}</div>
+                            <div className="member-meta-title" style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                              {member.name}
+                            </div>
+                            <div className="member-meta-sub" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                              {member.email}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <span style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--text-main)' }}>
-                          {member.role || 'Membro'}
-                        </span>
+                      <td style={{ padding: '16px 18px' }}>
+                        {getRoleBadge(member.role)}
                       </td>
-                      <td>
+                      <td style={{ padding: '16px 18px' }}>
                         {isAllCampuses ? (
                           <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
                             🌐 Todas as Unidades
@@ -842,59 +973,82 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                           </div>
                         )}
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                          {cellGroups.find(c => c.id === member.cellGroup)?.name || 'Sem Célula'}
+                      <td style={{ padding: '16px 18px' }}>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          {cellGroups.find(c => c.id === member.cellGroup)?.name ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span>👥</span> {cellGroups.find(c => c.id === member.cellGroup)?.name}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Sem Célula</span>
+                          )}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ padding: '16px 18px' }}>
                         {getStatusBadge(member.status)}
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
+                      <td style={{ padding: '16px 18px' }}>
+                        <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                           {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('pt-BR') : '-'}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right', position: 'relative' }}>
-                        <button 
-                          className="action-circle-btn" 
-                          style={{ marginLeft: 'auto', width: 32, height: 32 }}
-                          onClick={(e) => toggleDropdown(e, member.id)}
-                        >
-                          <MoreVerticalIcon />
-                        </button>
+                      <td style={{ padding: '16px 20px', textAlign: 'right', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            onClick={() => handleEditClick(member)}
+                            title="Editar Perfil & Unidades"
+                          >
+                            <EditIcon /> <span>Editar</span>
+                          </button>
+
+                          <button 
+                            type="button"
+                            className="action-circle-btn" 
+                            style={{ width: 32, height: 32 }}
+                            onClick={(e) => toggleDropdown(e, member.id)}
+                            title="Mais opções"
+                          >
+                            <MoreVerticalIcon />
+                          </button>
+                        </div>
 
                         {activeDropdownId === member.id && (
                           <div style={{
                             position: 'absolute',
-                            right: '12px',
-                            top: '40px',
+                            right: '20px',
+                            top: '52px',
                             background: '#ffffff',
                             borderRadius: '12px',
-                            boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)',
+                            boxShadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
                             border: '1px solid var(--panel-border)',
                             padding: '6px',
-                            zIndex: 50,
-                            minWidth: '180px',
+                            zIndex: 100,
+                            minWidth: '200px',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '2px'
                           }}>
                             <button 
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-main)', textAlign: 'left', fontWeight: 600 }}
+                              type="button"
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-main)', textAlign: 'left', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
                               onClick={() => handleEditClick(member)}
                             >
                               <EditIcon /> Editar Perfil & Unidades
                             </button>
                             <button 
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'left', fontWeight: 600 }}
+                              type="button"
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'left', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
                               onClick={() => handleSendResetPassword(member.email)}
                             >
-                              Redefinir Senha
+                              🔑 Redefinir Senha
                             </button>
                             <div style={{ borderTop: '1px solid var(--panel-border)', margin: '4px 0' }}></div>
                             <button 
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: '#dc2626', textAlign: 'left', fontWeight: 600 }}
+                              type="button"
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: '#dc2626', textAlign: 'left', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
                               onClick={() => handleStatusChange(member, member.status === 'ACTIVE' || member.status === 'Ativo' ? 'disable' : 'enable')}
                             >
                               <BanIcon /> {member.status === 'ACTIVE' || member.status === 'Ativo' ? 'Inativar Acesso' : 'Reativar Acesso'}
@@ -908,6 +1062,28 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Footer Summary Bar */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '14px 24px',
+          background: '#f8fafc',
+          borderTop: '1px solid var(--panel-border)',
+          fontSize: '0.80rem',
+          color: 'var(--text-muted)',
+          fontWeight: 600,
+          borderBottomLeftRadius: 16,
+          borderBottomRightRadius: 16
+        }}>
+          <div>
+            Total de <strong>{filteredMembers.length}</strong> membro(s) listado(s)
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>💡 <em>Clique em qualquer linha ou no botão "Editar" para atualizar dados cadastrais</em></span>
+          </div>
         </div>
       </div>
 
