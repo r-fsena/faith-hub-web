@@ -206,6 +206,30 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
     setShowModal(true);
   };
 
+  const formatDisplayDate = (d?: string) => {
+    if (!d || d.startsWith('0000') || d === 'null') return 'A definir';
+    const clean = d.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return clean;
+  };
+
+  const sanitizeChapterDate = (rawDate?: string, index: number = 0): string => {
+    if (rawDate && !rawDate.startsWith('0000') && rawDate !== 'null') {
+      const clean = rawDate.split('T')[0];
+      const parts = clean.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return clean;
+      }
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + (index * 7));
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const openEditModal = async (book: StudyBook) => {
     setLoading(true);
     try {
@@ -214,6 +238,27 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
       if (res.ok) {
         const data = await res.json();
         const fullBook: StudyBook = data.data || data;
+        const sanitizedChapters = (fullBook.chapters && fullBook.chapters.length > 0) 
+          ? fullBook.chapters.map((ch, idx) => ({
+              ...ch,
+              scheduled_date: sanitizeChapterDate(ch.scheduled_date, idx)
+            }))
+          : [
+            {
+              chapter_number: 1,
+              title: 'Capítulo 1: Introdução',
+              verse_reference: '',
+              icebreaker: '',
+              content_text: '',
+              discussion_questions: ['Qual a principal aplicação prática deste estudo?'],
+              practical_challenge: '',
+              media_type: 'NONE' as const,
+              media_link: '',
+              scheduled_date: sanitizeChapterDate(undefined, 0),
+              status: 'ACTIVE' as const
+            }
+          ];
+
         setFormData({
           id: fullBook.id,
           title: fullBook.title,
@@ -225,21 +270,7 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
           status: fullBook.status || 'ACTIVE',
           target_group_id: fullBook.target_group_id || '',
           notify_members: Boolean(fullBook.notify_members),
-          chapters: (fullBook.chapters && fullBook.chapters.length > 0) ? fullBook.chapters : [
-            {
-              chapter_number: 1,
-              title: 'Capítulo 1: Introdução',
-              verse_reference: '',
-              icebreaker: '',
-              content_text: '',
-              discussion_questions: ['Qual a principal aplicação prática deste estudo?'],
-              practical_challenge: '',
-              media_type: 'NONE',
-              media_link: '',
-              scheduled_date: new Date().toISOString().split('T')[0],
-              status: 'ACTIVE'
-            }
-          ]
+          chapters: sanitizedChapters
         });
         setModalTab('book');
         setExpandedChapterIndex(0);
@@ -304,6 +335,28 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
   // Funções de manipulação de capítulos no formulário
   const handleAddChapter = () => {
     const nextNum = formData.chapters.length + 1;
+    const lastChapter = formData.chapters[formData.chapters.length - 1];
+    let nextDate = new Date();
+
+    if (lastChapter?.scheduled_date && !lastChapter.scheduled_date.startsWith('0000')) {
+      const clean = lastChapter.scheduled_date.split('T')[0];
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        const parsed = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        if (!isNaN(parsed.getTime())) {
+          nextDate = new Date(parsed);
+          nextDate.setDate(nextDate.getDate() + 7);
+        }
+      }
+    } else {
+      nextDate.setDate(nextDate.getDate() + (formData.chapters.length * 7));
+    }
+
+    const y = nextDate.getFullYear();
+    const m = String(nextDate.getMonth() + 1).padStart(2, '0');
+    const d = String(nextDate.getDate()).padStart(2, '0');
+    const nextDateStr = `${y}-${m}-${d}`;
+
     const newChapter: Chapter = {
       chapter_number: nextNum,
       title: `Capítulo ${nextNum}: Nova Lição`,
@@ -314,7 +367,7 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
       practical_challenge: '',
       media_type: 'NONE',
       media_link: '',
-      scheduled_date: new Date().toISOString().split('T')[0],
+      scheduled_date: nextDateStr,
       status: 'ACTIVE'
     };
     setFormData(prev => ({
@@ -830,7 +883,7 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
                                   {ch.title || `Capítulo ${ch.chapter_number}`}
                                 </div>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                  {ch.verse_reference ? `📖 ${ch.verse_reference}` : 'Sem versículo'} • 🗓️ {ch.scheduled_date ? ch.scheduled_date.split('-').reverse().join('/') : 'Sem data'}
+                                  {ch.verse_reference ? `📖 ${ch.verse_reference}` : 'Sem versículo'} • 🗓️ {formatDisplayDate(ch.scheduled_date)}
                                 </div>
                               </div>
                             </div>
