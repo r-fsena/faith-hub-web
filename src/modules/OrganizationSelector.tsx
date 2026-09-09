@@ -478,16 +478,16 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       const res = await fetch(`${API_URL}/members/reset-password`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ email: user.email })
+        body: JSON.stringify({ email: user.email.trim() })
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        alert(`✓ E-mail de redefinição/ativação reenviado com sucesso para ${user.email}!`);
+        alert(`✓ E-mail de acesso reenviado com sucesso para ${user.email}!\n${data.message || ''}`);
       } else {
-        const err = await res.json();
-        alert(`Erro ao reenviar e-mail: ${err.error || err.message || 'Falha na requisição'}`);
+        alert(`Erro ao reenviar e-mail: ${data.error || data.message || 'Não foi possível concluir o reenvio.'}`);
       }
-    } catch (e) {
-      alert('Erro de conexão ao reenviar convite.');
+    } catch (e: any) {
+      alert(`Erro de conexão ao reenviar convite: ${e.message || 'Verifique sua conexão de rede.'}`);
     } finally {
       setActionLoadingEmail(null);
     }
@@ -511,17 +511,17 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       const res = await fetch(`${API_URL}/members/status`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ email: user.email, action })
+        body: JSON.stringify({ email: user.email.trim(), action })
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         alert(`✓ Usuário ${user.name} ${isCurrentlyActive ? 'inativado' : 'reativado'} com sucesso!`);
         await fetchMasterUsers();
       } else {
-        const err = await res.json();
-        alert(`Erro ao alterar status: ${err.error || err.message || 'Falha na requisição'}`);
+        alert(`Erro ao alterar status: ${data.error || data.message || 'Não foi possível alterar o status.'}`);
       }
-    } catch (e) {
-      alert('Erro de conexão ao alterar status.');
+    } catch (e: any) {
+      alert(`Erro de conexão ao alterar status: ${e.message || 'Verifique sua conexão de rede.'}`);
     } finally {
       setActionLoadingEmail(null);
     }
