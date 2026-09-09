@@ -109,6 +109,259 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     address_state: ''
   });
 
+  // Batch Import State
+  const [isImportModalOpen, setImportModalOpen] = useState(false);
+  const [importStep, setImportStep] = useState<'upload' | 'preview' | 'result'>('upload');
+  const [importFileName, setImportFileName] = useState('');
+  const [defaultPassword, setDefaultPassword] = useState('MembroFaith@2026');
+  const [importCampusId, setImportCampusId] = useState(selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede');
+  const [parsedMembers, setParsedMembers] = useState<any[]>([]);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
+  const [importResult, setImportResult] = useState<{ total: number; created: number; updated: number; errors: any[] } | null>(null);
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      'Nome',
+      'E-mail',
+      'Telefone',
+      'Data de Nascimento',
+      'Cargo',
+      'Célula',
+      'CEP',
+      'Rua',
+      'Número',
+      'Complemento',
+      'Bairro',
+      'Cidade',
+      'UF'
+    ];
+
+    const sampleRows = [
+      [
+        'Lucas Silva Oliveira',
+        'lucas.silva@exemplo.com',
+        '(11) 98765-4321',
+        '15/04/1992',
+        'Membro',
+        'Célula Betel',
+        '01310-100',
+        'Avenida Paulista',
+        '1000',
+        'Apto 42',
+        'Bela Vista',
+        'São Paulo',
+        'SP'
+      ],
+      [
+        'Mariana Costa Santos',
+        'mariana.costa@exemplo.com',
+        '(21) 99888-7766',
+        '28/09/1988',
+        'Líder de Célula',
+        'Célula Ágape',
+        '22041-001',
+        'Avenida Atlântica',
+        '500',
+        'Bloco B',
+        'Copacabana',
+        'Rio de Janeiro',
+        'RJ'
+      ]
+    ];
+
+    const csvRows = [
+      headers.join(';'),
+      ...sampleRows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(';'))
+    ];
+
+    // UTF-8 BOM (\uFEFF) para garantir abertura sem erros de acentuação no Excel
+    const csvContent = '\uFEFF' + csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const orgSlug = selectedOrganization?.name ? selectedOrganization.name.toLowerCase().replace(/\s+/g, '_') : 'igreja';
+    link.setAttribute('download', `modelo_importacao_membros_${orgSlug}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCSVLine = (text: string, delimiter: string): string[] => {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === delimiter && !inQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim());
+    return values;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) {
+          alert("Arquivo vazio.");
+          return;
+        }
+
+        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+        if (lines.length < 2) {
+          alert("A planilha deve conter pelo menos o cabeçalho e uma linha com membro.");
+          return;
+        }
+
+        const firstLine = lines[0];
+        const delimiter = (firstLine.match(/;/g) || []).length >= (firstLine.match(/,/g) || []).length ? ';' : ',';
+
+        const rawHeaders = parseCSVLine(lines[0], delimiter).map(h => 
+          h.toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "")
+        );
+
+        const findIdx = (terms: string[]) => rawHeaders.findIndex(h => terms.some(t => h.includes(t)));
+        const nameIdx = findIdx(['nome', 'name']);
+        const emailIdx = findIdx(['email', 'mail']);
+        const phoneIdx = findIdx(['telefone', 'phone', 'celular', 'whatsapp', 'fone']);
+        const birthIdx = findIdx(['nascimento', 'birth', 'aniversario']);
+        const roleIdx = findIdx(['cargo', 'funcao', 'role']);
+        const cellIdx = findIdx(['celula', 'cell', 'grupo']);
+        const zipIdx = findIdx(['cep', 'zip']);
+        const streetIdx = findIdx(['rua', 'logradouro', 'endereco', 'street']);
+        const numberIdx = findIdx(['numero', 'number', 'num']);
+        const compIdx = findIdx(['complemento', 'complement']);
+        const neighIdx = findIdx(['bairro', 'neighborhood']);
+        const cityIdx = findIdx(['cidade', 'city']);
+        const stateIdx = findIdx(['uf', 'estado', 'state']);
+
+        const existingEmails = new Set(members.map(m => (m.email || '').toLowerCase().trim()));
+        const parsed: any[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const row = parseCSVLine(lines[i], delimiter);
+          if (row.length === 0 || row.every(c => !c)) continue;
+
+          const name = nameIdx !== -1 && row[nameIdx] ? row[nameIdx] : '';
+          const email = emailIdx !== -1 && row[emailIdx] ? row[emailIdx].toLowerCase().trim() : '';
+          const phone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx] : '';
+          const birth_date = birthIdx !== -1 && row[birthIdx] ? row[birthIdx] : '';
+          const role = roleIdx !== -1 && row[roleIdx] ? row[roleIdx] : 'Membro';
+          const cell_name = cellIdx !== -1 && row[cellIdx] ? row[cellIdx] : '';
+          const address_zip = zipIdx !== -1 && row[zipIdx] ? row[zipIdx] : '';
+          const address_street = streetIdx !== -1 && row[streetIdx] ? row[streetIdx] : '';
+          const address_number = numberIdx !== -1 && row[numberIdx] ? row[numberIdx] : '';
+          const address_complement = compIdx !== -1 && row[compIdx] ? row[compIdx] : '';
+          const address_neighborhood = neighIdx !== -1 && row[neighIdx] ? row[neighIdx] : '';
+          const address_city = cityIdx !== -1 && row[cityIdx] ? row[cityIdx] : '';
+          const address_state = stateIdx !== -1 && row[stateIdx] ? row[stateIdx] : '';
+
+          const isValidEmail = email && email.includes('@') && email.includes('.');
+          const isValidName = name && name.trim().length >= 2;
+          const isDuplicate = isValidEmail ? existingEmails.has(email) : false;
+
+          parsed.push({
+            id: `row_${i}`,
+            name,
+            email,
+            phone,
+            birth_date,
+            role,
+            cell_name,
+            address_zip,
+            address_street,
+            address_number,
+            address_complement,
+            address_neighborhood,
+            address_city,
+            address_state,
+            isValid: isValidEmail && isValidName,
+            isDuplicate,
+            validationMessage: !isValidName 
+              ? 'Nome inválido ou ausente' 
+              : !isValidEmail 
+              ? 'E-mail inválido ou ausente' 
+              : isDuplicate 
+              ? 'Já cadastrado (será atualizado)' 
+              : 'Pronto para cadastro'
+          });
+        }
+
+        setParsedMembers(parsed);
+        setImportStep('preview');
+      } catch (err: any) {
+        console.error("Erro ao processar planilha:", err);
+        alert("Não foi possível ler o arquivo. Certifique-se de que é um CSV válido.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExecuteBatchImport = async () => {
+    const validMembers = parsedMembers.filter(m => m.isValid);
+    if (validMembers.length === 0) {
+      alert("Nenhum membro válido para importar.");
+      return;
+    }
+
+    if (!defaultPassword || defaultPassword.length < 6) {
+      alert("Por favor, defina uma senha padrão inicial com pelo menos 6 caracteres.");
+      return;
+    }
+
+    setIsProcessingImport(true);
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        members: validMembers,
+        defaultPassword,
+        organization_id: selectedOrganization?.id || 'org_default',
+        campus_id: importCampusId
+      };
+
+      const res = await fetch(`${API_URL}/members/batch-import`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setImportResult(data);
+        setImportStep('result');
+        fetchMembers();
+      } else {
+        alert(data.error || "Erro ao processar importação no servidor.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro de conexão ao enviar planilha para o servidor.");
+    } finally {
+      setIsProcessingImport(false);
+    }
+  };
+
   const handleCepLookup = async (rawCep: string, target: 'invite' | 'edit') => {
     const cleanCep = rawCep.replace(/\D/g, '');
     if (cleanCep.length === 8) {
@@ -447,19 +700,47 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             Gestão de membresia, líderes, credenciais e alocação em congregações.
           </p>
         </div>
-        <button 
-          className="btn-primary" 
-          onClick={() => {
-            setInviteForm(prev => ({
-              ...prev,
-              campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede']
-            }));
-            setInviteModalOpen(true);
-          }}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <UserPlusIcon /> Convidar Membro / Líder
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button 
+            type="button"
+            className="btn-secondary" 
+            onClick={handleDownloadTemplate}
+            title="Baixar planilha padrão (.csv) com colunas prontas para preenchimento"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', padding: '9px 14px' }}
+          >
+            <span>📥</span> Baixar Modelo (.csv)
+          </button>
+          
+          <button 
+            type="button"
+            className="btn-secondary" 
+            onClick={() => {
+              setImportModalOpen(true);
+              setImportStep('upload');
+              setParsedMembers([]);
+              setImportResult(null);
+            }}
+            title="Importar múltiplos membros via planilha CSV"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', padding: '9px 14px' }}
+          >
+            <span>📤</span> Importar Membros
+          </button>
+
+          <button 
+            type="button"
+            className="btn-primary" 
+            onClick={() => {
+              setInviteForm(prev => ({
+                ...prev,
+                campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede']
+              }));
+              setInviteModalOpen(true);
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <UserPlusIcon /> Convidar Membro / Líder
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -1190,6 +1471,378 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             </div>
           </div>
         </form>,
+        document.body
+      )}
+
+      {/* ========================================================
+          BATCH IMPORT MODAL STUDIO (Importação via Planilha CSV)
+          ======================================================== */}
+      {isImportModalOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => !isProcessingImport && setImportModalOpen(false)}>
+          <div 
+            className="modal-studio-container animate-scale-up" 
+            style={{ maxWidth: 1140, maxHeight: '94vh' }} 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="modal-studio-header">
+              <div className="modal-studio-header-left">
+                <div className="modal-studio-header-icon" style={{ background: 'rgba(15, 118, 110, 0.1)', color: 'var(--accent-primary, #0f766e)' }}>
+                  📤
+                </div>
+                <div>
+                  <h2 className="modal-studio-title">Importar Membros em Lote via Planilha</h2>
+                  <p className="modal-studio-subtitle">
+                    Cadastre múltiplos membros, líderes e endereços de uma só vez com senha temporária configurada.
+                  </p>
+                </div>
+              </div>
+              {!isProcessingImport && (
+                <button type="button" className="modal-close-circle" onClick={() => setImportModalOpen(false)}>✕</button>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="modal-studio-body" style={{ padding: '24px 32px' }}>
+              
+              {/* ETAPA 1: UPLOAD & CONFIGURAÇÃO */}
+              {importStep === 'upload' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 780, margin: '0 auto' }}>
+                  
+                  {/* Dropzone Card */}
+                  <div style={{
+                    border: '2px dashed var(--accent-primary, #0f766e)',
+                    borderRadius: 16,
+                    padding: '40px 24px',
+                    textAlign: 'center',
+                    background: 'rgba(15, 118, 110, 0.02)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => document.getElementById('csv-file-input')?.click()}
+                  >
+                    <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>📁</div>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                      Clique para selecionar sua planilha (.CSV)
+                    </h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
+                      Suporta arquivos separados por vírgula (,) ou ponto e vírgula (;) no formato UTF-8
+                    </p>
+                    <input 
+                      id="csv-file-input" 
+                      type="file" 
+                      accept=".csv,text/csv,text/plain" 
+                      onChange={handleFileUpload} 
+                      style={{ display: 'none' }} 
+                    />
+                    <button type="button" className="btn-primary" style={{ pointerEvents: 'none' }}>
+                      Escolher Arquivo do Computador
+                    </button>
+                  </div>
+
+                  {/* Configurações da Importação */}
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid var(--panel-border)',
+                    borderRadius: 14,
+                    padding: 20,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 16
+                  }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">
+                        🔑 Senha Padrão Inicial *
+                      </label>
+                      <input 
+                        type="text"
+                        className="input-modern"
+                        value={defaultPassword}
+                        onChange={(e) => setDefaultPassword(e.target.value)}
+                        placeholder="Ex: MembroFaith@2026"
+                        required
+                      />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        O membro usará esta senha no primeiro login e será obrigado a criar uma senha pessoal nova.
+                      </span>
+                    </div>
+
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">
+                        📍 Filial / Campus Padrão *
+                      </label>
+                      <select 
+                        className="select-modern"
+                        value={importCampusId}
+                        onChange={(e) => setImportCampusId(e.target.value)}
+                      >
+                        {campusesList.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} {Boolean(c.is_headquarters) ? '(Sede)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Será atribuído aos membros que não possuírem filial específica na planilha.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Template Info Card */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '14px 18px',
+                    background: 'rgba(15, 118, 110, 0.06)',
+                    borderRadius: 12,
+                    border: '1px solid rgba(15, 118, 110, 0.2)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: '1.2rem' }}>💡</span>
+                      <div style={{ fontSize: '0.84rem', color: 'var(--text-main)' }}>
+                        <strong>Ainda não tem a planilha preenchida?</strong> Baixe o modelo oficial com todas as colunas necessárias.
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn-secondary" 
+                      onClick={handleDownloadTemplate}
+                      style={{ fontSize: '0.80rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      📥 Baixar Modelo Oficial (.csv)
+                    </button>
+                  </div>
+
+                </div>
+              )}
+
+              {/* ETAPA 2: PREVIEW DOS DADOS */}
+              {importStep === 'preview' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  
+                  {/* Resumo da Leitura */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                        Pré-visualização: {importFileName}
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        Revise os registros identificados antes de gravar na base ministerial.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.80rem', padding: '4px 10px', borderRadius: 20, background: '#f1f5f9', color: '#475569', fontWeight: 700 }}>
+                        Total: {parsedMembers.length}
+                      </span>
+                      <span style={{ fontSize: '0.80rem', padding: '4px 10px', borderRadius: 20, background: 'rgba(16, 185, 129, 0.12)', color: '#059669', fontWeight: 700 }}>
+                        ✓ {parsedMembers.filter(m => m.isValid && !m.isDuplicate).length} novos
+                      </span>
+                      {parsedMembers.some(m => m.isDuplicate) && (
+                        <span style={{ fontSize: '0.80rem', padding: '4px 10px', borderRadius: 20, background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', fontWeight: 700 }}>
+                          ⚠ {parsedMembers.filter(m => m.isDuplicate).length} já cadastrados (atualização)
+                        </span>
+                      )}
+                      {parsedMembers.some(m => !m.isValid) && (
+                        <span style={{ fontSize: '0.80rem', padding: '4px 10px', borderRadius: 20, background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', fontWeight: 700 }}>
+                          ✕ {parsedMembers.filter(m => !m.isValid).length} inválidos
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Configuração de Senha Fixa no Topo do Preview */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 16,
+                    padding: '10px 16px',
+                    background: '#f8fafc',
+                    borderRadius: 10,
+                    border: '1px solid var(--panel-border)'
+                  }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                      🔑 Senha Inicial Definida:
+                    </span>
+                    <input 
+                      type="text" 
+                      className="input-modern"
+                      value={defaultPassword}
+                      onChange={(e) => setDefaultPassword(e.target.value)}
+                      style={{ maxWidth: 220, padding: '5px 10px', fontSize: '0.84rem' }}
+                    />
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      Será aplicada a todos os novos usuários criados. Primeiro login forçará nova senha.
+                    </span>
+                  </div>
+
+                  {/* Tabela de Preview */}
+                  <div style={{ 
+                    maxHeight: '420px', 
+                    overflowY: 'auto', 
+                    border: '1px solid var(--panel-border)', 
+                    borderRadius: 12,
+                    background: '#ffffff'
+                  }}>
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 }}>
+                          <th style={{ padding: '10px 14px' }}>Status</th>
+                          <th style={{ padding: '10px 14px' }}>Nome Completo</th>
+                          <th style={{ padding: '10px 14px' }}>E-mail</th>
+                          <th style={{ padding: '10px 14px' }}>Telefone</th>
+                          <th style={{ padding: '10px 14px' }}>Nascimento</th>
+                          <th style={{ padding: '10px 14px' }}>Cargo</th>
+                          <th style={{ padding: '10px 14px' }}>Célula</th>
+                          <th style={{ padding: '10px 14px' }}>Endereço (Cidade/UF)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedMembers.map((m) => (
+                          <tr key={m.id} style={{ borderBottom: '1px solid #f1f5f9', background: !m.isValid ? '#fef2f2' : m.isDuplicate ? '#fffbeb' : 'transparent' }}>
+                            <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                              {!m.isValid ? (
+                                <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                  Inválido
+                                </span>
+                              ) : m.isDuplicate ? (
+                                <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                  Atualização
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                  Novo
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-main)' }}>{m.name || '---'}</td>
+                            <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{m.email || '---'}</td>
+                            <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{m.phone || '-'}</td>
+                            <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{m.birth_date || '-'}</td>
+                            <td style={{ padding: '10px 14px' }}>
+                              <span style={{ fontSize: '0.72rem', background: '#f1f5f9', padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>
+                                {m.role}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>{m.cell_name || '-'}</td>
+                            <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                              {m.address_city ? `${m.address_city}/${m.address_state || ''}` : m.address_street || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              )}
+
+              {/* ETAPA 3: RESULTADO FINAL */}
+              {importStep === 'result' && importResult && (
+                <div style={{ textAlign: 'center', padding: '32px 16px', maxWidth: 600, margin: '0 auto' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: 16 }}>🎉</div>
+                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>
+                    Processamento Concluído!
+                  </h3>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 24 }}>
+                    Os membros foram registrados na congregação e vinculados ao Cognito com troca obrigatória de senha no primeiro login.
+                  </p>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: 12,
+                    marginBottom: 24
+                  }}>
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '16px 12px' }}>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#15803d' }}>{importResult.created}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: 700 }}>Novos Membros</div>
+                    </div>
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '16px 12px' }}>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1d4ed8' }}>{importResult.updated}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#1e40af', fontWeight: 700 }}>Atualizados</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 12px' }}>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#64748b' }}>{importResult.errors?.length || 0}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>Falhas / Ignorados</div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    padding: 16,
+                    background: 'rgba(15, 118, 110, 0.06)',
+                    borderRadius: 12,
+                    border: '1px solid rgba(15, 118, 110, 0.2)',
+                    fontSize: '0.84rem',
+                    color: 'var(--text-main)',
+                    textAlign: 'left',
+                    marginBottom: 20
+                  }}>
+                    <strong>🔐 Instrução para os Membros:</strong>
+                    <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>
+                      Informe aos novos membros que o login inicial deve ser feito com o e-mail cadastrado e a senha padrão <code>{defaultPassword}</code>. No primeiro acesso, o sistema exigirá que definam sua própria senha pessoal.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer */}
+            <div className="modal-studio-footer">
+              {importStep === 'upload' && (
+                <>
+                  <button type="button" className="btn-secondary" onClick={() => setImportModalOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-primary" 
+                    disabled={!importFileName}
+                    onClick={() => setImportStep('preview')}
+                  >
+                    Avançar para Pré-visualização →
+                  </button>
+                </>
+              )}
+
+              {importStep === 'preview' && (
+                <>
+                  <button 
+                    type="button" 
+                    className="btn-secondary" 
+                    disabled={isProcessingImport}
+                    onClick={() => {
+                      setImportStep('upload');
+                      setParsedMembers([]);
+                    }}
+                  >
+                    ← Trocar Arquivo
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-primary" 
+                    disabled={isProcessingImport || parsedMembers.filter(m => m.isValid).length === 0}
+                    onClick={handleExecuteBatchImport}
+                  >
+                    {isProcessingImport ? 'Processando Membros...' : `Confirmar Importação de ${parsedMembers.filter(m => m.isValid).length} Membros`}
+                  </button>
+                </>
+              )}
+
+              {importStep === 'result' && (
+                <button 
+                  type="button" 
+                  className="btn-primary" 
+                  onClick={() => setImportModalOpen(false)}
+                >
+                  Concluir e Fechar
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>,
         document.body
       )}
     </div>

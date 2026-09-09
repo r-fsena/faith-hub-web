@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signIn, signInWithRedirect } from 'aws-amplify/auth';
+import { signIn, signInWithRedirect, confirmSignIn } from 'aws-amplify/auth';
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -37,17 +37,49 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estados para primeiro acesso com senha temporária
+  const [needsNewPassword, setNeedsNewPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const { isSignedIn } = await signIn({ username: email, password });
-      if (isSignedIn) {
+      const result = await signIn({ username: email, password });
+      if (result.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+        setNeedsNewPassword(true);
+      } else if (result.isSignedIn) {
         onLoginSuccess();
       }
     } catch (err: any) {
       setError(err.message || 'Falha ao realizar o login. Verifique suas credenciais.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 8) {
+      setError('A nova senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError('As senhas digitadas não coincidem.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await confirmSignIn({ challengeResponse: newPassword });
+      if (result.isSignedIn) {
+        onLoginSuccess();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Falha ao definir nova senha.');
     } finally {
       setLoading(false);
     }
@@ -201,47 +233,133 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </div>
           )}
 
-          <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-                E-mail institucional
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '13px 16px',
-                  borderRadius: '12px',
-                  background: '#f8fafc',
-                  border: '1.5px solid #e2e8f0',
-                  color: '#1e293b',
-                  fontSize: '0.90rem',
-                  outline: 'none',
-                  transition: 'all 0.2s ease',
-                  boxSizing: 'border-box'
-                }}
-                placeholder="seu.email@igreja.com"
-              />
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ fontSize: '0.84rem', fontWeight: 700, color: '#334155' }}>
-                  Senha de acesso
-                </label>
+          {needsNewPassword ? (
+            <form onSubmit={handleConfirmNewPassword} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                fontSize: '0.82rem',
+                color: '#166534',
+                lineHeight: 1.4
+              }}>
+                <div style={{ fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🔐</span> Primeiro Acesso Detectado
+                </div>
+                <span>Você acessou com uma senha temporária. Defina uma nova senha pessoal definitiva com no mínimo 8 caracteres.</span>
               </div>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                  Nova Senha Definitiva
+                </label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    style={{
+                      width: '100%',
+                      padding: '13px 44px 13px 16px',
+                      borderRadius: '12px',
+                      background: '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
+                      color: '#1e293b',
+                      fontSize: '0.90rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    placeholder="Mínimo 8 caracteres"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                  >
+                    {showNewPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                  Confirmar Nova Senha
+                </label>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type={showNewPassword ? "text" : "password"}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  style={{
+                    width: '100%',
+                    padding: '13px 16px',
+                    borderRadius: '12px',
+                    background: '#f8fafc',
+                    border: '1.5px solid #e2e8f0',
+                    color: '#1e293b',
+                    fontSize: '0.90rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Repita a nova senha"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                style={{ width: '100%', padding: '14px', marginTop: '6px', fontSize: '0.95rem', fontWeight: 800, justifyContent: 'center' }}
+                disabled={loading}
+              >
+                {loading ? 'Salvando nova senha...' : 'Salvar Nova Senha & Acessar'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNeedsNewPassword(false);
+                  setError(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  padding: '6px'
+                }}
+              >
+                ← Voltar ao login normal
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                  E-mail institucional
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   style={{
                     width: '100%',
-                    padding: '13px 44px 13px 16px',
+                    padding: '13px 16px',
                     borderRadius: '12px',
                     background: '#f8fafc',
                     border: '1.5px solid #e2e8f0',
@@ -251,39 +369,68 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                     transition: 'all 0.2s ease',
                     boxSizing: 'border-box'
                   }}
-                  placeholder="••••••••"
+                  placeholder="seu.email@igreja.com"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    background: 'none',
-                    border: 'none',
-                    color: '#94a3b8',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '4px'
-                  }}
-                  title={showPassword ? "Ocultar senha" : "Ver senha"}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
               </div>
-            </div>
-            
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              style={{ width: '100%', padding: '14px', marginTop: '6px', fontSize: '0.95rem', fontWeight: 800, justifyContent: 'center' }}
-              disabled={loading}
-            >
-              {loading ? 'Validando acesso...' : 'Entrar no Studio'}
-            </button>
-          </form>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '0.84rem', fontWeight: 700, color: '#334155' }}>
+                    Senha de acesso
+                  </label>
+                </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '13px 44px 13px 16px',
+                      borderRadius: '12px',
+                      background: '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
+                      color: '#1e293b',
+                      fontSize: '0.90rem',
+                      outline: 'none',
+                      transition: 'all 0.2s ease',
+                      boxSizing: 'border-box'
+                    }}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px'
+                    }}
+                    title={showPassword ? "Ocultar senha" : "Ver senha"}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              </div>
+              
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                style={{ width: '100%', padding: '14px', marginTop: '6px', fontSize: '0.95rem', fontWeight: 800, justifyContent: 'center' }}
+                disabled={loading}
+              >
+                {loading ? 'Validando acesso...' : 'Entrar no Studio'}
+              </button>
+            </form>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', margin: '14px 0', color: '#94a3b8', fontSize: '0.80rem' }}>
             <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
