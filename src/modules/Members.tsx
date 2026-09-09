@@ -1456,6 +1456,23 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                       Define as ferramentas que estarão liberadas no menu "Operacional" no celular deste usuário.
                     </span>
+                    {((inviteForm.role || '').toUpperCase().includes('ADMIN') || (inviteForm.role || '').toUpperCase().includes('PASTOR')) && (
+                      <div style={{
+                        marginTop: '8px',
+                        background: '#fffbeb',
+                        border: '1px solid #fef3c7',
+                        borderRadius: '8px',
+                        padding: '6px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.72rem',
+                        color: '#b45309',
+                        fontWeight: 700
+                      }}>
+                        <span>👑</span> Administradores Master e Pastores possuem acesso completo a todas as ferramentas operacionais por padrão.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1799,6 +1816,23 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                       Define as ferramentas que estarão liberadas no menu "Operacional" no celular deste usuário.
                     </span>
+                    {((memberToEdit.role || '').toUpperCase().includes('ADMIN') || (memberToEdit.role || '').toUpperCase().includes('PASTOR')) && (
+                      <div style={{
+                        marginTop: '8px',
+                        background: '#fffbeb',
+                        border: '1px solid #fef3c7',
+                        borderRadius: '8px',
+                        padding: '6px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.72rem',
+                        color: '#b45309',
+                        fontWeight: 700
+                      }}>
+                        <span>👑</span> Administradores Master e Pastores possuem acesso completo a todas as ferramentas operacionais por padrão.
+                      </div>
+                    )}
                   </div>
                 </div>
 
