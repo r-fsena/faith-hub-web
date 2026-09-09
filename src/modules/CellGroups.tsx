@@ -50,6 +50,8 @@ type CellGroup = {
   whatsapp_contact: string;
   focus: string;
   status: string;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
   campus_id?: string;
   campus_name?: string;
   pending_count?: number;
@@ -106,7 +108,9 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
     meeting_time: '19:30',
     whatsapp_contact: '',
     focus: 'GERAL',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    latitude: '',
+    longitude: ''
   });
 
   useEffect(() => {
@@ -173,7 +177,9 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
       meeting_time: cell.meeting_time || '19:30',
       whatsapp_contact: cell.whatsapp_contact || '',
       focus: cell.focus || 'GERAL',
-      status: cell.status || 'ACTIVE'
+      status: cell.status || 'ACTIVE',
+      latitude: cell.latitude != null ? String(cell.latitude) : '',
+      longitude: cell.longitude != null ? String(cell.longitude) : ''
     });
     await refreshWorkspaceData(cell.id);
   };
@@ -394,7 +400,9 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
       meeting_time: '19:30',
       whatsapp_contact: '',
       focus: 'GERAL',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      latitude: '',
+      longitude: ''
     });
     setShowCreateModal(true);
   };
@@ -1169,6 +1177,29 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
                     />
                   </div>
 
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Latitude (GPS / Mapa)</label>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Ex: -27.623485" 
+                        value={formData.latitude} 
+                        onChange={e => setFormData({...formData, latitude: e.target.value})} 
+                      />
+                    </div>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Longitude (GPS / Mapa)</label>
+                      <input 
+                        type="text" 
+                        className="input-modern"
+                        placeholder="Ex: -48.679114" 
+                        value={formData.longitude} 
+                        onChange={e => setFormData({...formData, longitude: e.target.value})} 
+                      />
+                    </div>
+                  </div>
+
                   <div className="form-group-modern">
                     <label className="form-label-modern">Descrição / Propósito da Célula</label>
                     <textarea 
@@ -1320,6 +1351,29 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
                   value={formData.address} 
                   onChange={e => setFormData({...formData, address: e.target.value})} 
                 />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group-modern">
+                  <label className="form-label-modern">Latitude (GPS)</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    placeholder="Ex: -27.623485" 
+                    value={formData.latitude} 
+                    onChange={e => setFormData({...formData, latitude: e.target.value})} 
+                  />
+                </div>
+                <div className="form-group-modern">
+                  <label className="form-label-modern">Longitude (GPS)</label>
+                  <input 
+                    type="text" 
+                    className="input-modern"
+                    placeholder="Ex: -48.679114" 
+                    value={formData.longitude} 
+                    onChange={e => setFormData({...formData, longitude: e.target.value})} 
+                  />
+                </div>
               </div>
 
               <div className="form-group-modern">
