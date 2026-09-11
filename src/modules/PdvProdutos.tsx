@@ -64,6 +64,11 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [showLayoutModal, setShowLayoutModal] = useState(false);
+  const [catalogLayout, setCatalogLayout] = useState<'list' | 'grid'>('list');
+  const [allowUserToggle, setAllowUserToggle] = useState(true);
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
+  const [hasCampusLayoutOverride, setHasCampusLayoutOverride] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [newGroupInput, setNewGroupInput] = useState('');
@@ -84,8 +89,69 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
     status: 'ACTIVE'
   });
 
+  const loadLayoutConfig = async () => {
+    try {
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusParam = selectedCampusId && selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
+      const res = await fetch(`${API_URL}/feature-flags?organization_id=${encodeURIComponent(orgId)}${campusParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        const config = data.configs?.['pdv.catalog_layout'];
+        if (config) {
+          setCatalogLayout(config.layout === 'grid' ? 'grid' : 'list');
+          setAllowUserToggle(config.allow_user_toggle !== false);
+        }
+        const flagItem = data.catalog?.find((c: any) => c.key === 'pdv.catalog_layout');
+        setHasCampusLayoutOverride(Boolean(flagItem?.hasOverride));
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar config de layout do catálogo:', err);
+    }
+  };
+
+  const saveLayoutConfig = async (scope: 'tenant' | 'campus') => {
+    try {
+      setIsSavingLayout(true);
+      const headers = await getAuthHeaders();
+      const orgId = selectedOrganization?.id || 'org_default';
+      const campusId = scope === 'campus' && selectedCampusId !== 'all' ? selectedCampusId : null;
+
+      const res = await fetch(`${API_URL}/feature-flags/toggle`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          organization_id: orgId,
+          campus_id: campusId,
+          environment: 'all',
+          feature_key: 'pdv.catalog_layout',
+          is_enabled: true,
+          config_payload: {
+            layout: catalogLayout,
+            allow_user_toggle: allowUserToggle
+          },
+          category: 'PDV',
+          description: 'Layout do catálogo no App (Lista ou Grade) e permissão de alternância'
+        })
+      });
+
+      if (res.ok) {
+        alert(`Layout do catálogo configurado com sucesso para ${scope === 'campus' ? 'esta unidade/filial' : 'toda a congregação'}!`);
+        setShowLayoutModal(false);
+        loadLayoutConfig();
+      } else {
+        const err = await res.json();
+        alert(`Erro ao salvar: ${err.error || 'Falha na requisição'}`);
+      }
+    } catch (e: any) {
+      alert(`Erro ao salvar configuração: ${e.message}`);
+    } finally {
+      setIsSavingLayout(false);
+    }
+  };
+
   useEffect(() => {
     loadProducts();
+    loadLayoutConfig();
   }, [selectedCampusId, selectedOrganization]);
 
   const sortGroupsWithInactiveAtBottom = (list: ProductGroup[]): ProductGroup[] => {
@@ -428,7 +494,18 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
           <p className="card-subtitle">Cadastre e gerencie os livros, devocionais, vestuário, cursos e produtos disponíveis para compra no App.</p>
         </div>
         
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            onClick={() => setShowLayoutModal(true)}
+            style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}
+            title="Definir formato de exibição no App (Lista ou Grade) e permissões de alternância"
+          >
+            <span>{catalogLayout === 'grid' ? '⊞' : '☰'}</span>
+            <span>Layout no App ({catalogLayout === 'grid' ? 'Grade' : 'Lista'})</span>
+          </button>
+
           <button 
             type="button" 
             className="btn-secondary" 
@@ -1020,6 +1097,260 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
               <button type="button" className="btn-primary" onClick={() => setShowGroupsModal(false)}>
                 Concluir
               </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================
+          MODAL: CONFIGURAÇÃO DE LAYOUT DO CATÁLOGO NO APP
+          ======================================================== */}
+      {showLayoutModal && createPortal(
+        <div className="modal-studio-backdrop animate-fade-in" onClick={() => setShowLayoutModal(false)}>
+          <div className="modal-studio-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+            
+            {/* Header */}
+            <div className="modal-studio-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)', fontSize: '1.2rem' }}>
+                  🎨
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>Layout do Catálogo no App</h2>
+                  <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                    Defina se os produtos são exibidos em formato de Lista ou Grade no PWA dos membros.
+                  </p>
+                </div>
+              </div>
+
+              <button type="button" className="modal-close-btn" onClick={() => setShowLayoutModal(false)}>
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="modal-studio-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              
+              {/* Contexto de Escopo Multi-Tenant / Multi-Campus */}
+              <div style={{
+                background: selectedCampusId !== 'all' ? '#eff6ff' : '#f8fafc',
+                border: `1px solid ${selectedCampusId !== 'all' ? '#bfdbfe' : 'var(--panel-border)'}`,
+                borderRadius: 12,
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: '1.2rem' }}>{selectedCampusId !== 'all' ? '🏛️' : '🌐'}</span>
+                  <div>
+                    <div style={{ fontSize: '0.80rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                      {selectedCampusId !== 'all' ? 'Configurando Unidade / Filial Específica' : 'Configurando Toda a Congregação (Geral)'}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {selectedCampusId !== 'all' 
+                        ? 'Você pode aplicar um formato exclusivo para esta filial ou salvar para toda a igreja.'
+                        : 'Este será o formato padrão para todas as unidades que não possuírem override individual.'}
+                    </div>
+                  </div>
+                </div>
+
+                {hasCampusLayoutOverride && selectedCampusId !== 'all' && (
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    color: '#2563eb',
+                    background: '#dbeafe',
+                    padding: '3px 8px',
+                    borderRadius: 6
+                  }}>
+                    Override Ativo
+                  </span>
+                )}
+              </div>
+
+              {/* Cards de Seleção de Layout */}
+              <div>
+                <label style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8, display: 'block' }}>
+                  Modo de Exibição Principal:
+                </label>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  
+                  {/* Opção 1: Lista Compacta */}
+                  <div
+                    onClick={() => setCatalogLayout('list')}
+                    style={{
+                      border: `2px solid ${catalogLayout === 'list' ? 'var(--accent-primary)' : 'var(--panel-border)'}`,
+                      borderRadius: 16,
+                      padding: '16px',
+                      background: catalogLayout === 'list' ? 'var(--accent-primary-light)' : '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: '1.4rem' }}>☰</span>
+                        <input
+                          type="radio"
+                          name="catalogLayout"
+                          checked={catalogLayout === 'list'}
+                          onChange={() => setCatalogLayout('list')}
+                          style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--text-main)', marginBottom: 4 }}>
+                        Lista Compacta
+                      </div>
+                      <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4, margin: 0 }}>
+                        Cards horizontais com miniaturas, leitura rápida e botão express.
+                      </p>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <span style={{
+                        fontSize: '0.64rem',
+                        fontWeight: 800,
+                        color: '#059669',
+                        background: '#ecfdf5',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        display: 'inline-block'
+                      }}>
+                        ✓ Ideal para Cantinas & Alimentos
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Opção 2: Grade de Cards */}
+                  <div
+                    onClick={() => setCatalogLayout('grid')}
+                    style={{
+                      border: `2px solid ${catalogLayout === 'grid' ? 'var(--accent-primary)' : 'var(--panel-border)'}`,
+                      borderRadius: 16,
+                      padding: '16px',
+                      background: catalogLayout === 'grid' ? 'var(--accent-primary-light)' : '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: '1.4rem' }}>⊞</span>
+                        <input
+                          type="radio"
+                          name="catalogLayout"
+                          checked={catalogLayout === 'grid'}
+                          onChange={() => setCatalogLayout('grid')}
+                          style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--text-main)', marginBottom: 4 }}>
+                        Grade de Produtos (Grid)
+                      </div>
+                      <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4, margin: 0 }}>
+                        Cards verticais em 2 colunas com fotos grandes em evidência.
+                      </p>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <span style={{
+                        fontSize: '0.64rem',
+                        fontWeight: 800,
+                        color: '#2563eb',
+                        background: '#eff6ff',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        display: 'inline-block'
+                      }}>
+                        ✓ Ideal para Livraria & Vestuário
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Checkbox de Permissão de Alternância pelo Membro */}
+              <div style={{
+                background: '#f8fafc',
+                padding: '14px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--panel-border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                cursor: 'pointer'
+              }} onClick={() => setAllowUserToggle(!allowUserToggle)}>
+                <input
+                  type="checkbox"
+                  checked={allowUserToggle}
+                  onChange={e => setAllowUserToggle(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                />
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    Permitir que o membro alterne entre Lista e Grade no App
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Exibe um seletor visual discreto no topo do catálogo no PWA para o membro escolher sua preferência pessoal.
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer com Botões de Ação */}
+            <div className="modal-studio-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowLayoutModal(false)}
+                disabled={isSavingLayout}
+              >
+                Cancelar
+              </button>
+
+              {selectedCampusId !== 'all' ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => saveLayoutConfig('tenant')}
+                    disabled={isSavingLayout}
+                    title="Salva esta configuração como padrão de todas as unidades"
+                  >
+                    Salvar Padrão para Toda a Igreja
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => saveLayoutConfig('campus')}
+                    disabled={isSavingLayout}
+                  >
+                    {isSavingLayout ? 'Salvando...' : 'Salvar Override Para Esta Unidade'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => saveLayoutConfig('tenant')}
+                  disabled={isSavingLayout}
+                >
+                  {isSavingLayout ? 'Salvando...' : 'Salvar Configuração Geral'}
+                </button>
+              )}
             </div>
 
           </div>
