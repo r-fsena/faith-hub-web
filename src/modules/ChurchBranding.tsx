@@ -57,6 +57,13 @@ export interface ChurchBrandingSettings {
   store_subtitle?: string;
   store_tab_title?: string;
   store_counter_label?: string;
+  welcome_screen_config?: {
+    enabled: boolean;
+    hero_image_url?: string;
+    headline?: string;
+    subtitle?: string;
+    allow_guest_browse?: boolean;
+  };
 }
 
 const DEFAULT_SETTINGS: ChurchBrandingSettings = {
@@ -86,7 +93,14 @@ const DEFAULT_SETTINGS: ChurchBrandingSettings = {
   store_title: 'Loja Oficial',
   store_subtitle: 'Livros, vestuário, devocionais e itens com retirada expressa',
   store_tab_title: 'Loja',
-  store_counter_label: 'Balcão da Loja da Igreja'
+  store_counter_label: 'Balcão da Loja da Igreja',
+  welcome_screen_config: {
+    enabled: true,
+    hero_image_url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&q=80',
+    headline: 'Viva o propósito da sua vida em comunidade',
+    subtitle: 'Acompanhe devocionais, conecte-se à sua célula e participe de encontros que transformam vidas.',
+    allow_guest_browse: true
+  }
 };
 
 const COLOR_PRESETS = [
@@ -122,8 +136,8 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
     primary_color: selectedOrganization?.primary_color || DEFAULT_SETTINGS.primary_color,
     secondary_color: selectedOrganization?.secondary_color || DEFAULT_SETTINGS.secondary_color,
   });
-  const [activeTab, setActiveTab] = useState<'profile' | 'visual' | 'pwa'>('profile');
-  const [emulatorView, setEmulatorView] = useState<'home' | 'splash' | 'qr'>('home');
+  const [activeTab, setActiveTab] = useState<'profile' | 'visual' | 'pwa' | 'welcome'>('profile');
+  const [emulatorView, setEmulatorView] = useState<'home' | 'devotionals' | 'welcome' | 'splash' | 'qr'>('home');
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
@@ -496,6 +510,16 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px 16px' }}
             >
               <SmartphoneIcon /> 3. Link & PWA
+            </button>
+            <button 
+              className={`segmented-btn ${activeTab === 'welcome' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('welcome');
+                setEmulatorView('welcome');
+              }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px 16px' }}
+            >
+              <SparklesIcon /> 4. Boas-Vindas (Login)
             </button>
           </div>
 
@@ -992,6 +1016,218 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
             </div>
           )}
 
+          {/* TAB 4: BOAS-VINDAS & LOGIN IMERSIVO */}
+          {activeTab === 'welcome' && (
+            <div className="portal-card animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card-header-row" style={{ margin: 0, paddingBottom: 16, borderBottom: '1px solid var(--panel-border)' }}>
+                <div>
+                  <h3 className="card-title">Tela de Boas-Vindas & Abertura (Login PWA)</h3>
+                  <p className="card-subtitle">Personalize a primeira impressão do aplicativo com visual fotográfico em tela cheia, dizeres e botão de ação.</p>
+                </div>
+              </div>
+
+              {/* Status de Ativação */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card-subtle, #f8fafc)', borderRadius: '16px', border: '1px solid var(--panel-border)' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                    Ativar Tela de Abertura Imersiva
+                  </div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    Exibe a foto em tela cheia com carrossel de dizeres inspiradores e botão orgânico de acesso.
+                  </div>
+                </div>
+                <label className="switch-control">
+                  <input 
+                    type="checkbox"
+                    checked={settings.welcome_screen_config?.enabled !== false}
+                    onChange={e => {
+                      setSettings(prev => ({
+                        ...prev,
+                        welcome_screen_config: {
+                          ...(prev.welcome_screen_config || {
+                            enabled: true,
+                            hero_image_url: '',
+                            headline: '',
+                            subtitle: '',
+                            allow_guest_browse: true
+                          }),
+                          enabled: e.target.checked
+                        }
+                      }));
+                    }}
+                  />
+                  <span className="slider-round" />
+                </label>
+              </div>
+
+              {/* Imagem de Fundo (Hero Image) */}
+              <div>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Foto de Fundo em Alta Resolução (Vertical)</span>
+                  <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>Recomendado: 1080x1920 (Proporção 9:16)</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="https://sua-igreja.com/foto-comunidade.jpg"
+                  value={settings.welcome_screen_config?.hero_image_url || ''}
+                  onChange={e => {
+                    setSettings(prev => ({
+                      ...prev,
+                      welcome_screen_config: {
+                        ...(prev.welcome_screen_config || {
+                          enabled: true,
+                          hero_image_url: '',
+                          headline: '',
+                          subtitle: '',
+                          allow_guest_browse: true
+                        }),
+                        hero_image_url: e.target.value
+                      }
+                    }));
+                  }}
+                />
+
+                {/* Presets de Imagens Rápidas */}
+                <div style={{ marginTop: '12px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                    Ou escolha uma foto de nossa galeria curada de alta resolução:
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                    {[
+                      { name: 'Comunidade & Jovens', url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&q=80' },
+                      { name: 'Adoração & Louvor', url: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=1200&q=80' },
+                      { name: 'Templo & Luz', url: 'https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=1200&q=80' },
+                      { name: 'Família & Abraço', url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80' }
+                    ].map(preset => (
+                      <div
+                        key={preset.name}
+                        onClick={() => {
+                          setSettings(prev => ({
+                            ...prev,
+                            welcome_screen_config: {
+                              ...(prev.welcome_screen_config || {
+                                enabled: true,
+                                hero_image_url: '',
+                                headline: '',
+                                subtitle: '',
+                                allow_guest_browse: true
+                              }),
+                              hero_image_url: preset.url
+                            }
+                          }));
+                          setEmulatorView('welcome');
+                        }}
+                        style={{
+                          borderRadius: '14px',
+                          overflow: 'hidden',
+                          border: settings.welcome_screen_config?.hero_image_url === preset.url ? '2px solid var(--accent-primary, #0f766e)' : '1px solid var(--panel-border)',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          height: '80px',
+                          boxShadow: settings.welcome_screen_config?.hero_image_url === preset.url ? '0 0 12px rgba(15, 118, 110, 0.3)' : 'none'
+                        }}
+                      >
+                        <img src={preset.url} alt={preset.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.70)', color: '#ffffff', fontSize: '0.62rem', fontWeight: 800, padding: '4px', textAlign: 'center' }}>
+                          {preset.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Título de Impacto (Headline) */}
+              <div>
+                <label className="form-label">Título Principal de Boas-Vindas (Headline)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Viva o propósito da sua vida em comunidade"
+                  value={settings.welcome_screen_config?.headline || ''}
+                  onChange={e => {
+                    setSettings(prev => ({
+                      ...prev,
+                      welcome_screen_config: {
+                        ...(prev.welcome_screen_config || {
+                          enabled: true,
+                          hero_image_url: '',
+                          headline: '',
+                          subtitle: '',
+                          allow_guest_browse: true
+                        }),
+                        headline: e.target.value
+                      }
+                    }));
+                  }}
+                />
+              </div>
+
+              {/* Subtítulo / Dizeres da Igreja */}
+              <div>
+                <label className="form-label">Dizeres / Mensagem Pastoral de Acolhimento</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="Ex: Acompanhe devocionais diários, conecte-se à sua célula e participe de encontros que transformam vidas."
+                  value={settings.welcome_screen_config?.subtitle || ''}
+                  onChange={e => {
+                    setSettings(prev => ({
+                      ...prev,
+                      welcome_screen_config: {
+                        ...(prev.welcome_screen_config || {
+                          enabled: true,
+                          hero_image_url: '',
+                          headline: '',
+                          subtitle: '',
+                          allow_guest_browse: true
+                        }),
+                        subtitle: e.target.value
+                      }
+                    }));
+                  }}
+                />
+              </div>
+
+              {/* Permitir Navegação como Visitante */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card-subtle, #f8fafc)', borderRadius: '16px', border: '1px solid var(--panel-border)' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.90rem', color: 'var(--text-main)' }}>
+                    Permitir Navegação como Visitante
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    Exibe o botão "Explorar" no topo da tela para permitir que visitantes naveguem na Bíblia e eventos sem login obrigatório.
+                  </div>
+                </div>
+                <label className="switch-control">
+                  <input 
+                    type="checkbox"
+                    checked={settings.welcome_screen_config?.allow_guest_browse !== false}
+                    onChange={e => {
+                      setSettings(prev => ({
+                        ...prev,
+                        welcome_screen_config: {
+                          ...(prev.welcome_screen_config || {
+                            enabled: true,
+                            hero_image_url: '',
+                            headline: '',
+                            subtitle: '',
+                            allow_guest_browse: true
+                          }),
+                          allow_guest_browse: e.target.checked
+                        }
+                      }));
+                    }}
+                  />
+                  <span className="slider-round" />
+                </label>
+              </div>
+
+            </div>
+          )}
+
+
           {/* Action Bar / Save Button */}
           <div className="portal-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
@@ -1030,34 +1266,41 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                 ● Tempo Real
               </span>
             </div>
-            <div className="segmented-control" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+            <div className="segmented-control" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
               <button 
                 className={`segmented-btn ${emulatorView === 'home' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('home')}
-                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
+                style={{ fontSize: '0.70rem', padding: '6px 2px' }}
               >
                 Início
               </button>
               <button 
                 className={`segmented-btn ${emulatorView === 'devotionals' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('devotionals')}
-                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
+                style={{ fontSize: '0.70rem', padding: '6px 2px' }}
               >
                 Ensino
               </button>
               <button 
+                className={`segmented-btn ${emulatorView === 'welcome' ? 'active' : ''}`}
+                onClick={() => setEmulatorView('welcome')}
+                style={{ fontSize: '0.70rem', padding: '6px 2px' }}
+              >
+                Login
+              </button>
+              <button 
                 className={`segmented-btn ${emulatorView === 'splash' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('splash')}
-                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
+                style={{ fontSize: '0.70rem', padding: '6px 2px' }}
               >
                 Splash
               </button>
               <button 
                 className={`segmented-btn ${emulatorView === 'qr' ? 'active' : ''}`}
                 onClick={() => setEmulatorView('qr')}
-                style={{ fontSize: '0.72rem', padding: '6px 4px' }}
+                style={{ fontSize: '0.70rem', padding: '6px 2px' }}
               >
-                QR Code
+                QR
               </button>
             </div>
           </div>
@@ -1344,6 +1587,144 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                       </span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW: BOAS-VINDAS / LOGIN REVOLUTION */}
+            {emulatorView === 'welcome' && (
+              <div style={{
+                flex: 1,
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                padding: '20px 18px 24px 18px',
+                backgroundImage: `url(${settings.welcome_screen_config?.hero_image_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80'})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                color: '#ffffff',
+                overflow: 'hidden'
+              }}>
+                {/* Scrim Vignette Gradient */}
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 35%, rgba(0,0,0,0.85) 75%, #050811 100%)',
+                  pointerEvents: 'none'
+                }} />
+
+                {/* Top Bar Header */}
+                <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    background: 'rgba(255,255,255,0.12)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    fontSize: '0.68rem',
+                    fontWeight: 700
+                  }}>
+                    {settings.logo_icon_url ? (
+                      <img src={settings.logo_icon_url} alt="" style={{ width: '14px', height: '14px', borderRadius: '50%' }} />
+                    ) : (
+                      <span>⛪</span>
+                    )}
+                    <span>{settings.church_name}</span>
+                  </div>
+
+                  {settings.welcome_screen_config?.allow_guest_browse !== false && (
+                    <div style={{
+                      padding: '4px 10px',
+                      borderRadius: '9999px',
+                      background: 'rgba(255,255,255,0.08)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      fontSize: '0.66rem',
+                      fontWeight: 600,
+                      color: 'rgba(255,255,255,0.9)'
+                    }}>
+                      Explorar ›
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Story & Interactive Action Area */}
+                <div style={{ position: 'relative', zIndex: 10 }}>
+                  <h2 style={{
+                    fontSize: '1.45rem',
+                    fontWeight: 900,
+                    lineHeight: 1.15,
+                    marginBottom: '8px',
+                    letterSpacing: '-0.02em',
+                    textShadow: '0 2px 10px rgba(0,0,0,0.6)'
+                  }}>
+                    {settings.welcome_screen_config?.headline || 'Conecte-se com sua Fé'}
+                  </h2>
+                  <p style={{
+                    fontSize: '0.74rem',
+                    lineHeight: 1.4,
+                    color: 'rgba(255,255,255,0.82)',
+                    marginBottom: '20px',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.5)'
+                  }}>
+                    {settings.welcome_screen_config?.subtitle || 'Participe dos cultos, células e fique por dentro de cada momento da nossa comunidade.'}
+                  </p>
+
+                  {/* Organic Action Control Bar */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 6px 6px 14px',
+                    borderRadius: '9999px',
+                    background: 'rgba(255,255,255,0.12)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255,255,255,0.2)'
+                  }}>
+                    {/* Carousel Dots */}
+                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                      <div style={{ width: '16px', height: '5px', borderRadius: '3px', background: '#ffffff' }} />
+                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
+                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
+                    </div>
+
+                    {/* Circular Action Button */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '6px 14px',
+                      borderRadius: '9999px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.25)'
+                    }}>
+                      <span>Entrar</span>
+                      <div style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        background: '#0f172a',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.7rem'
+                      }}>
+                        →
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.66rem', color: 'rgba(255,255,255,0.6)' }}>
+                    Toque para abrir login seguro
+                  </div>
                 </div>
               </div>
             )}
