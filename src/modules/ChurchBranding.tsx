@@ -63,6 +63,12 @@ export interface ChurchBrandingSettings {
     headline?: string;
     subtitle?: string;
     allow_guest_browse?: boolean;
+    slides?: Array<{
+      badge: string;
+      title: string;
+      description: string;
+      image_url?: string;
+    }>;
   };
 }
 
