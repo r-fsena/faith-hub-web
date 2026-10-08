@@ -518,28 +518,31 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   const toggleInviteOperational = (permId: string) => {
     setInviteForm(prev => {
-      const exists = prev.operational_permissions.includes(permId);
+      const currentPerms = prev.operational_permissions || [];
+      const exists = currentPerms.includes(permId);
       return {
         ...prev,
         operational_permissions: exists 
-          ? prev.operational_permissions.filter(p => p !== permId) 
-          : [...prev.operational_permissions, permId]
+          ? currentPerms.filter(p => p !== permId) 
+          : [...currentPerms, permId]
       };
     });
   };
 
   const toggleEditOperational = (permId: string) => {
     setEditOperationalPermissions(prev => {
-      return prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId];
+      const current = prev || [];
+      return current.includes(permId) ? current.filter(p => p !== permId) : [...current, permId];
     });
   };
 
   const toggleInviteCampus = (cId: string) => {
     setInviteForm(prev => {
+      const currentCampuses = prev.campusIds || ['campus_sede'];
       if (cId === 'all') {
-        return { ...prev, campusIds: prev.campusIds.includes('all') ? ['campus_sede'] : ['all'] };
+        return { ...prev, campusIds: currentCampuses.includes('all') ? ['campus_sede'] : ['all'] };
       }
-      let updated = prev.campusIds.filter(id => id !== 'all');
+      let updated = currentCampuses.filter(id => id !== 'all');
       if (updated.includes(cId)) {
         updated = updated.filter(id => id !== cId);
         if (updated.length === 0) updated = ['campus_sede'];
@@ -585,7 +588,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   };
 
   const submitInvite = async () => {
-    if (!inviteForm.name || !inviteForm.email) return alert("Preencha os campos obrigatórios.");
+    if (!inviteForm.name || !inviteForm.email || !inviteForm.phone) {
+      return alert("Preencha todos os campos obrigatórios: Nome, E-mail e Telefone/WhatsApp.");
+    }
     setIsInviting(true);
     try {
       const headers = await getAuthHeaders();
@@ -636,7 +641,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           address_complement: '',
           address_neighborhood: '',
           address_city: '',
-          address_state: ''
+          address_state: '',
+          operational_permissions: []
         });
         alert("Convite enviado com sucesso! O membro foi cadastrado no sistema.");
         fetchMembers();
@@ -850,7 +856,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             onClick={() => {
               setInviteForm(prev => ({
                 ...prev,
-                campusIds: selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede']
+                campusIds: (prev.campusIds && prev.campusIds.length > 0) ? prev.campusIds : (selectedCampusId !== 'all' ? [selectedCampusId] : ['campus_sede']),
+                operational_permissions: prev.operational_permissions || []
               }));
               setInviteModalOpen(true);
             }}
@@ -1174,13 +1181,14 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div className="form-group-modern">
-                      <label className="form-label-modern">Telefone / WhatsApp</label>
+                      <label className="form-label-modern">Telefone / WhatsApp *</label>
                       <input 
                         type="text" 
                         className="input-modern"
                         placeholder="(00) 00000-0000" 
                         value={inviteForm.phone} 
                         onChange={e => setInviteForm({...inviteForm, phone: e.target.value})} 
+                        required
                       />
                     </div>
                     <div className="form-group-modern">
@@ -1308,7 +1316,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Unidades / Campi Autorizados *</span>
                       <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
-                        {inviteForm.campusIds.includes('all') ? 'Todas as Unidades' : `${inviteForm.campusIds.length} selecionada(s)`}
+                        {(inviteForm.campusIds || []).includes('all') ? 'Todas as Unidades' : `${(inviteForm.campusIds || []).length} selecionada(s)`}
                       </span>
                     </label>
                     
@@ -1332,8 +1340,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                           justifyContent: 'space-between',
                           padding: '8px 12px',
                           borderRadius: '8px',
-                          background: inviteForm.campusIds.includes('all') ? 'var(--accent-primary-light)' : '#ffffff',
-                          border: inviteForm.campusIds.includes('all') ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                          background: (inviteForm.campusIds || []).includes('all') ? 'var(--accent-primary-light)' : '#ffffff',
+                          border: (inviteForm.campusIds || []).includes('all') ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
                           cursor: 'pointer'
                         }}
                       >
@@ -1346,7 +1354,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         </div>
                         <input 
                           type="checkbox" 
-                          checked={inviteForm.campusIds.includes('all')} 
+                          checked={(inviteForm.campusIds || []).includes('all')} 
                           onChange={() => {}} 
                           style={{ cursor: 'pointer' }}
                         />
@@ -1354,7 +1362,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
                       {/* Lista de Campi Cadastrados */}
                       {campusesList.map(camp => {
-                        const isChecked = inviteForm.campusIds.includes('all') || inviteForm.campusIds.includes(camp.id);
+                        const isChecked = (inviteForm.campusIds || []).includes('all') || (inviteForm.campusIds || []).includes(camp.id);
                         return (
                           <div 
                             key={camp.id}
@@ -1398,7 +1406,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>🛠️ Permissões Operacionais (PWA & Celular)</span>
                       <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
-                        {inviteForm.operational_permissions.length} habilitada(s)
+                        {(inviteForm.operational_permissions || []).length} habilitada(s)
                       </span>
                     </label>
                     <div style={{
@@ -1416,7 +1424,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
                         { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' }
                       ].map(perm => {
-                        const isChecked = inviteForm.operational_permissions.includes(perm.id);
+                        const isChecked = (inviteForm.operational_permissions || []).includes(perm.id);
                         return (
                           <div
                             key={perm.id}
@@ -1673,7 +1681,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Unidades / Campi Autorizados</span>
                       <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
-                        {editCampusIds.includes('all') ? 'Todas as Unidades' : `${editCampusIds.length} selecionada(s)`}
+                        {(editCampusIds || []).includes('all') ? 'Todas as Unidades' : `${(editCampusIds || []).length} selecionada(s)`}
                       </span>
                     </label>
                     
@@ -1696,8 +1704,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                           justifyContent: 'space-between',
                           padding: '8px 12px',
                           borderRadius: '8px',
-                          background: editCampusIds.includes('all') ? 'var(--accent-primary-light)' : '#ffffff',
-                          border: editCampusIds.includes('all') ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
+                          background: (editCampusIds || []).includes('all') ? 'var(--accent-primary-light)' : '#ffffff',
+                          border: (editCampusIds || []).includes('all') ? '1px solid var(--accent-primary)' : '1px solid var(--panel-border)',
                           cursor: 'pointer'
                         }}
                       >
@@ -1758,7 +1766,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>🛠️ Permissões Operacionais (PWA & Celular)</span>
                       <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
-                        {editOperationalPermissions.length} habilitada(s)
+                        {(editOperationalPermissions || []).length} habilitada(s)
                       </span>
                     </label>
                     <div style={{
@@ -1776,7 +1784,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
                         { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' }
                       ].map(perm => {
-                        const isChecked = editOperationalPermissions.includes(perm.id);
+                        const isChecked = (editOperationalPermissions || []).includes(perm.id);
                         return (
                           <div
                             key={perm.id}

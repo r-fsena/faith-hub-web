@@ -42,6 +42,18 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  const handlePhoneChange = (val: string) => {
+    const raw = val.replace(/\D/g, '').slice(0, 11);
+    if (raw.length <= 2) {
+      setPhoneNumber(raw.length > 0 ? `(${raw}` : '');
+    } else if (raw.length <= 7) {
+      setPhoneNumber(`(${raw.slice(0, 2)}) ${raw.slice(2)}`);
+    } else {
+      setPhoneNumber(`(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7)}`);
+    }
+  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,15 +83,38 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       setError('As senhas digitadas não coincidem.');
       return;
     }
+
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setError('Por favor, informe seu número de celular/WhatsApp com DDD para validação de segurança.');
+      return;
+    }
+
+    const formattedPhone = phoneNumber.startsWith('+')
+      ? phoneNumber
+      : (cleanPhone.startsWith('55') ? `+${cleanPhone}` : `+55${cleanPhone}`);
+
     setLoading(true);
     setError(null);
     try {
-      const result = await confirmSignIn({ challengeResponse: newPassword });
+      const result = await confirmSignIn({ 
+        challengeResponse: newPassword,
+        options: {
+          userAttributes: {
+            phone_number: formattedPhone
+          }
+        }
+      });
       if (result.isSignedIn) {
         onLoginSuccess();
       }
     } catch (err: any) {
-      setError(err.message || 'Falha ao definir nova senha.');
+      console.error('Erro confirmSignIn:', err);
+      let msg = err.message || 'Falha ao definir nova senha.';
+      if (msg.includes('phone_number is missing') || msg.includes('Invalid attributes given')) {
+        msg = 'O número de celular com DDD é obrigatório para validação de segurança da sua conta.';
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -247,7 +282,34 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <div style={{ fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>🔐</span> Primeiro Acesso Detectado
                 </div>
-                <span>Você acessou com uma senha temporária. Defina uma nova senha pessoal definitiva com no mínimo 8 caracteres.</span>
+                <span>Você acessou com uma senha temporária. Defina sua nova senha definitiva e confirme seu WhatsApp/celular.</span>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                  Celular / WhatsApp (com DDD) *
+                </label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '13px 16px',
+                    borderRadius: '12px',
+                    background: '#f8fafc',
+                    border: '1.5px solid #e2e8f0',
+                    color: '#1e293b',
+                    fontSize: '0.90rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="(00) 00000-0000"
+                />
+                <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                  Necessário para a validação de segurança e recuperação da sua conta.
+                </span>
               </div>
 
               <div>
