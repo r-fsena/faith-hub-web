@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import './Broadcasts.css';
+import { StudyRichEditor } from '../components/StudyRichEditor';
 
 const BookOpenIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -942,29 +943,27 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
                               </div>
 
                               {/* 🧊 Quebra-Gelo */}
-                              <div className="form-group-modern">
-                                <label className="form-label-modern">🧊 Quebra-Gelo / Dinâmica de Abertura</label>
-                                <textarea 
-                                  rows={2} 
-                                  className="textarea-modern"
-                                  value={ch.icebreaker} 
-                                  onChange={e => handleUpdateChapter(idx, 'icebreaker', e.target.value)} 
-                                  placeholder="Pergunta ou brincadeira inicial para descontrair a célula antes da palavra..." 
-                                />
-                              </div>
+                              <StudyRichEditor
+                                label="Quebra-Gelo / Dinâmica de Abertura"
+                                icon="🧊"
+                                subtitle="Pergunta ou dinâmica inicial para descontrair a célula antes da palavra."
+                                rows={3}
+                                value={ch.icebreaker}
+                                onChange={val => handleUpdateChapter(idx, 'icebreaker', val)}
+                                placeholder="Pergunta ou brincadeira inicial para descontrair a célula antes da palavra..."
+                              />
 
                               {/* 💡 Ministração / Esboço */}
-                              <div className="form-group-modern">
-                                <label className="form-label-modern">💡 Esboço & Conteúdo do Estudo (Ministração) *</label>
-                                <textarea 
-                                  rows={5} 
-                                  className="textarea-modern"
-                                  value={ch.content_text} 
-                                  onChange={e => handleUpdateChapter(idx, 'content_text', e.target.value)} 
-                                  placeholder="Estrutura do estudo bíblico, tópicos, explicações e contextualização..." 
-                                  required
-                                />
-                              </div>
+                              <StudyRichEditor
+                                label="Esboço & Conteúdo do Estudo (Ministração)"
+                                icon="💡"
+                                subtitle="Estrutura do estudo bíblico, tópicos, explicações teológicas e contexto para ministração."
+                                rows={6}
+                                required
+                                value={ch.content_text}
+                                onChange={val => handleUpdateChapter(idx, 'content_text', val)}
+                                placeholder="Estrutura do estudo bíblico, tópicos, explicações e contextualização..."
+                              />
 
                               {/* 💬 Perguntas de Debate */}
                               <div className="form-group-modern">
@@ -1003,43 +1002,141 @@ export default function Studies({ selectedCampusId, selectedOrganization }: Stud
                                 </div>
                               </div>
 
-                              {/* 🎯 Desafio Prático & Mídia */}
-                              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
-                                <div className="form-group-modern">
-                                  <label className="form-label-modern">🎯 Desafio Prático / Oração da Semana</label>
-                                  <input 
-                                    type="text" 
-                                    className="input-modern"
-                                    value={ch.practical_challenge} 
-                                    onChange={e => handleUpdateChapter(idx, 'practical_challenge', e.target.value)} 
-                                    placeholder="Ex: Orem por 3 pessoas que precisam de paz nesta semana." 
-                                  />
-                                </div>
+                              {/* 🎯 Desafio Prático & Oração da Semana */}
+                              <StudyRichEditor
+                                label="Desafio Prático / Oração da Semana"
+                                icon="🎯"
+                                subtitle="Ações práticas para os membros aplicarem no cotidiano e alvos de oração específicos da célula."
+                                rows={4}
+                                value={ch.practical_challenge}
+                                onChange={val => handleUpdateChapter(idx, 'practical_challenge', val)}
+                                placeholder="Ex: 1. Orem por 3 amigos da vizinhança ou trabalho que precisam de paz.\n2. Convidem uma pessoa para a próxima célula.\n3. Jejum em conjunto na quarta-feira..."
+                              />
 
-                                <div className="form-group-modern">
-                                  <label className="form-label-modern">🎥 Mídia de Apoio (Opcional)</label>
-                                  <div style={{ display: 'flex', gap: 6 }}>
-                                    <select 
-                                      className="select-modern" 
-                                      style={{ width: '90px' }}
-                                      value={ch.media_type} 
-                                      onChange={e => handleUpdateChapter(idx, 'media_type', e.target.value)}
-                                    >
-                                      <option value="NONE">Nenhum</option>
-                                      <option value="VIDEO">Vídeo</option>
-                                      <option value="PDF">PDF</option>
-                                    </select>
-                                    {ch.media_type !== 'NONE' && (
-                                      <input 
-                                        type="url" 
-                                        className="input-modern"
-                                        value={ch.media_link} 
-                                        onChange={e => handleUpdateChapter(idx, 'media_link', e.target.value)} 
-                                        placeholder="Link do YouTube / Drive..." 
-                                      />
-                                    )}
+                              {/* 🎥 Mídia de Apoio Ergonômica */}
+                              <div style={{
+                                background: 'var(--bg-card-subtle, #f8fafc)',
+                                border: '1px solid var(--panel-border, #e2e8f0)',
+                                borderRadius: '16px',
+                                padding: '16px 18px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '12px'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                                  <div>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <span>🎥</span>
+                                      <span>Mídia & Material de Apoio (Opcional)</span>
+                                    </div>
+                                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                      Anexe um vídeo complementar do YouTube ou apostila/estudo em PDF para os líderes.
+                                    </div>
+                                  </div>
+
+                                  {/* Pílulas de Seleção do Tipo */}
+                                  <div style={{ display: 'flex', gap: 4, background: '#e2e8f0', borderRadius: '10px', padding: 3 }}>
+                                    {[
+                                      { value: 'NONE', label: '🚫 Nenhuma' },
+                                      { value: 'VIDEO', label: '🎥 Vídeo (YouTube)' },
+                                      { value: 'PDF', label: '📕 Apostila / PDF' }
+                                    ].map(tab => (
+                                      <button
+                                        key={tab.value}
+                                        type="button"
+                                        onClick={() => handleUpdateChapter(idx, 'media_type', tab.value as any)}
+                                        style={{
+                                          border: 'none',
+                                          background: ch.media_type === tab.value ? '#ffffff' : 'transparent',
+                                          color: ch.media_type === tab.value ? 'var(--accent-primary)' : '#64748b',
+                                          fontWeight: 800,
+                                          fontSize: '0.74rem',
+                                          padding: '5px 12px',
+                                          borderRadius: '7px',
+                                          cursor: 'pointer',
+                                          boxShadow: ch.media_type === tab.value ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        {tab.label}
+                                      </button>
+                                    ))}
                                   </div>
                                 </div>
+
+                                {ch.media_type !== 'NONE' && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                      <div style={{ flex: 1 }}>
+                                        <input 
+                                          type="url" 
+                                          className="input-modern"
+                                          style={{ width: '100%', padding: '10px 14px', fontSize: '0.86rem' }}
+                                          value={ch.media_link} 
+                                          onChange={e => handleUpdateChapter(idx, 'media_link', e.target.value)} 
+                                          placeholder={
+                                            ch.media_type === 'VIDEO'
+                                              ? "Cole o link completo do YouTube (ex: https://www.youtube.com/watch?v=... ou https://youtu.be/...)"
+                                              : "Cole o link do PDF no Google Drive, Dropbox ou servidor web..."
+                                          }
+                                        />
+                                      </div>
+                                      {ch.media_link && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateChapter(idx, 'media_link', '')}
+                                          style={{
+                                            background: '#fee2e2',
+                                            color: '#b91c1c',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: '10px 14px',
+                                            fontWeight: 800,
+                                            fontSize: '0.78rem',
+                                            cursor: 'pointer'
+                                          }}
+                                          title="Limpar link"
+                                        >
+                                          Limpar
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Teste Rápido / Status */}
+                                    {ch.media_link && (
+                                      <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        background: ch.media_type === 'VIDEO' ? '#eff6ff' : '#fdf2f8',
+                                        border: `1px solid ${ch.media_type === 'VIDEO' ? '#bfdbfe' : '#fbcfe8'}`,
+                                        borderRadius: '10px',
+                                        padding: '8px 14px',
+                                        fontSize: '0.78rem'
+                                      }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: ch.media_type === 'VIDEO' ? '#1d4ed8' : '#be185d' }}>
+                                          <span>{ch.media_type === 'VIDEO' ? '▶️ Link de vídeo pronto para o PWA' : '📄 Documento PDF vinculado'}</span>
+                                        </div>
+                                        <a
+                                          href={ch.media_link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          style={{
+                                            color: ch.media_type === 'VIDEO' ? '#1d4ed8' : '#be185d',
+                                            fontWeight: 800,
+                                            textDecoration: 'underline',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 4
+                                          }}
+                                        >
+                                          <span>Testar link no navegador</span>
+                                          <span>↗</span>
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
                             </div>
