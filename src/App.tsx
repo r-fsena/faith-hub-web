@@ -22,6 +22,7 @@ import { MySubscription } from './modules/MySubscription';
 import { FeatureFlagsManagement } from './modules/FeatureFlagsManagement';
 import { SecurityAuditLogs } from './modules/SecurityAuditLogs';
 import { PastoralPrayers } from './modules/PastoralPrayers';
+import { PastoralCareRadar } from './modules/PastoralCareRadar';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getAuthHeaders } from './services/apiClient';
@@ -132,6 +133,7 @@ const navigationGroups: NavigationCategory[] = [
         subItems: [
           { id: 'membros', label: 'Gestão de Membros', featureFlagKey: 'members.module_enabled' },
           { id: 'celulas', label: 'Células & Redes', featureFlagKey: 'cell_groups.module_enabled' },
+          { id: 'pastoral_radar', label: 'Radar de Cuidado (Evasão)', featureFlagKey: 'cell_groups.module_enabled' },
           { id: 'oracoes', label: 'Mural de Orações & Intercessão', featureFlagKey: 'prayers.module_enabled' },
         ]
       },
@@ -312,15 +314,24 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const isDemo = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('demo') === 'true' || localStorage.getItem('faithhub_studio_demo') === 'true');
+  const initialTab = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('tab') || 'dashboard') : 'dashboard';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [openSubmenus, setOpenSubmenus] = useState<{ [key: string]: boolean }>({});
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(isDemo);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(!isDemo);
+  const [user, setUser] = useState<any>(isDemo ? { signInDetails: { loginId: 'pastor@igrejaviva.com.br' } } : null);
 
   // User Profile & Multi-Tenancy Segregation State
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(isDemo);
+  const [userProfile, setUserProfile] = useState<any>(isDemo ? {
+    id: 'usr_pastor',
+    name: 'Pastor Rafael Sena',
+    email: 'pastor@igrejaviva.com.br',
+    role: 'PASTOR',
+    organization_id: 'org_demo'
+  } : null);
   const [allowedCampusIds, setAllowedCampusIds] = useState<string[]>([]);
 
   // Mobile / Responsive Sidebar Drawer State
@@ -328,6 +339,15 @@ function App() {
 
   // Multi-Organization / SaaS Master State
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(() => {
+    if (isDemo) {
+      return {
+        id: 'org_demo',
+        name: 'Igreja Viva - Demonstração',
+        slug: 'igrejaviva',
+        primary_color: '#0f766e',
+        status: 'ACTIVE'
+      };
+    }
     const saved = localStorage.getItem('faithhub_active_org');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
@@ -511,21 +531,45 @@ function App() {
         activeBroadcast = await broadcastRes.value.json();
       }
 
-      setDashboardStats({
-        membersCount,
-        cellsCount,
-        ordersTotal,
-        eventsCount,
-        recentMembers,
-        upcomingEvents,
-        activeBroadcast
-      });
+      if (isDemo && membersCount === 0) {
+        setDashboardStats({
+          membersCount: 184,
+          cellsCount: 14,
+          ordersTotal: 4280,
+          eventsCount: 3,
+          recentMembers: [
+            { id: '1', name: 'Lucas Gabriel Silveira', phone: '(11) 98765-4321', created_at: new Date().toISOString() },
+            { id: '2', name: 'Mariana Duarte Costa', phone: '(11) 97654-3210', created_at: new Date().toISOString() },
+            { id: '3', name: 'Pr. Carlos Eduardo Ramos', phone: '(11) 96543-2109', created_at: new Date().toISOString() }
+          ],
+          upcomingEvents: [
+            { id: 'e1', title: 'Conferência Avivamento & Reino 2026', event_date: '2026-11-15' },
+            { id: 'e2', title: 'Encontro de Casais Blindados', event_date: '2026-11-28' }
+          ],
+          activeBroadcast: null
+        });
+      } else {
+        setDashboardStats({
+          membersCount,
+          cellsCount,
+          ordersTotal,
+          eventsCount,
+          recentMembers,
+          upcomingEvents,
+          activeBroadcast
+        });
+      }
     } catch (err) {
       console.error("Erro ao carregar métricas do dashboard:", err);
     }
   };
 
   const checkAuth = async () => {
+    if (isDemo) {
+      setIsAuthenticated(true);
+      setIsLoadingAuth(false);
+      return;
+    }
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
@@ -1052,6 +1096,7 @@ function App() {
                     {activeTab === 'kids_relatorios' && 'Kids • Relatórios & Exportação'}
                     {activeTab === 'kids_ministerio' && 'Ministério Infantil'}
                     {activeTab === 'celulas' && 'Células & Grupos'}
+                    {activeTab === 'pastoral_radar' && 'Radar de Cuidado & Retenção Pastoral'}
                     {activeTab === 'devocionais' && 'Devocionais'}
                     {activeTab === 'estudos' && 'Biblioteca de Estudos'}
                     {activeTab === 'eventos' && 'Eventos & Cursos'}
@@ -1423,6 +1468,12 @@ function App() {
                 />
               )}
               {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'pastoral_radar' && (
+                <PastoralCareRadar 
+                  selectedCampusId={selectedCampusId} 
+                  selectedOrganizationId={selectedOrganization?.id} 
+                />
+              )}
               {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'eventos' && <Events selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'devocionais' && (
