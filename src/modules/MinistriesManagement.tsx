@@ -117,6 +117,10 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [scheduleNotes, setScheduleNotes] = useState('');
   const [rosterDraft, setRosterDraft] = useState<Array<{ role_id: string; member_id: string }>>([]);
 
+  // Detecção Inteligente de Conflitos (Fase 3)
+  const [conflicts, setConflicts] = useState<{ blockouts: any[]; doubleBookings: any[] }>({ blockouts: [], doubleBookings: [] });
+  const [loadingConflicts, setLoadingConflicts] = useState(false);
+
   const getAuthHeaders = async () => {
     try {
       const session = await fetchAuthSession();
@@ -309,12 +313,38 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
     }
   };
 
+  const fetchConflicts = async (dateStr: string) => {
+    if (!dateStr) return;
+    setLoadingConflicts(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/ministries/conflicts?date=${dateStr}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setConflicts(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingConflicts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showScheduleModal && scheduleDate) {
+      fetchConflicts(scheduleDate);
+    }
+  }, [showScheduleModal, scheduleDate]);
+
   const handleOpenNewSchedule = () => {
     // Inicializa o rascunho com 1 slot para cada função do ministério
     const initialDraft = roles.map(r => ({ role_id: r.id, member_id: '' }));
     setRosterDraft(initialDraft);
     setScheduleTitle('Culto de Celebração');
     setShowScheduleModal(true);
+    if (scheduleDate) {
+      fetchConflicts(scheduleDate);
+    }
   };
 
   const generateWhatsAppEscala = (item: RosterItem, sch: ServiceSchedule) => {
@@ -853,6 +883,29 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                 </div>
               </div>
 
+              {/* Banner de Prevenção Inteligente de Conflitos */}
+              {(conflicts.blockouts.length > 0 || conflicts.doubleBookings.length > 0) && (
+                <div style={{
+                  background: '#fef3c7',
+                  border: '1px solid #fde68a',
+                  borderRadius: '12px',
+                  padding: '10px 14px',
+                  fontSize: '0.80rem',
+                  color: '#92400e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+                  <div>
+                    <strong>Prevenção de Conflitos:</strong> Detectamos{' '}
+                    {conflicts.blockouts.length > 0 && `${conflicts.blockouts.length} voluntário(s) com bloqueio de agenda`}
+                    {conflicts.blockouts.length > 0 && conflicts.doubleBookings.length > 0 && ' e '}
+                    {conflicts.doubleBookings.length > 0 && `${conflicts.doubleBookings.length} já escalado(s) em outros ministérios nesta data`}.
+                  </div>
+                </div>
+              )}
+
               {/* Alocação Visual de Voluntários por Função */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
@@ -861,25 +914,64 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {rosterDraft.map((slot, idx) => {
                     const role = roles.find(r => r.id === slot.role_id);
+                    const slotBlockout = conflicts.blockouts.find(b => b.member_id === slot.member_id);
+                    const slotDoubleBooking = conflicts.doubleBookings.find(d => d.member_id === slot.member_id);
+
                     return (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '10px', alignItems: 'center', background: '#f8fafc', padding: '8px 12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#334155' }}>
-                          🏷️ {role?.name || 'Função'}
+                      <div key={idx} style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        background: '#f8fafc',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: slotBlockout ? '1.5px solid #fca5a5' : (slotDoubleBooking ? '1.5px solid #fcd34d' : '1px solid #e2e8f0')
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '10px', alignItems: 'center' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#334155' }}>
+                            🏷️ {role?.name || 'Função'}
+                          </div>
+                          <select
+                            value={slot.member_id}
+                            onChange={e => {
+                              const newDraft = [...rosterDraft];
+                              newDraft[idx].member_id = e.target.value;
+                              setRosterDraft(newDraft);
+                            }}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '0.82rem',
+                              outline: 'none',
+                              background: '#fff'
+                            }}
+                          >
+                            <option value="">Selecione o voluntário...</option>
+                            {volunteers.map(v => {
+                              const isBlocked = conflicts.blockouts.some(b => b.member_id === v.member_id);
+                              const isBooked = conflicts.doubleBookings.some(d => d.member_id === v.member_id);
+
+                              return (
+                                <option key={v.member_id} value={v.member_id}>
+                                  {v.member_name} {isBlocked ? '⛔ [INDISPONÍVEL]' : (isBooked ? '⚠️ [JÁ ESCALADO]' : '')}
+                                </option>
+                              );
+                            })}
+                          </select>
                         </div>
-                        <select
-                          value={slot.member_id}
-                          onChange={e => {
-                            const newDraft = [...rosterDraft];
-                            newDraft[idx].member_id = e.target.value;
-                            setRosterDraft(newDraft);
-                          }}
-                          style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem', outline: 'none', background: '#fff' }}
-                        >
-                          <option value="">Selecione o voluntário...</option>
-                          {volunteers.map(v => (
-                            <option key={v.member_id} value={v.member_id}>{v.member_name}</option>
-                          ))}
-                        </select>
+
+                        {/* Alerta contextual se voluntário selecionado tiver conflito */}
+                        {slotBlockout && (
+                          <div style={{ fontSize: '0.74rem', color: '#b91c1c', fontWeight: 700, paddingLeft: '4px' }}>
+                            ⛔ Voluntário marcou bloqueio de data: "{slotBlockout.reason || 'Compromisso pessoal'}"
+                          </div>
+                        )}
+                        {slotDoubleBooking && (
+                          <div style={{ fontSize: '0.74rem', color: '#b45309', fontWeight: 700, paddingLeft: '4px' }}>
+                            ⚠️ Voluntário já escalado no ministério "{slotDoubleBooking.ministry_name}" ({slotDoubleBooking.role_name} às {slotDoubleBooking.service_time})
+                          </div>
+                        )}
                       </div>
                     );
                   })}
