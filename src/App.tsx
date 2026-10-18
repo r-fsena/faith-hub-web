@@ -23,6 +23,7 @@ import { FeatureFlagsManagement } from './modules/FeatureFlagsManagement';
 import { SecurityAuditLogs } from './modules/SecurityAuditLogs';
 import { PastoralPrayers } from './modules/PastoralPrayers';
 import { PastoralCareRadar } from './modules/PastoralCareRadar';
+import { VisitorsFunnel } from './modules/VisitorsFunnel';
 import { MinistriesManagement } from './modules/MinistriesManagement';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -136,6 +137,7 @@ const navigationGroups: NavigationCategory[] = [
           { id: 'celulas', label: 'Células & Redes', featureFlagKey: 'cell_groups.module_enabled' },
           { id: 'ministerios', label: 'Ministérios & Escalas', featureFlagKey: 'cell_groups.module_enabled' },
           { id: 'pastoral_radar', label: 'Radar de Cuidado (Evasão)', featureFlagKey: 'cell_groups.module_enabled' },
+          { id: 'visitantes', label: 'Funil de Visitantes & Acolhimento', featureFlagKey: 'cell_groups.module_enabled' },
           { id: 'oracoes', label: 'Mural de Orações & Intercessão', featureFlagKey: 'prayers.module_enabled' },
         ]
       },
@@ -1481,6 +1483,12 @@ function App() {
                 <PastoralCareRadar 
                   selectedCampusId={selectedCampusId} 
                   selectedOrganizationId={selectedOrganization?.id} 
+                />
+              )}
+              {activeTab === 'visitantes' && (
+                <VisitorsFunnel 
+                  selectedCampusId={selectedCampusId} 
+                  selectedOrganization={selectedOrganization} 
                 />
               )}
               {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}

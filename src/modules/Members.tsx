@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './Members.css';
 import { getAuthHeaders } from '../services/apiClient';
+import { MemberTimeline360Modal } from '../components/MemberTimeline360Modal';
 
 // Icons used in Members module
 const SearchIcon = () => (
@@ -68,6 +69,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
   // Multi-state configuration
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [timelineMember, setTimelineMember] = useState<{ id: string; name: string } | null>(null);
   
   // Invite State
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
@@ -1074,6 +1076,16 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                             flexDirection: 'column',
                             gap: '2px'
                           }}>
+                            <button 
+                              type="button"
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: '#0f766e', textAlign: 'left', fontWeight: 700, background: '#f0fdfa', border: 'none', cursor: 'pointer' }}
+                              onClick={() => {
+                                setActiveDropdownId(null);
+                                setTimelineMember({ id: member.id, name: member.name });
+                              }}
+                            >
+                              🩺 Prontuário 360º Pastoral
+                            </button>
                             <button 
                               type="button"
                               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-main)', textAlign: 'left', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
@@ -2229,6 +2241,14 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         </div>,
         document.body
       )}
+
+      {/* MODAL PRONTUÁRIO 360º PASTORAL */}
+      <MemberTimeline360Modal
+        isOpen={!!timelineMember}
+        memberId={timelineMember?.id || null}
+        memberName={timelineMember?.name}
+        onClose={() => setTimelineMember(null)}
+      />
     </div>
   );
 }
