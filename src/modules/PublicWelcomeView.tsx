@@ -4,6 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.
 
 interface ChurchInfo {
   id: string;
+  campus_id?: string;
   name: string;
   slogan?: string;
   logo_url?: string;
@@ -36,14 +37,15 @@ export const PublicWelcomeView: React.FC<{ orgIdentifier: string }> = ({ orgIden
   const loadChurchInfo = async () => {
     setLoadingChurch(true);
     try {
-      const param = orgIdentifier ? `?organization_id=${encodeURIComponent(orgIdentifier)}` : '';
-      const res = await fetch(`${API_URL}/church-settings${param}`);
+      const cleanIdent = orgIdentifier ? encodeURIComponent(orgIdentifier) : 'org_default';
+      const res = await fetch(`${API_URL}/church-settings?slug=${cleanIdent}&organization_id=${cleanIdent}`);
       if (res.ok) {
         const data = await res.json();
         const settings = data.data || data;
         if (settings && (settings.church_name || settings.name)) {
           setChurch({
-            id: settings.organization_id || orgIdentifier,
+            id: settings.organization_id || orgIdentifier || 'org_default',
+            campus_id: settings.campus_id || 'campus_sede',
             name: settings.church_name || settings.name || 'Nossa Igreja',
             slogan: settings.slogan || 'Um lugar de fé, comunhão e acolhimento',
             logo_url: settings.logo_url || settings.pwa_icon_url || '',
@@ -67,6 +69,7 @@ export const PublicWelcomeView: React.FC<{ orgIdentifier: string }> = ({ orgIden
   const setFallbackChurch = () => {
     setChurch({
       id: orgIdentifier || 'org_default',
+      campus_id: 'campus_sede',
       name: orgIdentifier === 'org_default' ? 'Igreja Viva' : 'Comunidade da Fé',
       slogan: 'Seja muito bem-vindo ao nosso culto!',
       primary_color: '#0f766e',
@@ -97,7 +100,26 @@ export const PublicWelcomeView: React.FC<{ orgIdentifier: string }> = ({ orgIden
     setErrorMessage(null);
 
     try {
+      const channelLabels: Record<string, string> = {
+        QR_CODE: '📱 QR Code no Culto / Telão',
+        FRIEND: '👥 Convite de Amigo ou Familiar',
+        INSTAGRAM: '📸 Redes Sociais / Instagram',
+        YOUTUBE: '▶️ Transmissão no YouTube',
+        NEIGHBORHOOD: '🚶 Passou em frente ao templo',
+        OTHER: '✨ Outro motivo'
+      };
+
+      const originMap: Record<string, string> = {
+        QR_CODE: 'SUNDAY_SERVICE',
+        FRIEND: 'CELL_INVITE',
+        INSTAGRAM: 'PWA_APP',
+        YOUTUBE: 'EVENT',
+        NEIGHBORHOOD: 'SUNDAY_SERVICE',
+        OTHER: 'OTHER'
+      };
+
       const fullNotes = [
+        `Origem: ${channelLabels[originChannel] || originChannel}`,
         prayerRequest ? `🙏 Pedido de Oração: ${prayerRequest}` : '',
         cellInterest === 'YES' ? '🏠 Tem interesse em participar de Célula' : (cellInterest === 'MAYBE' ? '🏠 Gostaria de saber mais sobre Células' : '')
       ].filter(Boolean).join(' | ');
@@ -107,10 +129,10 @@ export const PublicWelcomeView: React.FC<{ orgIdentifier: string }> = ({ orgIden
         phone: cleanPhone,
         email: email.trim() || undefined,
         neighborhood: neighborhood.trim() || undefined,
-        origin_channel: originChannel,
-        notes: fullNotes || 'Cadastro via QR Code de Acolhimento do Culto',
+        origin_channel: originMap[originChannel] || 'SUNDAY_SERVICE',
+        notes: fullNotes,
         organization_id: church?.id || orgIdentifier || 'org_default',
-        campus_id: 'campus_sede',
+        campus_id: church?.campus_id || 'campus_sede',
         first_visit_date: new Date().toISOString().split('T')[0]
       };
 
