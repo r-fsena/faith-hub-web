@@ -23,6 +23,7 @@ import { FeatureFlagsManagement } from './modules/FeatureFlagsManagement';
 import { SecurityAuditLogs } from './modules/SecurityAuditLogs';
 import { PastoralPrayers } from './modules/PastoralPrayers';
 import { PastoralCareRadar } from './modules/PastoralCareRadar';
+import { MinistriesManagement } from './modules/MinistriesManagement';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getAuthHeaders } from './services/apiClient';
@@ -133,6 +134,7 @@ const navigationGroups: NavigationCategory[] = [
         subItems: [
           { id: 'membros', label: 'Gestão de Membros', featureFlagKey: 'members.module_enabled' },
           { id: 'celulas', label: 'Células & Redes', featureFlagKey: 'cell_groups.module_enabled' },
+          { id: 'ministerios', label: 'Ministérios & Escalas', featureFlagKey: 'cell_groups.module_enabled' },
           { id: 'pastoral_radar', label: 'Radar de Cuidado (Evasão)', featureFlagKey: 'cell_groups.module_enabled' },
           { id: 'oracoes', label: 'Mural de Orações & Intercessão', featureFlagKey: 'prayers.module_enabled' },
         ]
@@ -1096,6 +1098,7 @@ function App() {
                     {activeTab === 'kids_relatorios' && 'Kids • Relatórios & Exportação'}
                     {activeTab === 'kids_ministerio' && 'Ministério Infantil'}
                     {activeTab === 'celulas' && 'Células & Grupos'}
+                    {activeTab === 'ministerios' && 'Ministérios & Escalas de Voluntários'}
                     {activeTab === 'pastoral_radar' && 'Radar de Cuidado & Retenção Pastoral'}
                     {activeTab === 'devocionais' && 'Devocionais'}
                     {activeTab === 'estudos' && 'Biblioteca de Estudos'}
@@ -1468,6 +1471,12 @@ function App() {
                 />
               )}
               {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'ministerios' && (
+                <MinistriesManagement 
+                  selectedCampusId={selectedCampusId} 
+                  selectedOrganization={selectedOrganization} 
+                />
+              )}
               {activeTab === 'pastoral_radar' && (
                 <PastoralCareRadar 
                   selectedCampusId={selectedCampusId} 
