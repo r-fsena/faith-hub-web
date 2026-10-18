@@ -121,6 +121,11 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [conflicts, setConflicts] = useState<{ blockouts: any[]; doubleBookings: any[] }>({ blockouts: [], doubleBookings: [] });
   const [loadingConflicts, setLoadingConflicts] = useState(false);
 
+  // Lembretes Pré-Culto (WhatsApp 24h)
+  const [showRemindersModal, setShowRemindersModal] = useState(false);
+  const [remindersData, setRemindersData] = useState<{ scheduleTitle: string; reminders: any[] } | null>(null);
+  const [loadingReminders, setLoadingReminders] = useState(false);
+
   const getAuthHeaders = async () => {
     try {
       const session = await fetchAuthSession();
@@ -563,6 +568,26 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                 ✗ {sch.declined_count} Recusado(s)
                               </span>
                             ) : null}
+
+                            <button
+                              onClick={() => handleSendReminders(sch)}
+                              title="Disparar lembretes 24h para os voluntários confirmados"
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '4px 10px',
+                                background: '#f0fdf4',
+                                border: '1px solid #bbf7d0',
+                                borderRadius: '8px',
+                                color: '#166534',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              📢 Lembretes 24h
+                            </button>
                           </div>
                         </div>
 
@@ -571,6 +596,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                           {(sch.roster_items || []).map(item => {
                             const isAccepted = item.status === 'ACCEPTED';
                             const isDeclined = item.status === 'DECLINED';
+                            const isSwapRequested = item.status === 'SWAP_REQUESTED';
 
                             return (
                               <div
@@ -579,7 +605,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                   background: '#ffffff',
                                   padding: '10px 12px',
                                   borderRadius: '12px',
-                                  border: isAccepted ? '1.5px solid #10b981' : (isDeclined ? '1.5px solid #ef4444' : '1px solid #cbd5e1'),
+                                  border: isAccepted ? '1.5px solid #10b981' : (isDeclined ? '1.5px solid #ef4444' : (isSwapRequested ? '1.5px solid #f59e0b' : '1px solid #cbd5e1')),
                                   display: 'flex',
                                   justifyContent: 'space-between',
                                   alignItems: 'center'
@@ -592,6 +618,11 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                   <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', marginTop: '2px' }}>
                                     {item.member_name}
                                   </div>
+                                  {isSwapRequested && (
+                                    <div style={{ background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 800, marginTop: '2px', display: 'inline-block' }}>
+                                      🔄 Troca Solicitada
+                                    </div>
+                                  )}
                                   {isDeclined && item.decline_reason && (
                                     <div style={{ fontSize: '0.70rem', color: '#dc2626', marginTop: '2px' }}>
                                       Motivo: "{item.decline_reason}"
@@ -988,6 +1019,121 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                 <button type="submit" style={{ padding: '10px 22px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', color: '#fff', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(15,118,110,0.3)' }}>Publicar Escala & Notificar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: LEMBRETES 24H PRÉ-CULTO (WHATSAPP) */}
+      {showRemindersModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '560px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#0f172a' }}>
+                  📢 Disparar Lembretes Pré-Culto (24h)
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                  {remindersData?.scheduleTitle}
+                </div>
+              </div>
+              <button onClick={() => setShowRemindersModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+            </div>
+
+            <div style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
+              {loadingReminders ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                  Consultando voluntários confirmados...
+                </div>
+              ) : !remindersData?.reminders || remindersData.reminders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🕊️</div>
+                  <div>Nenhum voluntário confirmado nesta escala para envio de lembretes.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '0.80rem', color: '#475569', marginBottom: '4px' }}>
+                    Envie mensagem individual aos <strong>{remindersData.reminders.length} voluntários confirmados</strong>:
+                  </div>
+
+                  {remindersData.reminders.map((rem: any, idx: number) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '12px 14px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a' }}>
+                          {rem.name}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                          Função: <strong>{rem.role_name}</strong> {rem.phone ? `• 📱 ${rem.phone}` : ''}
+                        </div>
+                      </div>
+
+                      {rem.whatsapp_url ? (
+                        <a
+                          href={rem.whatsapp_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 12px',
+                            background: '#22c55e',
+                            color: '#ffffff',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            fontSize: '0.75rem',
+                            fontWeight: 800
+                          }}
+                        >
+                          💬 Enviar
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: '0.70rem', color: '#94a3b8' }}>Sem WhatsApp</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', background: '#f8fafc' }}>
+              <button
+                onClick={() => setShowRemindersModal(false)}
+                style={{ padding: '8px 16px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 700, color: '#475569', cursor: 'pointer' }}
+              >
+                Concluir
+              </button>
+            </div>
           </div>
         </div>
       )}

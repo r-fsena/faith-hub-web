@@ -46,6 +46,20 @@ interface CareLog {
   created_at: string;
 }
 
+interface CellLeaderReminder {
+  cell_id: string;
+  cell_name: string;
+  meeting_day: string;
+  meeting_time: string;
+  leader_id: string;
+  leader_name: string;
+  leader_phone?: string;
+  last_meeting_date?: string;
+  days_since_last_meeting?: number;
+  whatsapp_url?: string;
+  message_text?: string;
+}
+
 interface PastoralCareRadarProps {
   selectedCampusId?: string;
   selectedOrganizationId?: string;
@@ -73,6 +87,11 @@ export const PastoralCareRadar: React.FC<PastoralCareRadarProps> = ({
   const [historyModalMember, setHistoryModalMember] = useState<PastoralMember | null>(null);
   const [memberCareLogs, setMemberCareLogs] = useState<CareLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Lembretes semanais de líderes de célula
+  const [remindersModalOpen, setRemindersModalOpen] = useState(false);
+  const [loadingReminders, setLoadingReminders] = useState(false);
+  const [cellLeaderReminders, setCellLeaderReminders] = useState<CellLeaderReminder[]>([]);
 
   // Form de Novo Cuidado
   const [contactType, setContactType] = useState('WHATSAPP');
@@ -330,6 +349,33 @@ export const PastoralCareRadar: React.FC<PastoralCareRadarProps> = ({
     return `https://wa.me/55${cleanPhone}?text=${text}`;
   };
 
+  const handleFetchCellReminders = async () => {
+    setLoadingReminders(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/pastoral/remind-cell-leaders`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          organization_id: selectedOrganizationId,
+          campus_id: selectedCampusId !== 'all' ? selectedCampusId : undefined
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCellLeaderReminders(data.reminders || []);
+        setRemindersModalOpen(true);
+      } else {
+        alert('Não foi possível gerar a lista de cobrança de relatórios.');
+      }
+    } catch (e) {
+      alert('Erro ao conectar ao servidor para buscar líderes com relatórios pendentes.');
+    } finally {
+      setLoadingReminders(false);
+    }
+  };
+
   return (
     <div className="pastoral-radar-container" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
@@ -347,27 +393,52 @@ export const PastoralCareRadar: React.FC<PastoralCareRadarProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={fetchRadarData}
-          disabled={loading}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 18px',
-            borderRadius: '10px',
-            border: '1px solid #cbd5e1',
-            background: '#ffffff',
-            color: '#334155',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            cursor: 'pointer',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-          }}
-        >
-          <span>🔄</span>
-          <span>{loading ? 'Atualizando...' : 'Recarregar Radar'}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleFetchCellReminders}
+            disabled={loadingReminders}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              background: '#0f766e',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(15, 118, 110, 0.25)',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>📋</span>
+            <span>{loadingReminders ? 'Verificando...' : 'Cobrar Relatórios da Semana'}</span>
+          </button>
+
+          <button
+            onClick={fetchRadarData}
+            disabled={loading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#334155',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            <span>🔄</span>
+            <span>{loading ? 'Atualizando...' : 'Recarregar Radar'}</span>
+          </button>
+        </div>
       </div>
 
       {/* CARDS DE MÉTRICAS EM SEMÁFORO */}
@@ -1080,6 +1151,152 @@ export const PastoralCareRadar: React.FC<PastoralCareRadarProps> = ({
                   color: '#475569',
                   fontWeight: 700,
                   fontSize: '0.82rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COBRANÇA DE RELATÓRIOS DA SEMANA PARA LÍDERES DE CÉLULA */}
+      {remindersModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '18px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            overflow: 'hidden'
+          }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📋</span> Relatórios de Célula Pendentes na Semana
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Líderes cujas células não registraram ata/chamada nos últimos 7 dias.
+                </p>
+              </div>
+              <button
+                onClick={() => setRemindersModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {cellLeaderReminders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#059669' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎉</div>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', fontWeight: 700 }}>Tudo em dia!</h4>
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: '#64748b' }}>
+                    Todas as células ativas enviaram relatórios de presença nos últimos 7 dias.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '12px 16px', borderRadius: '10px', fontSize: '0.85rem', color: '#0f766e' }}>
+                    💡 <strong>{cellLeaderReminders.length} célula(s)</strong> sem registro de reunião recente. Clique no botão de WhatsApp para disparar a cobrança carinhosa pré-formatada.
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {cellLeaderReminders.map(rem => (
+                      <div
+                        key={rem.cell_id}
+                        style={{
+                          padding: '14px 16px',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '12px'
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
+                              {rem.cell_name}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                              {rem.days_since_last_meeting != null ? `${rem.days_since_last_meeting}d sem ata` : 'Sem ata recente'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
+                            Líder: <strong>{rem.leader_name}</strong> {rem.leader_phone && `(${rem.leader_phone})`} • {rem.meeting_day} às {rem.meeting_time}
+                          </div>
+                        </div>
+
+                        {rem.whatsapp_url ? (
+                          <a
+                            href={rem.whatsapp_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              background: '#25D366',
+                              color: '#ffffff',
+                              textDecoration: 'none',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              whiteSpace: 'nowrap',
+                              boxShadow: '0 2px 4px rgba(37, 211, 102, 0.2)'
+                            }}
+                          >
+                            <span>💬</span> Cobrar no WhatsApp
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                            Sem telefone
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', background: '#f8fafc' }}>
+              <button
+                onClick={() => setRemindersModalOpen(false)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
                   cursor: 'pointer'
                 }}
               >
