@@ -123,143 +123,42 @@ export const PastoralCareRadar: React.FC<PastoralCareRadarProps> = ({
       const res = await fetch(`${API_URL}/pastoral/absenteeism-radar?${params.toString()}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setMembers(data.members || []);
+        const memList = data.members || [];
+        setMembers(memList);
         if (data.summary) {
           setSummary(data.summary);
+        } else {
+          setSummary({
+            total_cell_members: memList.length,
+            critical_count: memList.filter((m: PastoralMember) => m.risk_tier === 'CRITICAL').length,
+            attention_count: memList.filter((m: PastoralMember) => m.risk_tier === 'ATTENTION').length,
+            healthy_count: memList.filter((m: PastoralMember) => m.risk_tier === 'HEALTHY').length,
+            contacts_this_month: 0
+          });
         }
       } else {
-        // Fallback demo caso offline/deslogado
-        generateMockRadarData();
+        setMembers([]);
+        setSummary({
+          total_cell_members: 0,
+          critical_count: 0,
+          attention_count: 0,
+          healthy_count: 0,
+          contacts_this_month: 0
+        });
       }
     } catch (err) {
       console.error('Erro ao carregar radar:', err);
-      generateMockRadarData();
+      setMembers([]);
+      setSummary({
+        total_cell_members: 0,
+        critical_count: 0,
+        attention_count: 0,
+        healthy_count: 0,
+        contacts_this_month: 0
+      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateMockRadarData = () => {
-    const mockList: PastoralMember[] = [
-      {
-        id: 'm1',
-        name: 'Carlos Alberto Ferreira',
-        phone: '(11) 98765-4321',
-        email: 'carlos.ferreira@email.com',
-        role: 'MEMBER',
-        member_since: '2025-02-10',
-        cell_id: 'c1',
-        cell_name: 'Célula Betel - Famílias',
-        meeting_day: 'Quarta-feira',
-        meeting_time: '20:00',
-        cell_neighborhood: 'Jardins',
-        leader_name: 'Diác. Marcelo Souza',
-        leader_phone: '(11) 97777-1111',
-        last_present_date: '2026-09-02',
-        total_presences: 14,
-        weeks_absent: 6,
-        days_absent: 45,
-        never_attended: false,
-        risk_tier: 'CRITICAL',
-        last_care_date: '2026-09-20',
-        last_care_type: 'WHATSAPP',
-        last_care_summary: 'Irmão relatou viagem de trabalho prolongada.',
-        last_caregiver_name: 'Pr. Rafael'
-      },
-      {
-        id: 'm2',
-        name: 'Fernanda Albuquerque Lima',
-        phone: '(11) 97123-4567',
-        email: 'fernanda.lima@email.com',
-        role: 'MEMBER',
-        member_since: '2025-06-15',
-        cell_id: 'c2',
-        cell_name: 'Célula Ágape - Jovens',
-        meeting_day: 'Sábado',
-        meeting_time: '19:30',
-        cell_neighborhood: 'Vila Mariana',
-        leader_name: 'Líder Amanda Prado',
-        leader_phone: '(11) 96666-2222',
-        last_present_date: '2026-09-22',
-        total_presences: 8,
-        weeks_absent: 3,
-        days_absent: 25,
-        never_attended: false,
-        risk_tier: 'ATTENTION'
-      },
-      {
-        id: 'm3',
-        name: 'Rodrigo Silveira Duarte',
-        phone: '(11) 99888-7766',
-        email: 'rodrigo.duarte@email.com',
-        role: 'MEMBER',
-        member_since: '2026-01-20',
-        cell_id: 'c1',
-        cell_name: 'Célula Betel - Famílias',
-        meeting_day: 'Quarta-feira',
-        meeting_time: '20:00',
-        cell_neighborhood: 'Jardins',
-        leader_name: 'Diác. Marcelo Souza',
-        leader_phone: '(11) 97777-1111',
-        last_present_date: '2026-09-10',
-        total_presences: 5,
-        weeks_absent: 5,
-        days_absent: 37,
-        never_attended: false,
-        risk_tier: 'CRITICAL'
-      },
-      {
-        id: 'm4',
-        name: 'Juliana Castro Mendes',
-        phone: '(11) 98222-3344',
-        email: 'juliana.castro@email.com',
-        role: 'MEMBER',
-        member_since: '2025-11-01',
-        cell_id: 'c3',
-        cell_name: 'Célula Koinonia - Casais',
-        meeting_day: 'Quinta-feira',
-        meeting_time: '20:00',
-        cell_neighborhood: 'Moema',
-        leader_name: 'Pr. Eduardo Ramos',
-        leader_phone: '(11) 95555-3333',
-        last_present_date: '2026-09-30',
-        total_presences: 22,
-        weeks_absent: 2,
-        days_absent: 17,
-        never_attended: false,
-        risk_tier: 'ATTENTION'
-      },
-      {
-        id: 'm5',
-        name: 'Gabriel Menezes Silva',
-        phone: '(11) 99111-2233',
-        email: 'gabriel.menezes@email.com',
-        role: 'MEMBER',
-        member_since: '2026-03-01',
-        cell_id: 'c2',
-        cell_name: 'Célula Ágape - Jovens',
-        meeting_day: 'Sábado',
-        meeting_time: '19:30',
-        cell_neighborhood: 'Vila Mariana',
-        leader_name: 'Líder Amanda Prado',
-        leader_phone: '(11) 96666-2222',
-        last_present_date: '2026-10-14',
-        total_presences: 18,
-        weeks_absent: 0,
-        days_absent: 3,
-        never_attended: false,
-        risk_tier: 'HEALTHY'
-      }
-    ];
-
-    setMembers(mockList);
-    setSummary({
-      total_cell_members: 148,
-      critical_count: 14,
-      attention_count: 22,
-      healthy_count: 112,
-      contacts_this_month: 19
-    });
   };
 
   useEffect(() => {
