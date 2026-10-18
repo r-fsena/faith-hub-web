@@ -336,7 +336,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   const attendingCount = visitors.filter(v => v.stage === 'ATTENDING_CELL').length;
   const integratedCount = visitors.filter(v => v.stage === 'INTEGRATED_MEMBER').length;
 
-  const publicWelcomeUrl = `${window.location.origin}/welcome?org=${selectedOrganization?.slug || selectedOrganization?.id || 'demo'}`;
+  const publicWelcomeUrl = `${window.location.origin}/welcome?org=${selectedOrganization?.id || selectedOrganization?.slug || 'org_default'}`;
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -1093,10 +1093,18 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
                   navigator.clipboard.writeText(publicWelcomeUrl);
                   alert('Link copiado para a área de transferência!');
                 }}
-                style={{ padding: '10px 14px', background: '#2563eb', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '0.80rem', fontWeight: 700, cursor: 'pointer' }}
+                style={{ padding: '10px 14px', background: '#0f766e', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '0.80rem', fontWeight: 700, cursor: 'pointer' }}
               >
                 Copiar
               </button>
+              <a
+                href={publicWelcomeUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ padding: '10px 14px', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '0.80rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                Abrir ↗
+              </a>
             </div>
 
             <button

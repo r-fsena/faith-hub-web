@@ -25,6 +25,7 @@ import { PastoralPrayers } from './modules/PastoralPrayers';
 import { PastoralCareRadar } from './modules/PastoralCareRadar';
 import { VisitorsFunnel } from './modules/VisitorsFunnel';
 import { MinistriesManagement } from './modules/MinistriesManagement';
+import { PublicWelcomeView } from './modules/PublicWelcomeView';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getAuthHeaders } from './services/apiClient';
@@ -716,6 +717,16 @@ function App() {
 
   if (proposalToken) {
     return <ProposalPublicView token={proposalToken} />;
+  }
+
+  // Se for acesso direto ao Cartão de Acolhimento / Boas-Vindas Público do Culto (/welcome ou ?welcome=...)
+  const isWelcomePage = window.location.pathname === '/welcome' || 
+                        window.location.pathname.startsWith('/welcome/') || 
+                        urlParams.has('welcome');
+  const welcomeOrg = urlParams.get('org') || urlParams.get('welcome') || (window.location.pathname.startsWith('/welcome/') ? window.location.pathname.split('/welcome/')[1] : 'org_default');
+
+  if (isWelcomePage) {
+    return <PublicWelcomeView orgIdentifier={welcomeOrg} />;
   }
 
   if (isLoadingAuth) {
