@@ -1488,6 +1488,9 @@ function App() {
                 <MinistriesManagement 
                   selectedCampusId={selectedCampusId} 
                   selectedOrganization={selectedOrganization} 
+                  currentUserProfile={userProfile}
+                  currentUserRole={userProfile?.role || 'MEMBER'}
+                  isSuperAdmin={isSuperAdmin}
                 />
               )}
               {activeTab === 'pastoral_radar' && (
