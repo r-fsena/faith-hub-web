@@ -8,6 +8,7 @@ interface Ministry {
   name: string;
   slug: string;
   description?: string;
+  image_url?: string;
   icon?: string;
   color?: string;
   leader_id?: string;
@@ -114,6 +115,8 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   // Form Ministério
   const [minName, setMinName] = useState('');
   const [minDescription, setMinDescription] = useState('');
+  const [minImageUrl, setMinImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [minColor, setMinColor] = useState('#0f766e');
   const [minLeaderId, setMinLeaderId] = useState('');
   const [minLeaderName, setMinLeaderName] = useState('');
@@ -198,12 +201,39 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
     try {
       const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
-      const res = await fetch(`${API_URL}/members?organization_id=${orgId}&status=ACTIVE`, { headers });
+      const res = await fetch(`${API_URL}/members?organization_id=${orgId}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setChurchMembers(Array.isArray(data) ? data : (data.members || []));
+        const list = Array.isArray(data) ? data : (data.data || data.members || []);
+        setChurchMembers(list);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Erro ao buscar membros da igreja:', e);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    setUploadingImage(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/upload-url?contentType=${encodeURIComponent(file.type)}&prefix=ministries`, { headers });
+      const { uploadUrl, url } = await res.json();
+
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      });
+
+      setMinImageUrl(url);
+    } catch (err) {
+      console.error("Erro no upload da imagem:", err);
+      alert("Erro ao realizar upload da imagem do ministério.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   useEffect(() => {
@@ -244,6 +274,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
     setEditingMinistryId(null);
     setMinName('');
     setMinDescription('');
+    setMinImageUrl('');
     setMinLeaderId('');
     setMinLeaderName('');
     setMinColor('#0f766e');
@@ -257,6 +288,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
     setEditingMinistryId(min.id);
     setMinName(min.name);
     setMinDescription(min.description || '');
+    setMinImageUrl(min.image_url || '');
     setMinLeaderId(min.leader_id || '');
     setMinLeaderName(min.leader_name || '');
     setMinColor(min.color || '#0f766e');
@@ -279,6 +311,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
           id: min.id,
           name: min.name,
           description: min.description,
+          image_url: min.image_url,
           color: min.color,
           leader_id: min.leader_id,
           leader_name: min.leader_name,
@@ -312,6 +345,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       const payload: any = {
         name: minName,
         description: minDescription,
+        image_url: minImageUrl || null,
         color: minColor,
         leader_id: minLeaderId || null,
         leader_name: minLeaderName || null,
@@ -338,6 +372,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
             ...selectedMinistry,
             name: minName,
             description: minDescription,
+            image_url: minImageUrl,
             color: minColor,
             leader_id: minLeaderId,
             leader_name: minLeaderName,
@@ -674,7 +709,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       </div>
 
       {/* CARDS SELETORES DE MINISTÉRIO */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
         {filteredMinistries.map(min => {
           const isSelected = selectedMinistry?.id === min.id;
           const isInactive = (min.status || 'ACTIVE') === 'INACTIVE';
@@ -687,32 +722,54 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
               style={{
                 background: '#ffffff',
                 borderRadius: '16px',
-                padding: '16px',
                 cursor: 'pointer',
                 border: isSelected ? `2px solid ${min.color || '#0f766e'}` : '1px solid #e2e8f0',
-                boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.02)',
+                boxShadow: isSelected ? '0 6px 16px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.02)',
                 transition: 'all 0.2s',
                 position: 'relative',
-                opacity: isInactive ? 0.75 : 1
+                opacity: isInactive ? 0.75 : 1,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              {/* Cover Banner do Card */}
+              <div style={{
+                height: min.image_url ? '105px' : '70px',
+                width: '100%',
+                position: 'relative',
+                background: min.image_url 
+                  ? `url("${min.image_url}") center/cover no-repeat` 
+                  : `linear-gradient(135deg, ${min.color || '#0f766e'}25, ${min.color || '#0f766e'}50)`,
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                padding: '10px 12px'
+              }}>
+                {min.image_url && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 100%)' }} />
+                )}
+
+                {/* Ícone / Inicial */}
                 <div style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '12px',
-                  background: `${min.color || '#0f766e'}15`,
+                  position: 'relative',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: '#ffffff',
                   color: min.color || '#0f766e',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.2rem',
-                  fontWeight: 800
+                  fontSize: '1.15rem',
+                  fontWeight: 800,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
                 }}>
                   {min.name.charAt(0)}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                {/* Badges */}
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                   <span style={{
                     fontSize: '0.68rem',
                     background: isInactive ? '#f1f5f9' : (isSelected ? (min.color || '#0f766e') : '#ecfdf5'),
@@ -720,30 +777,38 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                     padding: '2px 8px',
                     borderRadius: '8px',
                     fontWeight: 800,
-                    border: isInactive ? '1px solid #cbd5e1' : 'none'
+                    border: isInactive ? '1px solid #cbd5e1' : 'none',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.12)'
                   }}>
                     {isInactive ? '⏸️ Inativo' : (isSelected ? 'Selecionado' : '🟢 Ativo')}
                   </span>
                   {isUserLeader && (
-                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: '6px', fontWeight: 800, boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}>
                       ⭐ Seu Ministério
                     </span>
                   )}
                 </div>
               </div>
 
-              <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#0f172a', marginTop: '12px' }}>
-                {min.name}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>👤</span>
-                <span>Líder: <strong>{min.leader_name || 'A definir'}</strong></span>
-              </div>
+              {/* Informações do Ministério */}
+              <div style={{ padding: '14px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#0f172a', lineHeight: 1.3 }}>
+                    {min.name}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>👤</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Líder: <strong>{min.leader_name || 'A definir'}</strong>
+                    </span>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', fontSize: '0.74rem', color: '#64748b' }}>
-                <span>👥 {min.volunteers_count || 0} Voluntários</span>
-                <span>•</span>
-                <span>📅 {min.upcoming_schedules_count || 0} Escalas</span>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', fontSize: '0.74rem', color: '#64748b' }}>
+                  <span>👥 {min.volunteers_count || 0} Voluntários</span>
+                  <span>•</span>
+                  <span>📅 {min.upcoming_schedules_count || 0} Escalas</span>
+                </div>
               </div>
             </div>
           );
@@ -764,9 +829,37 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
           {/* Header do Ministério Selecionado */}
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', background: '#f8fafc' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              {selectedMinistry.image_url ? (
+                <img
+                  src={selectedMinistry.image_url}
+                  alt={selectedMinistry.name}
+                  style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '14px',
+                    objectFit: 'cover',
+                    border: '2px solid #e2e8f0',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '14px',
+                  background: `${selectedMinistry.color || '#0f766e'}22`,
+                  color: selectedMinistry.color || '#0f766e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.4rem',
+                  fontWeight: 800
+                }}>
+                  {selectedMinistry.name.charAt(0)}
+                </div>
+              )}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ width: '14px', height: '14px', borderRadius: '50%', background: selectedMinistry.color || '#0f766e' }}></span>
                   <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>
                     {selectedMinistry.name}
                   </h2>
@@ -782,7 +875,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                     {(selectedMinistry.status || 'ACTIVE') === 'ACTIVE' ? '🟢 Ativo' : '⏸️ Inativo'}
                   </span>
                 </div>
-                <div style={{ margin: '4px 0 0 24px', fontSize: '0.84rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span>{selectedMinistry.description || 'Equipe ministerial'}</span>
                   <span>•</span>
                   <span><strong>Líder:</strong> {selectedMinistry.leader_name || 'A definir'}</span>
@@ -1336,6 +1429,80 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
               <div>
                 <label style={{ display: 'block', fontSize: '0.80rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Descrição Curta</label>
                 <textarea rows={2} placeholder="Propósito e atuação deste ministério..." value={minDescription} onChange={e => setMinDescription(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              {/* Foto de Capa do Ministério */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.80rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                  Foto de Capa do Ministério (Opcional)
+                </label>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  {minImageUrl ? (
+                    <div style={{ position: 'relative', width: '110px', height: '70px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #cbd5e1', flexShrink: 0 }}>
+                      <img src={minImageUrl} alt="Capa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        onClick={() => setMinImageUrl('')}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          background: 'rgba(0,0,0,0.7)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '20px',
+                          height: '20px',
+                          fontSize: '0.70rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Remover foto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ width: '110px', height: '70px', borderRadius: '10px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#94a3b8', fontSize: '0.75rem', textAlign: 'center', padding: '4px', flexShrink: 0 }}>
+                      Sem foto
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      background: '#f1f5f9',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.80rem',
+                      fontWeight: 700,
+                      color: '#334155',
+                      cursor: uploadingImage ? 'not-allowed' : 'pointer'
+                    }}>
+                      {uploadingImage ? '⏳ Enviando foto...' : '📷 Escolher Foto do Computador'}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageUpload} 
+                        disabled={uploadingImage} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="Ou cole a URL da imagem (https://...)"
+                      value={minImageUrl}
+                      onChange={e => setMinImageUrl(e.target.value)}
+                      style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.78rem', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
