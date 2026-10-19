@@ -136,7 +136,8 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0]);
   const [scheduleTime, setScheduleTime] = useState('18:00');
   const [scheduleNotes, setScheduleNotes] = useState('');
-  const [rosterDraft, setRosterDraft] = useState<Array<{ role_id: string; member_id: string }>>([]);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [rosterDraft, setRosterDraft] = useState<Array<{ id?: string; role_id: string; member_id: string; status?: string }>>([]);
 
   // Detecção Inteligente de Conflitos (Fase 3)
   const [conflicts, setConflicts] = useState<{ blockouts: any[]; doubleBookings: any[] }>({ blockouts: [], doubleBookings: [] });
@@ -499,25 +500,35 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
 
     try {
       const headers = await getAuthHeaders();
+      const payload: any = {
+        title: scheduleTitle,
+        service_date: scheduleDate,
+        service_time: scheduleTime,
+        notes: scheduleNotes,
+        status: 'PUBLISHED',
+        roster_items: rosterDraft.filter(r => r.role_id && r.member_id)
+      };
+
+      if (editingScheduleId) {
+        payload.id = editingScheduleId;
+      }
+
       const res = await fetch(`${API_URL}/ministries/${selectedMinistry.id}/schedules`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          title: scheduleTitle,
-          service_date: scheduleDate,
-          service_time: scheduleTime,
-          notes: scheduleNotes,
-          status: 'PUBLISHED',
-          roster_items: rosterDraft.filter(r => r.role_id && r.member_id)
-        })
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
         setShowScheduleModal(false);
+        setEditingScheduleId(null);
         setScheduleTitle('');
         setScheduleNotes('');
         setRosterDraft([]);
         fetchMinistryDetails(selectedMinistry.id);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Erro ao salvar escala do culto');
       }
     } catch (e) {
       alert('Erro ao salvar escala do culto');
@@ -548,14 +559,65 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   }, [showScheduleModal, scheduleDate]);
 
   const handleOpenNewSchedule = () => {
-    // Inicializa o rascunho com 1 slot para cada função do ministério
-    const initialDraft = roles.map(r => ({ role_id: r.id, member_id: '' }));
+    setEditingScheduleId(null);
+    const initialDraft = roles.length > 0 
+      ? roles.map(r => ({ role_id: r.id, member_id: '', status: 'PENDING' }))
+      : [{ role_id: '', member_id: '', status: 'PENDING' }];
     setRosterDraft(initialDraft);
     setScheduleTitle('Culto de Celebração');
+    setScheduleNotes('');
     setShowScheduleModal(true);
     if (scheduleDate) {
       fetchConflicts(scheduleDate);
     }
+  };
+
+  const handleOpenEditSchedule = (sch: ServiceSchedule) => {
+    setEditingScheduleId(sch.id);
+    setScheduleTitle(sch.title);
+    setScheduleDate(sch.service_date ? sch.service_date.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setScheduleTime(sch.service_time || '18:00');
+    setScheduleNotes(sch.notes || '');
+    if (sch.roster_items && sch.roster_items.length > 0) {
+      setRosterDraft(sch.roster_items.map(i => ({ 
+        id: i.id,
+        role_id: i.role_id, 
+        member_id: i.member_id,
+        status: i.status
+      })));
+    } else if (roles.length > 0) {
+      setRosterDraft(roles.map(r => ({ role_id: r.id, member_id: '', status: 'PENDING' })));
+    } else {
+      setRosterDraft([{ role_id: '', member_id: '', status: 'PENDING' }]);
+    }
+    setShowScheduleModal(true);
+    if (sch.service_date) {
+      fetchConflicts(sch.service_date.split('T')[0]);
+    }
+  };
+
+  const handleAddSlotForRole = (roleId: string) => {
+    setRosterDraft(prev => [...prev, { role_id: roleId, member_id: '', status: 'PENDING' }]);
+  };
+
+  const handleRemoveSlot = (index: number) => {
+    setRosterDraft(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateSlotMember = (index: number, memberId: string) => {
+    setRosterDraft(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], member_id: memberId };
+      return copy;
+    });
+  };
+
+  const handleUpdateSlotRole = (index: number, roleId: string) => {
+    setRosterDraft(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], role_id: roleId };
+      return copy;
+    });
   };
 
   const generateWhatsAppEscala = (item: RosterItem, sch: ServiceSchedule) => {
@@ -1128,6 +1190,28 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
 
                               {(isCurrentLeader || isGlobalAdmin) && !isCompleted && (
                                 <button
+                                  onClick={() => handleOpenEditSchedule(sch)}
+                                  title="Editar voluntários e informações desta escala"
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 10px',
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: '8px',
+                                    color: '#1d4ed8',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ✏️ Editar
+                                </button>
+                              )}
+
+                              {(isCurrentLeader || isGlobalAdmin) && !isCompleted && (
+                                <button
                                   onClick={() => handleMarkScheduleCompleted(sch)}
                                   title="Marcar esta escala como realizada/concluída"
                                   style={{
@@ -1586,8 +1670,48 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.80rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Funções que está apto(a) a exercer</label>
+                <label style={{ display: 'block', fontSize: '0.80rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  Funções que está apto(a) a exercer
+                </label>
+                {roles.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {roles.map(r => {
+                      const activeRoles = volRolesCsv.split(',').map(s => s.trim()).filter(Boolean);
+                      const isSelected = activeRoles.includes(r.name);
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            let next: string[];
+                            if (isSelected) {
+                              next = activeRoles.filter(name => name !== r.name);
+                            } else {
+                              next = [...activeRoles, r.name];
+                            }
+                            setVolRolesCsv(next.join(', '));
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            border: isSelected ? '1px solid #0f766e' : '1px solid #cbd5e1',
+                            background: isSelected ? '#0f766e' : '#f8fafc',
+                            color: isSelected ? '#ffffff' : '#334155',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isSelected ? '✓ ' : '+ '} {r.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <input type="text" placeholder="Ex: Bateria, Percussão" value={volRolesCsv} onChange={e => setVolRolesCsv(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
+                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+                  💡 Clique nas funções acima ou digite separadas por vírgula.
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
@@ -1607,8 +1731,12 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
           <div style={{ background: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '640px', maxHeight: '85vh', overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>Nova Escala de Culto</h3>
-                <div style={{ fontSize: '0.80rem', color: '#64748b' }}>{selectedMinistry?.name}</div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                  {editingScheduleId ? 'Editar Escala de Culto' : 'Nova Escala de Culto'}
+                </h3>
+                <div style={{ fontSize: '0.80rem', color: '#64748b' }}>
+                  {selectedMinistry?.name} • Organize a equipe e adicione múltiplos voluntários por função
+                </div>
               </div>
               <button onClick={() => setShowScheduleModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
@@ -1654,73 +1782,256 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
 
               {/* Alocação Visual de Voluntários por Função */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
-                  Alocação da Equipe por Função:
-                </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {rosterDraft.map((slot, idx) => {
-                    const role = roles.find(r => r.id === slot.role_id);
-                    const slotBlockout = conflicts.blockouts.find(b => b.member_id === slot.member_id);
-                    const slotDoubleBooking = conflicts.doubleBookings.find(d => d.member_id === slot.member_id);
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                    Alocação da Equipe por Função:
+                  </label>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Total: <strong>{rosterDraft.filter(r => r.member_id).length}</strong> pessoa(s) escalada(s)
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {roles.map(role => {
+                    const roleSlots = rosterDraft
+                      .map((slot, originalIdx) => ({ slot, originalIdx }))
+                      .filter(item => item.slot.role_id === role.id);
 
                     return (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
+                      <div key={role.id} style={{
                         background: '#f8fafc',
-                        padding: '10px 12px',
-                        borderRadius: '10px',
-                        border: slotBlockout ? '1.5px solid #fca5a5' : (slotDoubleBooking ? '1.5px solid #fcd34d' : '1px solid #e2e8f0')
+                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0'
                       }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '10px', alignItems: 'center' }}>
-                          <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#334155' }}>
-                            🏷️ {role?.name || 'Função'}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.90rem', color: '#0f172a' }}>
+                              🏷️ {role.name}
+                            </span>
+                            <span style={{
+                              fontSize: '0.70rem',
+                              fontWeight: 800,
+                              padding: '2px 7px',
+                              borderRadius: '6px',
+                              background: roleSlots.length > 0 ? '#e0f2fe' : '#f1f5f9',
+                              color: roleSlots.length > 0 ? '#0369a1' : '#64748b'
+                            }}>
+                              {roleSlots.length} voluntário(s)
+                            </span>
                           </div>
-                          <select
-                            value={slot.member_id}
-                            onChange={e => {
-                              const newDraft = [...rosterDraft];
-                              newDraft[idx].member_id = e.target.value;
-                              setRosterDraft(newDraft);
-                            }}
+
+                          <button
+                            type="button"
+                            onClick={() => handleAddSlotForRole(role.id)}
                             style={{
-                              padding: '8px 10px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 10px',
                               borderRadius: '8px',
-                              border: '1px solid #cbd5e1',
-                              fontSize: '0.82rem',
-                              outline: 'none',
-                              background: '#fff'
+                              border: '1px solid #0f766e',
+                              background: '#f0fdfa',
+                              color: '#0f766e',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
                             }}
                           >
-                            <option value="">Selecione o voluntário...</option>
-                            {volunteers.map(v => {
-                              const isBlocked = conflicts.blockouts.some(b => b.member_id === v.member_id);
-                              const isBooked = conflicts.doubleBookings.some(d => d.member_id === v.member_id);
-
-                              return (
-                                <option key={v.member_id} value={v.member_id}>
-                                  {v.member_name} {isBlocked ? '⛔ [INDISPONÍVEL]' : (isBooked ? '⚠️ [JÁ ESCALADO]' : '')}
-                                </option>
-                              );
-                            })}
-                          </select>
+                            + Adicionar mais um voluntário
+                          </button>
                         </div>
 
-                        {/* Alerta contextual se voluntário selecionado tiver conflito */}
-                        {slotBlockout && (
-                          <div style={{ fontSize: '0.74rem', color: '#b91c1c', fontWeight: 700, paddingLeft: '4px' }}>
-                            ⛔ Voluntário marcou bloqueio de data: "{slotBlockout.reason || 'Compromisso pessoal'}"
+                        {roleSlots.length === 0 ? (
+                          <div style={{ fontSize: '0.76rem', color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
+                            Nenhum voluntário escalado nesta função.{' '}
+                            <button
+                              type="button"
+                              onClick={() => handleAddSlotForRole(role.id)}
+                              style={{ background: 'none', border: 'none', color: '#0f766e', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                            >
+                              Clique para escalar voluntário
+                            </button>
                           </div>
-                        )}
-                        {slotDoubleBooking && (
-                          <div style={{ fontSize: '0.74rem', color: '#b45309', fontWeight: 700, paddingLeft: '4px' }}>
-                            ⚠️ Voluntário já escalado no ministério "{slotDoubleBooking.ministry_name}" ({slotDoubleBooking.role_name} às {slotDoubleBooking.service_time})
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {roleSlots.map(({ slot, originalIdx }, slotSeq) => {
+                              const slotBlockout = conflicts.blockouts.find(b => b.member_id === slot.member_id);
+                              const slotDoubleBooking = conflicts.doubleBookings.find(d => d.member_id === slot.member_id);
+
+                              return (
+                                <div key={originalIdx} style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '4px',
+                                  background: '#ffffff',
+                                  padding: '8px 10px',
+                                  borderRadius: '8px',
+                                  border: slotBlockout ? '1.5px solid #fca5a5' : (slotDoubleBooking ? '1.5px solid #fcd34d' : '1px solid #cbd5e1')
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', minWidth: '70px' }}>
+                                      Pessoa #{slotSeq + 1}:
+                                    </span>
+                                    <select
+                                      value={slot.member_id}
+                                      onChange={e => handleUpdateSlotMember(originalIdx, e.target.value)}
+                                      style={{
+                                        flex: 1,
+                                        padding: '7px 10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        fontSize: '0.82rem',
+                                        outline: 'none',
+                                        background: '#fff'
+                                      }}
+                                    >
+                                      <option value="">Selecione o voluntário...</option>
+                                      {volunteers.length > 0 && (
+                                        <optgroup label="Voluntários do Ministério">
+                                          {volunteers.map(v => {
+                                            const isBlocked = conflicts.blockouts.some(b => b.member_id === v.member_id);
+                                            const isBooked = conflicts.doubleBookings.some(d => d.member_id === v.member_id);
+                                            return (
+                                              <option key={v.member_id} value={v.member_id}>
+                                                {v.member_name} {isBlocked ? '⛔ [INDISPONÍVEL]' : (isBooked ? '⚠️ [JÁ ESCALADO]' : '')}
+                                              </option>
+                                            );
+                                          })}
+                                        </optgroup>
+                                      )}
+                                      <optgroup label="Todos os Membros da Igreja">
+                                        {churchMembers
+                                          .filter(m => !volunteers.some(v => v.member_id === m.id))
+                                          .map(m => {
+                                            const isBlocked = conflicts.blockouts.some(b => b.member_id === m.id);
+                                            const isBooked = conflicts.doubleBookings.some(d => d.member_id === m.id);
+                                            return (
+                                              <option key={m.id} value={m.id}>
+                                                {m.name} {isBlocked ? '⛔ [INDISPONÍVEL]' : (isBooked ? '⚠️ [JÁ ESCALADO]' : '')}
+                                              </option>
+                                            );
+                                          })}
+                                      </optgroup>
+                                    </select>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSlot(originalIdx)}
+                                      title="Remover esta vaga da função"
+                                      style={{
+                                        background: '#fee2e2',
+                                        color: '#b91c1c',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        width: '28px',
+                                        height: '28px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontWeight: 800,
+                                        fontSize: '0.80rem'
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+
+                                  {/* Alertas contextuais */}
+                                  {slotBlockout && (
+                                    <div style={{ fontSize: '0.72rem', color: '#b91c1c', fontWeight: 700, paddingLeft: '4px' }}>
+                                      ⛔ Voluntário marcou bloqueio de data: "{slotBlockout.reason || 'Compromisso pessoal'}"
+                                    </div>
+                                  )}
+                                  {slotDoubleBooking && (
+                                    <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 700, paddingLeft: '4px' }}>
+                                      ⚠️ Já escalado no ministério "{slotDoubleBooking.ministry_name}" ({slotDoubleBooking.role_name} às {slotDoubleBooking.service_time})
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
                     );
                   })}
+
+                  {/* Vagas Avulsas ou Funções não cadastradas */}
+                  {rosterDraft
+                    .map((slot, originalIdx) => ({ slot, originalIdx }))
+                    .filter(item => !roles.some(r => r.id === item.slot.role_id))
+                    .map(({ slot, originalIdx }) => (
+                      <div key={originalIdx} style={{
+                        background: '#f1f5f9',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1px dashed #cbd5e1'
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: '8px', alignItems: 'center' }}>
+                          <select
+                            value={slot.role_id}
+                            onChange={e => handleUpdateSlotRole(originalIdx, e.target.value)}
+                            style={{ padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.80rem' }}
+                          >
+                            <option value="">Selecione a função...</option>
+                            {roles.map(r => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={slot.member_id}
+                            onChange={e => handleUpdateSlotMember(originalIdx, e.target.value)}
+                            style={{ padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.80rem' }}
+                          >
+                            <option value="">Selecione o voluntário...</option>
+                            {volunteers.map(v => (
+                              <option key={v.member_id} value={v.member_id}>{v.member_name}</option>
+                            ))}
+                            {churchMembers
+                              .filter(m => !volunteers.some(v => v.member_id === m.id))
+                              .map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                              ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSlot(originalIdx)}
+                            style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '6px', width: '28px', height: '28px', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                  {/* Botão de Adicionar Vaga Avulsa */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const firstRoleId = roles[0]?.id || '';
+                      setRosterDraft(prev => [...prev, { role_id: firstRoleId, member_id: '', status: 'PENDING' }]);
+                    }}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px dashed #0f766e',
+                      background: '#f0fdfa',
+                      color: '#0f766e',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    + Adicionar Vaga Avulsa / Escolher Outra Função
+                  </button>
                 </div>
               </div>
 
@@ -1731,7 +2042,9 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
                 <button type="button" onClick={() => setShowScheduleModal(false)} style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>Cancelar</button>
-                <button type="submit" style={{ padding: '10px 22px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', color: '#fff', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(15,118,110,0.3)' }}>Publicar Escala & Notificar</button>
+                <button type="submit" style={{ padding: '10px 22px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', color: '#fff', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 4px rgba(15,118,110,0.3)' }}>
+                  {editingScheduleId ? 'Salvar Alterações na Escala' : 'Publicar Escala & Notificar'}
+                </button>
               </div>
             </form>
           </div>
