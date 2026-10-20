@@ -53,6 +53,11 @@ interface RosterItem {
   member_phone?: string;
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'SWAP_REQUESTED';
   decline_reason?: string;
+  swap_id?: string;
+  swap_reason?: string;
+  swap_target_member_id?: string;
+  swap_target_member_name?: string;
+  swap_created_at?: string;
 }
 
 interface ServiceSchedule {
@@ -67,6 +72,7 @@ interface ServiceSchedule {
   accepted_count?: number;
   declined_count?: number;
   pending_count?: number;
+  swap_requested_count?: number;
   roster_items?: RosterItem[];
 }
 
@@ -199,6 +205,11 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [showRemindersModal, setShowRemindersModal] = useState(false);
   const [remindersData, setRemindersData] = useState<{ scheduleTitle: string; reminders: any[] } | null>(null);
   const [loadingReminders, setLoadingReminders] = useState(false);
+
+  // Gestão de Trocas de Escala pela Liderança (Shift Swap Help)
+  const [swapModalItem, setSwapModalItem] = useState<{ item: RosterItem; schedule: ServiceSchedule } | null>(null);
+  const [selectedSwapSubstituteId, setSelectedSwapSubstituteId] = useState('');
+  const [resolvingSwap, setResolvingSwap] = useState(false);
 
   const getAuthHeaders = async () => {
     try {
@@ -716,6 +727,70 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       }
     } catch (e) {
       alert('Erro ao salvar escala do culto');
+    }
+  };
+
+  const handleOpenSwapModalForLeader = (item: RosterItem, schedule: ServiceSchedule) => {
+    setSwapModalItem({ item, schedule });
+    setSelectedSwapSubstituteId('');
+  };
+
+  const handleResolveSwapByLeader = async () => {
+    if (!swapModalItem || !selectedSwapSubstituteId || !selectedMinistry) return;
+    setResolvingSwap(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(
+        `${API_URL}/ministries/${selectedMinistry.id}/schedules/${swapModalItem.schedule.id}/roster/${swapModalItem.item.id}/resolve-swap`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            new_member_id: selectedSwapSubstituteId,
+            notes: 'Substituição definida pela liderança no Studio'
+          })
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || '✓ Substituição confirmada na escala!');
+        setSwapModalItem(null);
+        setSelectedSwapSubstituteId('');
+        loadMinistryDetails(selectedMinistry.id);
+      } else {
+        alert(data.error || 'Erro ao realizar substituição');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro de conexão ao processar substituição');
+    } finally {
+      setResolvingSwap(false);
+    }
+  };
+
+  const handleCancelSwapByLeader = async (scheduleId: string, rosterItemId: string, memberName: string) => {
+    if (!selectedMinistry) return;
+    if (!confirm(`Deseja cancelar o pedido de troca de ${memberName} e mantê-lo como confirmado na escala?`)) return;
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(
+        `${API_URL}/ministries/${selectedMinistry.id}/schedules/${scheduleId}/roster/${rosterItemId}/cancel-swap`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ rosterItemId })
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || '✓ Pedido de troca cancelado. Voluntário original mantido!');
+        loadMinistryDetails(selectedMinistry.id);
+      } else {
+        alert(data.error || 'Erro ao cancelar troca');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao cancelar troca');
     }
   };
 
@@ -1652,6 +1727,43 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                   )}
                 </div>
 
+                {/* BANNER DE SOLICITAÇÕES DE TROCA PENDENTES NA EQUIPE */}
+                {(() => {
+                  const pendingSwapsCount = schedules.reduce((acc, s) => {
+                    const fromSlots = (s.roster_items || []).filter(i => i.status === 'SWAP_REQUESTED').length;
+                    return acc + (s.swap_requested_count || fromSlots);
+                  }, 0);
+                  if (pendingSwapsCount === 0) return null;
+
+                  return (
+                    <div style={{
+                      background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                      border: '1.5px solid #f59e0b',
+                      borderRadius: '14px',
+                      padding: '14px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.4rem' }}>🔄</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#92400e' }}>
+                            {pendingSwapsCount === 1 
+                              ? '1 solicitação de troca de escala pendente' 
+                              : `${pendingSwapsCount} solicitações de troca de escala pendentes`}
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: '#b45309', marginTop: '2px' }}>
+                            Voluntários solicitaram substituição nesta equipe. Localize o card com destaque âmbar abaixo para designar um substituto ou cancelar a troca.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {displayedSchedules.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📅</div>
@@ -1806,65 +1918,132 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                               <div
                                 key={item.id}
                                 style={{
-                                  background: '#ffffff',
-                                  padding: '10px 12px',
+                                  background: isSwapRequested ? '#fffdf7' : '#ffffff',
+                                  padding: '12px',
                                   borderRadius: '12px',
                                   border: isAccepted ? '1.5px solid #10b981' : (isDeclined ? '1.5px solid #ef4444' : (isSwapRequested ? '1.5px solid #f59e0b' : '1px solid #cbd5e1')),
                                   display: 'flex',
+                                  flexDirection: isSwapRequested ? 'column' : 'row',
                                   justifyContent: 'space-between',
-                                  alignItems: 'center'
+                                  gap: '8px',
+                                  boxShadow: isSwapRequested ? '0 2px 6px rgba(245, 158, 11, 0.12)' : 'none'
                                 }}
                               >
-                                <div>
-                                  <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
-                                    {item.role_name}
-                                  </div>
-                                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', marginTop: '2px' }}>
-                                    {item.member_name}
-                                  </div>
-                                  {isSwapRequested && (
-                                    <div style={{ background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 800, marginTop: '2px', display: 'inline-block' }}>
-                                      🔄 Troca Solicitada
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                                  <div>
+                                    <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+                                      {item.role_name}
                                     </div>
-                                  )}
-                                  {isDeclined && item.decline_reason && (
-                                    <div style={{ fontSize: '0.70rem', color: '#dc2626', marginTop: '2px' }}>
-                                      Motivo: "{item.decline_reason}"
+                                    <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', marginTop: '2px' }}>
+                                      {item.member_name}
                                     </div>
-                                  )}
+                                    {isSwapRequested && (
+                                      <div style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 800, marginTop: '4px', display: 'inline-block' }}>
+                                        🔄 Troca Solicitada
+                                      </div>
+                                    )}
+                                    {isDeclined && item.decline_reason && (
+                                      <div style={{ fontSize: '0.70rem', color: '#dc2626', marginTop: '2px' }}>
+                                        Motivo: "{item.decline_reason}"
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {item.member_phone && (
+                                      <a
+                                        href={generateWhatsAppEscala(item, sch)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Enviar detalhes no WhatsApp"
+                                        style={{
+                                          background: '#22c55e',
+                                          color: '#ffffff',
+                                          borderRadius: '8px',
+                                          padding: '4px 8px',
+                                          fontSize: '0.74rem',
+                                          textDecoration: 'none',
+                                          fontWeight: 800
+                                        }}
+                                      >
+                                        💬
+                                      </a>
+                                    )}
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      fontWeight: 800,
+                                      padding: '3px 8px',
+                                      borderRadius: '8px',
+                                      background: isAccepted ? '#ecfdf5' : (isDeclined ? '#fee2e2' : (isSwapRequested ? '#fef3c7' : '#f8fafc')),
+                                      color: isAccepted ? '#059669' : (isDeclined ? '#dc2626' : (isSwapRequested ? '#d97706' : '#64748b'))
+                                    }}>
+                                      {isAccepted ? 'Confirmado' : (isDeclined ? 'Recusou' : (isSwapRequested ? 'Troca Pendente' : 'Pendente'))}
+                                    </span>
+                                  </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  {item.member_phone && (
-                                    <a
-                                      href={generateWhatsAppEscala(item, sch)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      title="Enviar detalhes no WhatsApp"
-                                      style={{
-                                        background: '#22c55e',
-                                        color: '#ffffff',
-                                        borderRadius: '8px',
-                                        padding: '4px 8px',
-                                        fontSize: '0.74rem',
-                                        textDecoration: 'none',
-                                        fontWeight: 800
-                                      }}
-                                    >
-                                      💬
-                                    </a>
-                                  )}
-                                  <span style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: 800,
-                                    padding: '3px 8px',
-                                    borderRadius: '8px',
-                                    background: isAccepted ? '#ecfdf5' : (isDeclined ? '#fee2e2' : '#fef3c7'),
-                                    color: isAccepted ? '#059669' : (isDeclined ? '#dc2626' : '#d97706')
+                                {/* Bloco Detalhado e Ações da Liderança quando Troca Solicitada */}
+                                {isSwapRequested && (
+                                  <div style={{
+                                    marginTop: '6px',
+                                    borderTop: '1px dashed #fde68a',
+                                    paddingTop: '8px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    width: '100%'
                                   }}>
-                                    {isAccepted ? 'Confirmado' : (isDeclined ? 'Recusou' : 'Pendente')}
-                                  </span>
-                                </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#78350f', background: '#fef3c7', padding: '6px 8px', borderRadius: '6px' }}>
+                                      <strong>Motivo:</strong> "{item.swap_reason || 'Imprevisto pessoal'}"
+                                      {item.swap_target_member_name && (
+                                        <div style={{ marginTop: '2px', fontWeight: 600 }}>
+                                          Direcionado a: <u>{item.swap_target_member_name}</u>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {(isCurrentLeader || isGlobalAdmin) && (
+                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '2px' }}>
+                                        <button
+                                          onClick={() => handleOpenSwapModalForLeader(item, sch)}
+                                          style={{
+                                            background: '#f59e0b',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: '6px 8px',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 800,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '4px'
+                                          }}
+                                          title="Designar um voluntário substituto para esta vaga"
+                                        >
+                                          <span>🔄</span> Substituir
+                                        </button>
+                                        <button
+                                          onClick={() => handleCancelSwapByLeader(sch.id, item.id, item.member_name)}
+                                          style={{
+                                            background: '#ffffff',
+                                            color: '#64748b',
+                                            border: '1px solid #cbd5e1',
+                                            borderRadius: '8px',
+                                            padding: '6px 8px',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                          }}
+                                          title="Cancelar pedido de troca e manter voluntário original"
+                                        >
+                                          ✕ Manter
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -4421,6 +4600,163 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                 style={{ padding: '8px 16px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 700, color: '#475569', cursor: 'pointer' }}
               >
                 Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AJUDAR NA TROCA DE ESCALA (LIDERANÇA) */}
+      {swapModalItem && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '520px',
+            overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header Modal */}
+            <div style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              padding: '20px 24px',
+              color: '#ffffff',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🔄</span> Designar Substituto na Escala
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.80rem', opacity: 0.9 }}>
+                  {swapModalItem.schedule.title} • {new Date(swapModalItem.schedule.service_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} às {swapModalItem.schedule.service_time}
+                </p>
+              </div>
+              <button
+                onClick={() => setSwapModalItem(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: 'none',
+                  color: '#ffffff',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontWeight: 900
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Resumo da Vaga */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                  <span style={{ color: '#64748b' }}>Função na Escala:</span>
+                  <strong style={{ color: '#0f172a' }}>{swapModalItem.item.role_name}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                  <span style={{ color: '#64748b' }}>Voluntário Solicitante:</span>
+                  <strong style={{ color: '#b45309' }}>{swapModalItem.item.member_name}</strong>
+                </div>
+                {swapModalItem.item.swap_reason && (
+                  <div style={{ fontSize: '0.78rem', color: '#475569', fontStyle: 'italic', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    "{swapModalItem.item.swap_reason}"
+                  </div>
+                )}
+              </div>
+
+              {/* Seletor de Voluntário Substituto */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#334155', marginBottom: '6px' }}>
+                  Selecione o Novo Voluntário Substituto:
+                </label>
+                <select
+                  value={selectedSwapSubstituteId}
+                  onChange={e => setSelectedSwapSubstituteId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    outline: 'none',
+                    background: '#ffffff'
+                  }}
+                >
+                  <option value="">-- Escolha um voluntário da equipe --</option>
+                  {volunteers
+                    .filter(v => v.status === 'ACTIVE' && v.member_id !== swapModalItem.item.member_id)
+                    .map(v => {
+                      const isRoleMatch = v.roles_csv?.toLowerCase().includes(swapModalItem.item.role_name.toLowerCase()) || v.roles_csv?.toLowerCase().includes('geral');
+                      return (
+                        <option key={v.member_id} value={v.member_id}>
+                          {v.member_name} {isRoleMatch ? '✓ (Apto para ' + swapModalItem.item.role_name + ')' : `(${v.roles_csv || 'Voluntário'})`}
+                        </option>
+                      );
+                    })}
+                </select>
+                <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '6px' }}>
+                  💡 Dica: Voluntários marcados com "✓" já possuem habilidade cadastrada para esta função.
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setSwapModalItem(null)}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleResolveSwapByLeader}
+                disabled={!selectedSwapSubstituteId || resolvingSwap}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: !selectedSwapSubstituteId || resolvingSwap ? '#cbd5e1' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  fontSize: '0.82rem',
+                  cursor: !selectedSwapSubstituteId || resolvingSwap ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)'
+                }}
+              >
+                {resolvingSwap ? 'Confirmando...' : '✓ Confirmar Substituição na Escala'}
               </button>
             </div>
           </div>
