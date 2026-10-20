@@ -2310,6 +2310,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                 <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                                   {(isCurrentLeader || isGlobalAdmin) && (
                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                      {/* Ação rápida de Status inline */}
                                       {isCandidate ? (
                                         <button
                                           type="button"
@@ -2318,16 +2319,55 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                             background: '#059669',
                                             color: '#fff',
                                             border: 'none',
-                                            padding: '4px 10px',
+                                            padding: '5px 12px',
                                             borderRadius: '6px',
                                             fontSize: '0.74rem',
                                             fontWeight: 800,
                                             cursor: 'pointer'
                                           }}
+                                          title="Aprovar candidatura e ativar voluntário"
                                         >
                                           ✓ Aprovar
                                         </button>
+                                      ) : isPaused ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleQuickUpdateVolunteerStatus(vol.id, 'ACTIVE')}
+                                          style={{
+                                            background: '#dcfce7',
+                                            color: '#15803d',
+                                            border: '1px solid #bbf7d0',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                          }}
+                                          title="Reativar voluntário no ministério"
+                                        >
+                                          ▶️ Ativar
+                                        </button>
+                                      ) : isActive ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleQuickUpdateVolunteerStatus(vol.id, 'PAUSED')}
+                                          style={{
+                                            background: '#fef3c7',
+                                            color: '#b45309',
+                                            border: '1px solid #fde68a',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                          }}
+                                          title="Pausar / Inativar voluntário temporariamente"
+                                        >
+                                          ⏸️ Pausar
+                                        </button>
                                       ) : null}
+
+                                      {/* Botão de Editar Funções & Status */}
                                       <button
                                         type="button"
                                         onClick={() => handleOpenEditVolunteer(vol)}
@@ -2339,27 +2379,33 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                           borderRadius: '6px',
                                           fontSize: '0.74rem',
                                           fontWeight: 700,
-                                          cursor: 'pointer'
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
                                         }}
+                                        title="Alterar funções (tipo de serviço) e dados do voluntário"
                                       >
-                                        ✏️ Editar
+                                        ✏️ Editar Funções
                                       </button>
+
+                                      {/* Botão de Excluir do Ministério */}
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveVolunteer(vol.id, vol.member_name)}
                                         style={{
-                                          background: 'none',
-                                          color: '#ef4444',
-                                          border: 'none',
-                                          padding: '4px 8px',
+                                          background: '#fee2e2',
+                                          color: '#dc2626',
+                                          border: '1px solid #fca5a5',
+                                          padding: '4px 10px',
                                           borderRadius: '6px',
                                           fontSize: '0.74rem',
                                           fontWeight: 700,
                                           cursor: 'pointer'
                                         }}
-                                        title="Remover voluntário do ministério"
+                                        title="Excluir voluntário deste ministério"
                                       >
-                                        🗑️
+                                        🗑️ Excluir
                                       </button>
                                     </div>
                                   )}
