@@ -143,6 +143,52 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [conflicts, setConflicts] = useState<{ blockouts: any[]; doubleBookings: any[] }>({ blockouts: [], doubleBookings: [] });
   const [loadingConflicts, setLoadingConflicts] = useState(false);
 
+  // Gerador Inteligente da Escala do Mês (Modalidade 2)
+  const [showMonthGeneratorModal, setShowMonthGeneratorModal] = useState(false);
+  const [genMonth, setGenMonth] = useState<number>(() => {
+    const next = new Date().getMonth() + 2;
+    return next > 12 ? 1 : next;
+  });
+  const [genYear, setGenYear] = useState<number>(() => {
+    const d = new Date();
+    return d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear();
+  });
+  const [genWeekdays, setGenWeekdays] = useState<number[]>([0]); // 0 = Domingo
+  const [genServiceTime, setGenServiceTime] = useState<string>('18:00');
+  const [genScheduleTitle, setGenScheduleTitle] = useState<string>('Culto de Celebração');
+  const [genRoleQuantities, setGenRoleQuantities] = useState<Record<string, number>>({});
+  const [genStep, setGenStep] = useState<'CONFIG' | 'PREVIEW'>('CONFIG');
+  const [loadingMonthGen, setLoadingMonthGen] = useState(false);
+  const [savingMonthBatch, setSavingMonthBatch] = useState(false);
+  const [genSchedules, setGenSchedules] = useState<Array<{
+    date: string;
+    formattedDate: string;
+    title: string;
+    time: string;
+    items: Array<{
+      id: string;
+      role_id: string;
+      role_name: string;
+      member_id: string;
+      member_name: string;
+    }>;
+  }>>([]);
+  const [genInsights, setGenInsights] = useState<{
+    totalServices: number;
+    totalSlots: number;
+    filledSlots: number;
+    blockoutsRespected: number;
+    doubleBookingsPrevented: number;
+    volunteersUsedCount: number;
+  }>({
+    totalServices: 0,
+    totalSlots: 0,
+    filledSlots: 0,
+    blockoutsRespected: 0,
+    doubleBookingsPrevented: 0,
+    volunteersUsedCount: 0
+  });
+
   // Lembretes Pré-Culto (WhatsApp 24h)
   const [showRemindersModal, setShowRemindersModal] = useState(false);
   const [remindersData, setRemindersData] = useState<{ scheduleTitle: string; reminders: any[] } | null>(null);
@@ -620,6 +666,303 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
     });
   };
 
+  // =========================================================
+  // INTELIGÊNCIA DE ESCALAS: MODALIDADE 1 (SUGESTÃO INDIVIDUAL)
+  // =========================================================
+  const handleAutoSuggestSingleSchedule = async () => {
+    if (!selectedMinistry) return;
+    if (!scheduleDate) {
+      alert('Por favor, defina a data do culto antes de gerar a sugestão.');
+      return;
+    }
+
+    let currentBlockouts = conflicts.blockouts;
+    let currentDoubleBookings = conflicts.doubleBookings;
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/ministries/conflicts?date=${scheduleDate}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        currentBlockouts = data.blockouts || [];
+        currentDoubleBookings = data.doubleBookings || [];
+        setConflicts(data);
+      }
+    } catch (e) {}
+
+    const alreadyAllocated = new Set<string>(
+      rosterDraft.map(r => r.member_id).filter(Boolean)
+    );
+
+    let filledCount = 0;
+    const newDraft = rosterDraft.map(slot => {
+      if (slot.member_id) return slot;
+
+      const roleObj = roles.find(r => r.id === slot.role_id);
+      const roleName = roleObj?.name || '';
+
+      const candidates = volunteers.filter(v => {
+        if (v.status && v.status !== 'ACTIVE') return false;
+        if (alreadyAllocated.has(v.member_id)) return false;
+
+        const isBlocked = currentBlockouts.some(b => b.member_id === v.member_id);
+        if (isBlocked) return false;
+
+        const isDoubleBooked = currentDoubleBookings.some(d => d.member_id === v.member_id);
+        if (isDoubleBooked) return false;
+
+        return true;
+      });
+
+      const skilled = candidates.filter(v =>
+        (v.roles_csv || '').toLowerCase().includes(roleName.toLowerCase())
+      );
+
+      const pool = skilled.length > 0 ? skilled : candidates;
+      pool.sort((a, b) => (a.total_served_count || 0) - (b.total_served_count || 0));
+
+      const selected = pool[0];
+      if (selected) {
+        alreadyAllocated.add(selected.member_id);
+        filledCount++;
+        return { ...slot, member_id: selected.member_id };
+      }
+      return slot;
+    });
+
+    setRosterDraft(newDraft);
+    if (filledCount > 0) {
+      alert(`✨ Inteligência aplicada: ${filledCount} vaga(s) sugerida(s) com sucesso, respeitando bloqueios de agenda e rodízio justo!`);
+    } else {
+      alert('Todas as vagas já estavam preenchidas ou não foram encontrados voluntários disponíveis sem conflito nesta data.');
+    }
+  };
+
+  // =========================================================
+  // INTELIGÊNCIA DE ESCALAS: MODALIDADE 2 (GERADOR DO MÊS)
+  // =========================================================
+  const getMonthDatesForWeekdays = (year: number, month: number, targetWeekdays: number[]): string[] => {
+    const dates: string[] = [];
+    const d = new Date(year, month - 1, 1);
+    while (d.getMonth() === month - 1) {
+      if (targetWeekdays.includes(d.getDay())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        dates.push(`${yyyy}-${mm}-${dd}`);
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  };
+
+  const handleOpenMonthGenerator = () => {
+    const initialQty: Record<string, number> = {};
+    roles.forEach(r => {
+      initialQty[r.id] = r.min_volunteers || 1;
+    });
+    setGenRoleQuantities(initialQty);
+    setGenStep('CONFIG');
+    setShowMonthGeneratorModal(true);
+  };
+
+  const runMonthGenerator = async () => {
+    const dates = getMonthDatesForWeekdays(genYear, genMonth, genWeekdays);
+    if (dates.length === 0) {
+      alert('Nenhum culto encontrado para os dias da semana selecionados neste mês.');
+      return;
+    }
+
+    setLoadingMonthGen(true);
+    try {
+      const startDate = dates[0];
+      const endDate = dates[dates.length - 1];
+      const headers = await getAuthHeaders();
+      const confRes = await fetch(`${API_URL}/ministries/conflicts?start_date=${startDate}&end_date=${endDate}`, { headers });
+      const confData = confRes.ok ? await confRes.json() : { blockouts: [], doubleBookings: [] };
+      const allBlockouts: any[] = confData.blockouts || [];
+      const allDoubleBookings: any[] = confData.doubleBookings || [];
+
+      const requiredRolesList: Array<{ id: string; name: string }> = [];
+      roles.forEach(r => {
+        const qty = genRoleQuantities[r.id] ?? 1;
+        for (let i = 0; i < qty; i++) {
+          requiredRolesList.push({ id: r.id, name: r.name });
+        }
+      });
+
+      if (requiredRolesList.length === 0) {
+        alert('Por favor, defina pelo menos uma função para a equipe.');
+        setLoadingMonthGen(false);
+        return;
+      }
+
+      const serviceCountMap: Record<string, number> = {};
+      volunteers.forEach(v => {
+        serviceCountMap[v.member_id] = 0;
+      });
+
+      let blockoutsRespected = 0;
+      let doubleBookingsPrevented = 0;
+
+      const generatedList = dates.map(dateStr => {
+        const allocatedInThisService = new Set<string>();
+        const serviceItems: any[] = [];
+
+        const dateBlockouts = allBlockouts.filter(b => dateStr >= b.start_date && dateStr <= b.end_date);
+        const dateDoubleBookings = allDoubleBookings.filter(d => d.service_date === dateStr);
+
+        requiredRolesList.forEach(roleReq => {
+          const candidates = volunteers.filter(v => {
+            if (v.status && v.status !== 'ACTIVE') return false;
+            if (allocatedInThisService.has(v.member_id)) return false;
+
+            const isBlocked = dateBlockouts.some(b => b.member_id === v.member_id);
+            if (isBlocked) {
+              blockoutsRespected++;
+              return false;
+            }
+
+            const isDoubleBooked = dateDoubleBookings.some(d => d.member_id === v.member_id);
+            if (isDoubleBooked) {
+              doubleBookingsPrevented++;
+              return false;
+            }
+
+            return true;
+          });
+
+          const skilled = candidates.filter(v =>
+            (v.roles_csv || '').toLowerCase().includes(roleReq.name.toLowerCase())
+          );
+
+          const poolToUse = skilled.length > 0 ? skilled : candidates;
+
+          poolToUse.sort((a, b) => {
+            const countA = serviceCountMap[a.member_id] || 0;
+            const countB = serviceCountMap[b.member_id] || 0;
+            if (countA !== countB) return countA - countB;
+            return (a.total_served_count || 0) - (b.total_served_count || 0);
+          });
+
+          const selectedVol = poolToUse[0] || null;
+
+          if (selectedVol) {
+            allocatedInThisService.add(selectedVol.member_id);
+            serviceCountMap[selectedVol.member_id] = (serviceCountMap[selectedVol.member_id] || 0) + 1;
+
+            serviceItems.push({
+              id: `${dateStr}_${roleReq.id}_${Math.random().toString(36).substring(2, 7)}`,
+              role_id: roleReq.id,
+              role_name: roleReq.name,
+              member_id: selectedVol.member_id,
+              member_name: selectedVol.member_name
+            });
+          } else {
+            serviceItems.push({
+              id: `${dateStr}_${roleReq.id}_${Math.random().toString(36).substring(2, 7)}`,
+              role_id: roleReq.id,
+              role_name: roleReq.name,
+              member_id: '',
+              member_name: ''
+            });
+          }
+        });
+
+        const [y, m, d] = dateStr.split('-');
+        const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+        const dayName = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][dateObj.getDay()];
+
+        return {
+          date: dateStr,
+          formattedDate: `${dayName}, ${d}/${m}/${y}`,
+          title: genScheduleTitle,
+          time: genServiceTime,
+          items: serviceItems
+        };
+      });
+
+      const totalSlots = generatedList.reduce((acc, s) => acc + s.items.length, 0);
+      const filledSlots = generatedList.reduce((acc, s) => acc + s.items.filter(i => i.member_id).length, 0);
+      const usedVolunteers = Object.values(serviceCountMap).filter(c => c > 0).length;
+
+      setGenInsights({
+        totalServices: dates.length,
+        totalSlots,
+        filledSlots,
+        blockoutsRespected,
+        doubleBookingsPrevented,
+        volunteersUsedCount: usedVolunteers
+      });
+
+      setGenSchedules(generatedList);
+      setGenStep('PREVIEW');
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao processar sugestão da escala do mês.');
+    } finally {
+      setLoadingMonthGen(false);
+    }
+  };
+
+  const handleUpdateGenSlotMember = (serviceIdx: number, slotIdx: number, newMemberId: string) => {
+    setGenSchedules(prev => {
+      const copy = [...prev];
+      const targetService = { ...copy[serviceIdx] };
+      const targetItems = [...targetService.items];
+      const mem = churchMembers.find(m => m.id === newMemberId) || volunteers.find(v => v.member_id === newMemberId);
+      targetItems[slotIdx] = {
+        ...targetItems[slotIdx],
+        member_id: newMemberId,
+        member_name: mem ? (mem.name || mem.member_name) : ''
+      };
+      targetService.items = targetItems;
+      copy[serviceIdx] = targetService;
+      return copy;
+    });
+  };
+
+  const handleConfirmMonthBatch = async () => {
+    if (!selectedMinistry) return;
+    setSavingMonthBatch(true);
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        schedules: genSchedules.map(s => ({
+          title: s.title,
+          service_date: s.date,
+          service_time: s.time,
+          notes: 'Escala gerada automaticamente pelo Motor de Inteligência Faith Hub Serve.',
+          status: 'PUBLISHED',
+          roster_items: s.items.filter(i => i.member_id).map(i => ({
+            role_id: i.role_id,
+            member_id: i.member_id
+          }))
+        }))
+      };
+
+      const res = await fetch(`${API_URL}/ministries/${selectedMinistry.id}/schedules/batch`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        alert(`🎉 Sucesso! ${genSchedules.length} escalas do mês foram criadas e publicadas com sucesso!`);
+        setShowMonthGeneratorModal(false);
+        setGenStep('CONFIG');
+        fetchMinistryDetails(selectedMinistry.id);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Erro ao criar escalas em lote.');
+      }
+    } catch (e) {
+      alert('Erro ao salvar escalas do mês.');
+    } finally {
+      setSavingMonthBatch(false);
+    }
+  };
+
   const generateWhatsAppEscala = (item: RosterItem, sch: ServiceSchedule) => {
     const cleanPhone = (item.member_phone || '').replace(/\D/g, '');
     const text = encodeURIComponent(
@@ -1092,21 +1435,44 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                   </div>
 
                   {(isCurrentLeader || isGlobalAdmin) && (
-                    <button
-                      onClick={handleOpenNewSchedule}
-                      style={{
-                        background: '#0f766e',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: '10px',
-                        fontWeight: 800,
-                        fontSize: '0.82rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      + Montar Nova Escala
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={handleOpenMonthGenerator}
+                        style={{
+                          background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '10px',
+                          fontWeight: 800,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 6px rgba(99,102,241,0.25)'
+                        }}
+                        title="Planeje automaticamente todas as escalas do mês com inteligência anti-conflito"
+                      >
+                        <span>✨</span> Gerar Escala do Mês (IA)
+                      </button>
+
+                      <button
+                        onClick={handleOpenNewSchedule}
+                        style={{
+                          background: '#0f766e',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '10px',
+                          fontWeight: 800,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + Montar Nova Escala
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -1782,13 +2148,36 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
 
               {/* Alocação Visual de Voluntários por Função */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                   <label style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                     Alocação da Equipe por Função:
                   </label>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    Total: <strong>{rosterDraft.filter(r => r.member_id).length}</strong> pessoa(s) escalada(s)
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      Total: <strong>{rosterDraft.filter(r => r.member_id).length}</strong> pessoa(s)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAutoSuggestSingleSchedule}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 12px',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.74rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(99,102,241,0.2)'
+                      }}
+                      title="Preenche automaticamente as vagas vazias usando IA, respeitando bloqueios de agenda e rodízio"
+                    >
+                      <span>✨</span> Sugerir com IA
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -2047,6 +2436,679 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: GERADOR INTELIGENTE DA ESCALA DO MÊS (MODALIDADE 2) */}
+      {showMonthGeneratorModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: genStep === 'CONFIG' ? '700px' : '980px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '22px 28px',
+              borderBottom: '1px solid #f1f5f9',
+              background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '22px',
+                  boxShadow: '0 4px 10px rgba(13, 148, 136, 0.35)'
+                }}>
+                  ✨
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>
+                    Motor de Escala Inteligente — Mês Completo
+                  </h3>
+                  <p style={{ margin: '3px 0 0 0', fontSize: '0.82rem', color: '#0f766e', fontWeight: 600 }}>
+                    {selectedMinistry?.name} • Rotação Justa, Anti-Conflito e Respeito a Indisponibilidades
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMonthGeneratorModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.7)',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '10px',
+                  width: '36px',
+                  height: '36px',
+                  fontSize: '1.1rem',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Stepper Tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <div
+                onClick={() => setGenStep('CONFIG')}
+                style={{
+                  flex: 1,
+                  padding: '14px 20px',
+                  textAlign: 'center',
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  borderBottom: genStep === 'CONFIG' ? '3px solid #0f766e' : '3px solid transparent',
+                  color: genStep === 'CONFIG' ? '#0f766e' : '#64748b',
+                  background: genStep === 'CONFIG' ? '#ffffff' : 'transparent',
+                  transition: 'all 0.2s'
+                }}
+              >
+                1. Configuração do Período & Equipe
+              </div>
+              <div
+                onClick={() => {
+                  if (genSchedules.length > 0) setGenStep('PREVIEW');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '14px 20px',
+                  textAlign: 'center',
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  cursor: genSchedules.length > 0 ? 'pointer' : 'not-allowed',
+                  borderBottom: genStep === 'PREVIEW' ? '3px solid #0f766e' : '3px solid transparent',
+                  color: genStep === 'PREVIEW' ? '#0f766e' : '#94a3b8',
+                  background: genStep === 'PREVIEW' ? '#ffffff' : 'transparent',
+                  opacity: genSchedules.length === 0 ? 0.6 : 1,
+                  transition: 'all 0.2s'
+                }}
+              >
+                2. Prévia & Ajustes da Matriz {genSchedules.length > 0 ? `(${genSchedules.length} Cultos)` : ''}
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px 28px', overflowY: 'auto', flex: 1 }}>
+              {genStep === 'CONFIG' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+                  {/* Banner Explicativo */}
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '14px',
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px'
+                  }}>
+                    <span style={{ fontSize: '1.4rem' }}>💡</span>
+                    <div style={{ fontSize: '0.84rem', color: '#166534', lineHeight: 1.5 }}>
+                      <strong>Como funciona o Motor Inteligente:</strong> Ao clicar em gerar, o algoritmo analisa todos os cultos dos dias selecionados, verifica a agenda de indisponibilidades dos voluntários, bloqueia conflitos com outros ministérios e prioriza voluntários com menor contagem de escalas recentes para garantir descanso e rotação saudável.
+                    </div>
+                  </div>
+
+                  {/* Seletor de Mês e Ano */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>
+                        Mês de Referência
+                      </label>
+                      <select
+                        value={genMonth}
+                        onChange={e => setGenMonth(Number(e.target.value))}
+                        style={{
+                          width: '100%',
+                          padding: '11px 14px',
+                          borderRadius: '12px',
+                          border: '1px solid #cbd5e1',
+                          background: '#fff',
+                          fontSize: '0.92rem',
+                          fontWeight: 700,
+                          color: '#0f172a'
+                        }}
+                      >
+                        {[
+                          { v: 1, l: 'Janeiro' }, { v: 2, l: 'Fevereiro' }, { v: 3, l: 'Março' },
+                          { v: 4, l: 'Abril' }, { v: 5, l: 'Maio' }, { v: 6, l: 'Junho' },
+                          { v: 7, l: 'Julho' }, { v: 8, l: 'Agosto' }, { v: 9, l: 'Setembro' },
+                          { v: 10, l: 'Outubro' }, { v: 11, l: 'Novembro' }, { v: 12, l: 'Dezembro' }
+                        ].map(m => (
+                          <option key={m.v} value={m.v}>{m.l}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>
+                        Ano
+                      </label>
+                      <input
+                        type="number"
+                        value={genYear}
+                        onChange={e => setGenYear(Number(e.target.value))}
+                        min={2024}
+                        max={2030}
+                        style={{
+                          width: '100%',
+                          padding: '11px 14px',
+                          borderRadius: '12px',
+                          border: '1px solid #cbd5e1',
+                          background: '#fff',
+                          fontSize: '0.92rem',
+                          fontWeight: 700,
+                          color: '#0f172a'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>
+                        Horário Padrão do Culto
+                      </label>
+                      <input
+                        type="time"
+                        value={genServiceTime}
+                        onChange={e => setGenServiceTime(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '11px 14px',
+                          borderRadius: '12px',
+                          border: '1px solid #cbd5e1',
+                          background: '#fff',
+                          fontSize: '0.92rem',
+                          fontWeight: 700,
+                          color: '#0f172a'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Nome Padrão do Culto */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>
+                      Título / Nome do Culto Padrão
+                    </label>
+                    <input
+                      type="text"
+                      value={genScheduleTitle}
+                      onChange={e => setGenScheduleTitle(e.target.value)}
+                      placeholder="Ex: Culto de Celebração, Culto da Família, Culto Fé..."
+                      style={{
+                        width: '100%',
+                        padding: '11px 14px',
+                        borderRadius: '12px',
+                        border: '1px solid #cbd5e1',
+                        background: '#fff',
+                        fontSize: '0.92rem',
+                        fontWeight: 600,
+                        color: '#0f172a'
+                      }}
+                    />
+                  </div>
+
+                  {/* Seleção de Dias da Semana dos Cultos */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '8px', textTransform: 'uppercase' }}>
+                      Dias da Semana em que ocorrem os cultos
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {[
+                        { day: 0, label: 'Domingos' },
+                        { day: 1, label: 'Segundas' },
+                        { day: 2, label: 'Terças' },
+                        { day: 3, label: 'Quartas' },
+                        { day: 4, label: 'Quintas' },
+                        { day: 5, label: 'Sextas' },
+                        { day: 6, label: 'Sábados' }
+                      ].map(item => {
+                        const isSelected = genWeekdays.includes(item.day);
+                        return (
+                          <button
+                            key={item.day}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                if (genWeekdays.length > 1) {
+                                  setGenWeekdays(genWeekdays.filter(d => d !== item.day));
+                                } else {
+                                  alert('Selecione pelo menos um dia da semana para os cultos.');
+                                }
+                              } else {
+                                setGenWeekdays([...genWeekdays, item.day].sort());
+                              }
+                            }}
+                            style={{
+                              padding: '9px 18px',
+                              borderRadius: '10px',
+                              border: isSelected ? '1.5px solid #0f766e' : '1.5px solid #e2e8f0',
+                              background: isSelected ? '#0f766e' : '#ffffff',
+                              color: isSelected ? '#ffffff' : '#475569',
+                              fontWeight: 700,
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span>{isSelected ? '✓' : '+'}</span>
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Resumo de datas calculadas */}
+                    {(() => {
+                      const calculatedDates = getMonthDatesForWeekdays(genYear, genMonth, genWeekdays);
+                      return (
+                        <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, color: '#0f766e' }}>
+                            📅 {calculatedDates.length} cultos no período:
+                          </span>
+                          {calculatedDates.map(dStr => {
+                            const [_, m, d] = dStr.split('-');
+                            return (
+                              <span key={dStr} style={{ background: '#f1f5f9', padding: '3px 8px', borderRadius: '6px', fontSize: '0.76rem', color: '#334155', fontWeight: 600 }}>
+                                {d}/{m}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Vagas por Função neste Ministério */}
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
+                        Vagas da Equipe por Culto (Funções Necessárias)
+                      </label>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                        Defina quantos voluntários serão escalados em cada posto
+                      </span>
+                    </div>
+
+                    {roles.length === 0 ? (
+                      <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', textAlign: 'center', color: '#94a3b8', fontSize: '0.84rem' }}>
+                        Nenhuma função cadastrada neste ministério ainda. Cadastre funções na aba "Funções do Ministério" primeiro.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+                        {roles.map(role => {
+                          const currentQty = genRoleQuantities[role.id] ?? (role.min_volunteers || 1);
+                          return (
+                            <div
+                              key={role.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '10px 14px',
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                background: currentQty > 0 ? '#f8fafc' : '#ffffff'
+                              }}
+                            >
+                              <div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {role.name}
+                                </div>
+                                <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                                  Mínimo sugerido: {role.min_volunteers || 1}
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setGenRoleQuantities(prev => ({ ...prev, [role.id]: Math.max(0, currentQty - 1) }))}
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#fff',
+                                    fontSize: '1rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#475569'
+                                  }}
+                                >
+                                  -
+                                </button>
+                                <span style={{ width: '24px', textAlign: 'center', fontWeight: 800, fontSize: '0.92rem', color: currentQty > 0 ? '#0f766e' : '#94a3b8' }}>
+                                  {currentQty}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setGenRoleQuantities(prev => ({ ...prev, [role.id]: currentQty + 1 }))}
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#fff',
+                                    fontSize: '1rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#475569'
+                                  }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ETAPA 2: PRÉVIA & AJUSTES DA MATRIZ MENSAL */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Métricas do Processamento Inteligente */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(5, 1fr)',
+                    gap: '10px'
+                  }}>
+                    <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', padding: '12px 14px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f766e', textTransform: 'uppercase' }}>Cultos no Mês</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#134e4a', marginTop: '2px' }}>{genInsights.totalServices}</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 14px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Vagas Preenchidas</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: genInsights.filledSlots === genInsights.totalSlots ? '#16a34a' : '#0284c7', marginTop: '2px' }}>
+                        {genInsights.filledSlots}/{genInsights.totalSlots}
+                      </div>
+                    </div>
+                    <div style={{ background: '#fefce8', border: '1px solid #fef08a', padding: '12px 14px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#854d0e', textTransform: 'uppercase' }}>Indisponibilidades</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#ca8a04', marginTop: '2px' }}>
+                        {genInsights.blockoutsRespected}
+                      </div>
+                    </div>
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px 14px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e40af', textTransform: 'uppercase' }}>Conflitos Evitados</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#2563eb', marginTop: '2px' }}>
+                        {genInsights.doubleBookingsPrevented}
+                      </div>
+                    </div>
+                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', padding: '12px 14px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase' }}>Voluntários Usados</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#7e22ce', marginTop: '2px' }}>
+                        {genInsights.volunteersUsedCount}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Informação & Dica de Ajuste Fino */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                      Revise abaixo as alocações propostas pela IA. Você pode alterar qualquer voluntário diretamente no seletor antes de salvar.
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b', fontStyle: 'italic' }}>
+                      💡 Vagas sem voluntários disponíveis aparecem com borda âmbar.
+                    </div>
+                  </div>
+
+                  {/* Matriz de Cultos do Mês */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {genSchedules.map((svc, serviceIdx) => (
+                      <div
+                        key={svc.date}
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        {/* Header do Culto */}
+                        <div style={{
+                          padding: '12px 18px',
+                          background: '#f8fafc',
+                          borderBottom: '1px solid #f1f5f9',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                              background: '#0f766e',
+                              color: '#fff',
+                              fontSize: '0.74rem',
+                              fontWeight: 800,
+                              padding: '4px 10px',
+                              borderRadius: '8px'
+                            }}>
+                              {svc.formattedDate}
+                            </span>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
+                              {svc.title}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                              às {svc.time}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f766e' }}>
+                            {svc.items.filter(i => i.member_id).length} de {svc.items.length} vagas preenchidas
+                          </div>
+                        </div>
+
+                        {/* Itens / Postos do Culto */}
+                        <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                          {svc.items.map((slot, slotIdx) => {
+                            const isFilled = Boolean(slot.member_id);
+                            return (
+                              <div
+                                key={slot.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  padding: '8px 12px',
+                                  borderRadius: '12px',
+                                  border: isFilled ? '1px solid #e2e8f0' : '1px dashed #f59e0b',
+                                  background: isFilled ? '#f8fafc' : '#fffbeb'
+                                }}
+                              >
+                                <div style={{ width: '90px', flexShrink: 0 }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f766e', textTransform: 'uppercase' }}>
+                                    {slot.role_name}
+                                  </div>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <select
+                                    value={slot.member_id}
+                                    onChange={e => handleUpdateGenSlotMember(serviceIdx, slotIdx, e.target.value)}
+                                    style={{
+                                      width: '100%',
+                                      padding: '6px 10px',
+                                      borderRadius: '8px',
+                                      border: isFilled ? '1px solid #cbd5e1' : '1.5px solid #f59e0b',
+                                      background: '#ffffff',
+                                      fontSize: '0.82rem',
+                                      fontWeight: isFilled ? 700 : 500,
+                                      color: isFilled ? '#1e293b' : '#b45309'
+                                    }}
+                                  >
+                                    <option value="">-- Deixar vaga aberta --</option>
+                                    {volunteers
+                                      .filter(v => v.status === 'ACTIVE' || v.status === 'TRAINING')
+                                      .map(v => (
+                                        <option key={v.member_id} value={v.member_id}>
+                                          {v.member_name} {v.roles_csv ? `(${v.roles_csv})` : ''}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div style={{
+              padding: '16px 28px',
+              borderTop: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              {genStep === 'CONFIG' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowMonthGeneratorModal(false)}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      background: '#fff',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={runMonthGenerator}
+                    disabled={loadingMonthGen}
+                    style={{
+                      padding: '12px 26px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                      color: '#ffffff',
+                      fontSize: '0.92rem',
+                      fontWeight: 800,
+                      cursor: loadingMonthGen ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 12px rgba(15, 118, 110, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {loadingMonthGen ? (
+                      <>
+                        <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                        Analisando Bloqueios & Otimizando Escala...
+                      </>
+                    ) : (
+                      <>
+                        <span>🚀</span>
+                        Gerar Proposta da Escala com IA
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setGenStep('CONFIG')}
+                    disabled={savingMonthBatch}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      background: '#fff',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      color: '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ← Voltar e Ajustar Configuração
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmMonthBatch}
+                    disabled={savingMonthBatch}
+                    style={{
+                      padding: '12px 28px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                      color: '#ffffff',
+                      fontSize: '0.94rem',
+                      fontWeight: 900,
+                      cursor: savingMonthBatch ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 14px rgba(22, 163, 74, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {savingMonthBatch ? (
+                      <>
+                        <span>⏳</span>
+                        Gravando Todas as Escalas...
+                      </>
+                    ) : (
+                      <>
+                        <span>💾</span>
+                        Confirmar e Publicar Todas as Escalas do Mês ({genSchedules.length} Cultos)
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
