@@ -134,6 +134,8 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [editingVolunteer, setEditingVolunteer] = useState<Volunteer | null>(null);
   const [volStatusFilter, setVolStatusFilter] = useState<'ALL' | 'ACTIVE' | 'TRAINING' | 'PAUSED' | 'CANDIDATE'>('ALL');
   const [volSearchTerm, setVolSearchTerm] = useState('');
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [selectedVolunteerIds, setSelectedVolunteerIds] = useState<string[]>([]);
 
   // Form Escala
   const [scheduleTitle, setScheduleTitle] = useState('');
@@ -635,6 +637,43 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       }
     } catch (e) {
       alert('Erro ao salvar voluntário');
+    }
+  };
+
+  // Operações em Lote / Massa (Aprovar, Pausar, Funções, Excluir)
+  const handleBatchVolunteers = async (
+    volunteerIds: string[],
+    action: 'UPDATE_STATUS' | 'UPDATE_ROLES' | 'DELETE',
+    status?: string,
+    rolesCsv?: string,
+    confirmMessage?: string
+  ) => {
+    if (!selectedMinistry || volunteerIds.length === 0) return;
+    if (confirmMessage && !window.confirm(confirmMessage)) return;
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/ministries/${selectedMinistry.id}/volunteers/batch`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          volunteer_ids: volunteerIds,
+          action,
+          status,
+          roles_csv: rolesCsv
+        })
+      });
+
+      if (res.ok) {
+        setSelectedCandidateIds(prev => prev.filter(id => !volunteerIds.includes(id)));
+        setSelectedVolunteerIds(prev => prev.filter(id => !volunteerIds.includes(id)));
+        fetchMinistryDetails(selectedMinistry.id);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Erro na operação em lote');
+      }
+    } catch (err) {
+      alert('Erro de conexão ao processar operação em lote');
     }
   };
 
@@ -1880,10 +1919,112 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                             </div>
                           </div>
                         </div>
-                        <span style={{ fontSize: '0.72rem', background: '#f59e0b', color: '#fff', padding: '3px 10px', borderRadius: '12px', fontWeight: 800 }}>
-                          Ação Necessária
-                        </span>
+
+                        {(isCurrentLeader || isGlobalAdmin) && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, color: '#92400e', cursor: 'pointer', background: '#fef3c7', padding: '5px 12px', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                              <input
+                                type="checkbox"
+                                checked={pendingCandidates.length > 0 && selectedCandidateIds.length === pendingCandidates.length}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setSelectedCandidateIds(pendingCandidates.map(c => c.id));
+                                  } else {
+                                    setSelectedCandidateIds([]);
+                                  }
+                                }}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#d97706' }}
+                              />
+                              <span>Marcar Todos ({pendingCandidates.length})</span>
+                            </label>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Barra de Ações em Massa de Candidatos */}
+                      {(isCurrentLeader || isGlobalAdmin) && selectedCandidateIds.length > 0 && (
+                        <div style={{
+                          background: '#ffffff',
+                          border: '1.5px solid #f59e0b',
+                          borderRadius: '12px',
+                          padding: '10px 16px',
+                          marginBottom: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '10px',
+                          flexWrap: 'wrap',
+                          boxShadow: '0 2px 8px rgba(245,158,11,0.15)'
+                        }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#92400e' }}>
+                            ☑️ {selectedCandidateIds.length} selecionado(s):
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleBatchVolunteers(selectedCandidateIds, 'UPDATE_STATUS', 'ACTIVE')}
+                              style={{
+                                background: '#059669',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 14px',
+                                borderRadius: '8px',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ✓ Aprovar Selecionados ({selectedCandidateIds.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleBatchVolunteers(selectedCandidateIds, 'UPDATE_STATUS', 'TRAINING')}
+                              style={{
+                                background: '#0284c7',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 14px',
+                                borderRadius: '8px',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🎓 Mover p/ Treinamento ({selectedCandidateIds.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleBatchVolunteers(selectedCandidateIds, 'DELETE', undefined, undefined, `Deseja realmente recusar e remover as ${selectedCandidateIds.length} candidaturas selecionadas?`)}
+                              style={{
+                                background: '#fee2e2',
+                                color: '#dc2626',
+                                border: '1px solid #fca5a5',
+                                padding: '6px 14px',
+                                borderRadius: '8px',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ✕ Recusar Selecionados ({selectedCandidateIds.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCandidateIds([])}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#64748b',
+                                fontSize: '0.76rem',
+                                cursor: 'pointer',
+                                textDecoration: 'underline'
+                              }}
+                            >
+                              Desmarcar
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
                         {pendingCandidates.map(cand => {
@@ -1891,18 +2032,32 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                           return (
                             <div key={cand.id} style={{
                               background: '#ffffff',
-                              border: '1px solid #fde68a',
+                              border: selectedCandidateIds.includes(cand.id) ? '1.5px solid #d97706' : '1px solid #fde68a',
                               borderRadius: '14px',
                               padding: '14px',
                               display: 'flex',
                               flexDirection: 'column',
                               justifyContent: 'space-between',
                               gap: '12px',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                              boxShadow: selectedCandidateIds.includes(cand.id) ? '0 4px 12px rgba(217, 119, 6, 0.15)' : '0 2px 6px rgba(0,0,0,0.04)'
                             }}>
                               <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {(isCurrentLeader || isGlobalAdmin) && (
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedCandidateIds.includes(cand.id)}
+                                        onChange={() => {
+                                          if (selectedCandidateIds.includes(cand.id)) {
+                                            setSelectedCandidateIds(selectedCandidateIds.filter(id => id !== cand.id));
+                                          } else {
+                                            setSelectedCandidateIds([...selectedCandidateIds, cand.id]);
+                                          }
+                                        }}
+                                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#d97706' }}
+                                      />
+                                    )}
                                     <div style={{
                                       width: '38px',
                                       height: '38px',
@@ -2167,11 +2322,151 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                     </div>
                   </div>
 
+                  {/* BARRA DE AÇÕES EM MASSA DE VOLUNTÁRIOS */}
+                  {(isCurrentLeader || isGlobalAdmin) && selectedVolunteerIds.length > 0 && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                      color: '#ffffff',
+                      padding: '12px 18px',
+                      borderRadius: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                      boxShadow: '0 8px 20px rgba(15,23,42,0.25)',
+                      border: '1px solid #334155'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>☑️</span>
+                        <span style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                          {selectedVolunteerIds.length} voluntário(s) selecionado(s)
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleBatchVolunteers(selectedVolunteerIds, 'UPDATE_STATUS', 'ACTIVE')}
+                          style={{
+                            background: '#059669',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ▶️ Ativar ({selectedVolunteerIds.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBatchVolunteers(selectedVolunteerIds, 'UPDATE_STATUS', 'PAUSED')}
+                          style={{
+                            background: '#d97706',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ⏸️ Pausar / Inativar ({selectedVolunteerIds.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBatchVolunteers(selectedVolunteerIds, 'UPDATE_STATUS', 'TRAINING')}
+                          style={{
+                            background: '#0284c7',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🎓 Treinamento ({selectedVolunteerIds.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBatchVolunteers(selectedVolunteerIds, 'UPDATE_ROLES', undefined, 'Geral', `Deseja atribuir a qualificação '⭐ Geral (Todas as Funções)' para todos os ${selectedVolunteerIds.length} voluntários selecionados?`)}
+                          style={{
+                            background: '#7c3aed',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ⭐ Tornar "Geral" ({selectedVolunteerIds.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBatchVolunteers(selectedVolunteerIds, 'DELETE', undefined, undefined, `Atenção: Deseja realmente excluir os ${selectedVolunteerIds.length} voluntários selecionados deste ministério?`)}
+                          style={{
+                            background: '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️ Excluir ({selectedVolunteerIds.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVolunteerIds([])}
+                          style={{
+                            background: 'rgba(255,255,255,0.15)',
+                            color: '#e2e8f0',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Desmarcar Todos
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* TABELA DE VOLUNTÁRIOS */}
                   <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
                       <thead>
                         <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700, fontSize: '0.74rem', textTransform: 'uppercase' }}>
+                          {(isCurrentLeader || isGlobalAdmin) && (
+                            <th style={{ padding: '12px 14px', width: '36px' }}>
+                              <input
+                                type="checkbox"
+                                checked={filteredVolunteers.length > 0 && filteredVolunteers.every(v => selectedVolunteerIds.includes(v.id))}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    const all = Array.from(new Set([...selectedVolunteerIds, ...filteredVolunteers.map(v => v.id)]));
+                                    setSelectedVolunteerIds(all);
+                                  } else {
+                                    const filteredIds = new Set(filteredVolunteers.map(v => v.id));
+                                    setSelectedVolunteerIds(selectedVolunteerIds.filter(id => !filteredIds.has(id)));
+                                  }
+                                }}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0f766e' }}
+                                title="Selecionar todos os voluntários visíveis"
+                              />
+                            </th>
+                          )}
                           <th style={{ padding: '12px 16px' }}>Voluntário</th>
                           <th style={{ padding: '12px 16px' }}>Funções Qualificadas</th>
                           <th style={{ padding: '12px 16px' }}>Status</th>
@@ -2182,7 +2477,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                       <tbody>
                         {filteredVolunteers.length === 0 ? (
                           <tr>
-                            <td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                            <td colSpan={(isCurrentLeader || isGlobalAdmin) ? 6 : 5} style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
                               Nenhum voluntário encontrado com os filtros selecionados.
                             </td>
                           </tr>
@@ -2202,7 +2497,26 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                             const cleanPhone = (vol.member_phone || '').replace(/\D/g, '');
 
                             return (
-                              <tr key={vol.id} style={{ borderBottom: '1px solid #f1f5f9', background: isCandidate ? '#fffdf7' : 'transparent' }}>
+                              <tr key={vol.id} style={{
+                                borderBottom: '1px solid #f1f5f9',
+                                background: selectedVolunteerIds.includes(vol.id) ? '#f0fdfa' : (isCandidate ? '#fffdf7' : 'transparent')
+                              }}>
+                                {(isCurrentLeader || isGlobalAdmin) && (
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedVolunteerIds.includes(vol.id)}
+                                      onChange={() => {
+                                        if (selectedVolunteerIds.includes(vol.id)) {
+                                          setSelectedVolunteerIds(selectedVolunteerIds.filter(id => id !== vol.id));
+                                        } else {
+                                          setSelectedVolunteerIds([...selectedVolunteerIds, vol.id]);
+                                        }
+                                      }}
+                                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0f766e' }}
+                                    />
+                                  </td>
+                                )}
                                 <td style={{ padding: '12px 16px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <div style={{
