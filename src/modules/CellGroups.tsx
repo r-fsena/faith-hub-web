@@ -123,9 +123,10 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
 
   const loadChurchMembers = async () => {
     try {
+      const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
       const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
-      const res = await fetch(`${API_URL}/members?organization_id=${orgId}${campusParam}`);
+      const res = await fetch(`${API_URL}/members?organization_id=${orgId}${campusParam}`, { headers });
       if (res.ok) {
         const json = await res.json();
         setAllChurchMembers(json.data || []);

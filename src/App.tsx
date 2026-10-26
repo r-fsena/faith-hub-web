@@ -319,7 +319,8 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
 };
 
 function App() {
-  const isDemo = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('demo') === 'true' || localStorage.getItem('faithhub_studio_demo') === 'true');
+  const demoModeEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true';
+  const isDemo = demoModeEnabled && typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('demo') === 'true' || localStorage.getItem('faithhub_studio_demo') === 'true');
   const initialTab = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('tab') || 'dashboard') : 'dashboard';
 
   const [activeTab, setActiveTab] = useState(initialTab);

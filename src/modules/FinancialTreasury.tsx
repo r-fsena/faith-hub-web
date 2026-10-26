@@ -255,10 +255,12 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         params.append('campus_id', selectedCampusId);
       }
 
+      const headers = await getAuthHeaders();
+
       const [transRes, summaryRes, projRes] = await Promise.all([
-        fetch(`${API_URL}/financial/transactions?${params.toString()}`),
-        fetch(`${API_URL}/financial/summary?${params.toString()}`),
-        fetch(`${API_URL}/financial/projects?organization_id=${orgId}`)
+        fetch(`${API_URL}/financial/transactions?${params.toString()}`, { headers }),
+        fetch(`${API_URL}/financial/summary?${params.toString()}`, { headers }),
+        fetch(`${API_URL}/financial/projects?organization_id=${orgId}`, { headers })
       ]);
 
       if (transRes.ok) {

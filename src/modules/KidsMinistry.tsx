@@ -249,8 +249,9 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
   // Load Rooms
   const loadRooms = async () => {
     try {
+      const headers = await getAuthHeaders();
       const campusParam = selectedCampusId !== 'all' ? `&campus_id=${selectedCampusId}` : '';
-      const res = await fetch(`${API_URL}/kids/rooms?organization_id=${encodeURIComponent(orgId)}${campusParam}`);
+      const res = await fetch(`${API_URL}/kids/rooms?organization_id=${encodeURIComponent(orgId)}${campusParam}`, { headers });
       if (res.ok) {
         const json = await res.json();
         const list = json.data || [];

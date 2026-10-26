@@ -45,6 +45,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
   const [catalog, setCatalog] = useState<FeatureFlagItem[]>([]);
   const [plan, setPlan] = useState<string>('PRO');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasLoadedFlags, setHasLoadedFlags] = useState(false);
   const [selectedEnv, setSelectedEnv] = useState<'all' | 'development' | 'staging' | 'production'>('production');
 
   const fetchFlags = useCallback(async () => {
@@ -56,14 +57,15 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
       if (selectedEnv) params.append('environment', selectedEnv);
 
       const res = await fetch(`${API_URL}/feature-flags?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setFlags(data.flags || {});
-        setConfigs(data.configs || {});
-        setCatalog(data.catalog || []);
-        setPlan(data.plan || 'PRO');
-      }
+      if (!res.ok) throw new Error(`FEATURE_FLAGS_HTTP_${res.status}`);
+      const data = await res.json();
+      setFlags(data.flags || {});
+      setConfigs(data.configs || {});
+      setCatalog(data.catalog || []);
+      setPlan(data.plan || 'PRO');
+      setHasLoadedFlags(true);
     } catch (err) {
+      setHasLoadedFlags(false);
       console.warn('Erro ao buscar feature flags:', err);
     } finally {
       setIsLoading(false);
@@ -76,12 +78,13 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
 
   const isFeatureEnabled = useCallback(
     (featureKey: string, defaultValue: boolean = true): boolean => {
+      if (!hasLoadedFlags) return false;
       if (flags[featureKey] !== undefined) {
         return Boolean(flags[featureKey]);
       }
       return defaultValue;
     },
-    [flags]
+    [flags, hasLoadedFlags]
   );
 
   const getFeatureConfig = useCallback(
@@ -233,7 +236,7 @@ export function useFeatureFlags(): FeatureFlagContextType {
       catalog: [],
       plan: 'PRO',
       isLoading: false,
-      isFeatureEnabled: () => true,
+      isFeatureEnabled: () => false,
       getFeatureConfig: <T,>(_key: string, fallback?: T) => fallback as T,
       toggleFlag: async () => false,
       batchUpdateFlags: async () => false,
@@ -266,7 +269,7 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
   flag,
   children,
   fallback = null,
-  defaultAllowed = true
+  defaultAllowed = false
 }) => {
   const { isEnabled, isLoading } = useFeatureFlag(flag, defaultAllowed);
 
