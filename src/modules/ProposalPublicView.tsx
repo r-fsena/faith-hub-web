@@ -2,6 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
+const TRUSTED_ASAAS_CHECKOUT_HOSTS = new Set(['asaas.com', 'www.asaas.com', 'sandbox.asaas.com']);
+
+const isTrustedAsaasCheckoutUrl = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && TRUSTED_ASAAS_CHECKOUT_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+};
 
 interface ProposalData {
   id: string;
@@ -60,7 +71,8 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
         throw new Error('Proposta comercial não encontrada ou expirada.');
       }
       const data = await res.json();
-      if (data.asaas_checkout_url) data.asaas_payment_link = data.asaas_checkout_url;
+      const checkoutUrl = data.asaas_checkout_url || data.asaas_payment_link;
+      data.asaas_payment_link = isTrustedAsaasCheckoutUrl(checkoutUrl) ? checkoutUrl : undefined;
       setProposal(data);
 
       if (data.status === 'PAID') {
@@ -92,7 +104,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Erro ao aceitar proposta');
 
-      if (!data.payment_link || !/^https:\/\/(sandbox\.)?asaas\.com\//.test(data.payment_link)) {
+      if (!isTrustedAsaasCheckoutUrl(data.payment_link)) {
         throw new Error('O provedor não retornou um checkout seguro válido.');
       }
       setStep('payment');
