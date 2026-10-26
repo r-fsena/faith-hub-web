@@ -29,12 +29,14 @@ interface ProposalData {
   discount_duration_months?: number;
   first_cycle_amount?: number;
   notes_commercial?: string;
+  checkout_available?: boolean;
 }
 
 export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
   const { isFeatureEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const checkoutEnabled = isFeatureEnabled('system.saas_billing_checkout', false);
+  const globalCheckoutEnabled = isFeatureEnabled('system.saas_billing_checkout', false);
   const [proposal, setProposal] = useState<ProposalData | null>(null);
+  const checkoutEnabled = globalCheckoutEnabled && proposal?.checkout_available === true;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
