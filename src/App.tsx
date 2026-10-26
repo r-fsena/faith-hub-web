@@ -688,7 +688,11 @@ function App() {
   const proposalToken = urlParams.get('proposta') || (window.location.pathname.startsWith('/proposta/') ? window.location.pathname.split('/proposta/')[1] : null);
 
   if (proposalToken) {
-    return <ProposalPublicView token={proposalToken} />;
+    return (
+      <FeatureFlagProvider organizationId="org_default">
+        <ProposalPublicView token={proposalToken} />
+      </FeatureFlagProvider>
+    );
   }
 
   // Se for acesso direto ao Cartão de Acolhimento / Boas-Vindas Público do Culto (/welcome ou ?welcome=...)
