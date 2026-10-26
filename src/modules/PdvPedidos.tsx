@@ -92,10 +92,10 @@ export function parseKanbanConfig(raw: any): KanbanStage[] {
   // Suporte a formato legado de 4 chaves
   if (parsed.RECEBIDO || parsed.PREPARANDO) {
     return [
-      { id: 'RECEBIDO', is_system: true, ...DEFAULT_STAGES[0], ...(parsed.RECEBIDO || {}) },
-      { id: 'PREPARANDO', is_system: true, ...DEFAULT_STAGES[1], ...(parsed.PREPARANDO || {}) },
-      { id: 'PRONTO', is_system: true, ...DEFAULT_STAGES[2], ...(parsed.PRONTO || {}) },
-      { id: 'ENTREGUE', is_system: true, ...DEFAULT_STAGES[3], ...(parsed.ENTREGUE || {}) }
+      { ...DEFAULT_STAGES[0], is_system: true, ...(parsed.RECEBIDO || {}) },
+      { ...DEFAULT_STAGES[1], is_system: true, ...(parsed.PREPARANDO || {}) },
+      { ...DEFAULT_STAGES[2], is_system: true, ...(parsed.PRONTO || {}) },
+      { ...DEFAULT_STAGES[3], is_system: true, ...(parsed.ENTREGUE || {}) }
     ];
   }
   return DEFAULT_STAGES;

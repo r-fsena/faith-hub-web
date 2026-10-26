@@ -5,6 +5,10 @@ import { fetchAuthSession } from 'aws-amplify/auth';
  */
 export async function getAuthHeaders(extraHeaders: Record<string, string> = {}): Promise<Record<string, string>> {
   try {
+    try {
+      const selected = JSON.parse(localStorage.getItem('faithhub_active_org') || 'null');
+      if (selected?.id) extraHeaders = { 'x-organization-id': selected.id, ...extraHeaders };
+    } catch {}
     const session = await fetchAuthSession();
     const token = session.tokens?.idToken?.toString() || session.tokens?.accessToken?.toString();
     if (token) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { authFetch } from '../services/apiClient';
 
 const CreditCardIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
@@ -86,17 +86,17 @@ export interface PaymentGatewayConfig {
 }
 
 const DEFAULT_GATEWAY_CONFIG: PaymentGatewayConfig = {
-  recipient_cnpj: '12.345.678/0001-90',
-  recipient_legal_name: 'Comunidade Cristã Faith-Hub Ministério Integrado',
-  recipient_trade_name: 'Comunidade Faith-Hub',
-  recipient_email: 'financeiro@igreja.com.br',
-  recipient_phone: '(11) 98765-4321',
+  recipient_cnpj: '',
+  recipient_legal_name: '',
+  recipient_trade_name: '',
+  recipient_email: '',
+  recipient_phone: '',
 
   pix_enabled: true,
-  credit_card_enabled: true,
-  boleto_enabled: true,
+  credit_card_enabled: false,
+  boleto_enabled: false,
   max_installments: 12,
-  pix_key: '12.345.678/0001-90',
+  pix_key: '',
   pix_key_type: 'CNPJ',
   boleto_due_days: 3,
 
@@ -107,20 +107,20 @@ const DEFAULT_GATEWAY_CONFIG: PaymentGatewayConfig = {
 
   bank_code: '341',
   bank_name: '341 - Itaú Unibanco S.A.',
-  agency_number: '1234',
+  agency_number: '',
   agency_digit: '',
-  account_number: '56789',
-  account_digit: '0',
+  account_number: '',
+  account_digit: '',
   account_type: 'checking',
-  account_holder_name: 'Comunidade Cristã Faith-Hub',
-  account_holder_document: '12.345.678/0001-90',
+  account_holder_name: '',
+  account_holder_document: '',
 
   gateway_provider: 'PAGARME',
   environment: 'TEST',
-  public_key: 'pk_test_faithhub_sample_key_99x',
-  secret_key: 'sk_test_faithhub_sample_secret_key_88z',
-  account_id: 'acc_fh892341908234',
-  is_connected: true
+  public_key: '',
+  secret_key: '',
+  account_id: '',
+  is_connected: false
 };
 
 export default function PagarmeSettings() {
@@ -135,16 +135,21 @@ export default function PagarmeSettings() {
     loadConfig();
   }, []);
 
-  const loadConfig = () => {
-    const saved = localStorage.getItem('faithhub_pagarme_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setConfig({ ...DEFAULT_GATEWAY_CONFIG, ...parsed });
-      } catch (e) {
-        console.error("Erro ao carregar dados do Gateway", e);
-      }
-    }
+  const loadConfig = async () => {
+    localStorage.removeItem('faithhub_pagarme_config');
+    try {
+      const response = await authFetch(`${API_URL}/pagarme-settings`);
+      if (!response.ok) throw new Error('Não foi possível carregar as configurações desta igreja.');
+      const data = await response.json();
+      const settings = typeof data.config_payload === 'string' ? JSON.parse(data.config_payload) : data.config_payload || {};
+      setConfig({ ...DEFAULT_GATEWAY_CONFIG, ...settings, pix_key: data.pix_key || '', pix_key_type: data.pix_key_type || 'CNPJ',
+        recipient_cnpj: data.document_number || '', recipient_legal_name: data.legal_name || '',
+        bank_code: data.bank_code || '', bank_name: data.bank_name || '', agency_number: data.agency || '',
+        account_number: data.account || '', account_digit: data.account_digit || '',
+        account_holder_document: data.document_number || '', account_holder_name: data.legal_name || '',
+        environment: data.environment === 'production' ? 'LIVE' : 'TEST',
+        secret_key: data.api_key || '', public_key: data.encryption_key || '', account_id: data.recipient_id || '', is_connected: false });
+    } catch (error) { setTestResult({ success: false, message: error instanceof Error ? error.message : 'Erro ao carregar gateway' }); }
   };
 
   const handleBankChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -158,55 +163,26 @@ export default function PagarmeSettings() {
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    setSaveSuccess(false);
-
+    setSaving(true); setSaveSuccess(false);
     try {
-      localStorage.setItem('faithhub_pagarme_config', JSON.stringify(config));
-
-      // Tenta persistir no backend se disponível
-      try {
-        const session = await fetchAuthSession();
-        const token = session.tokens?.idToken?.toString();
-        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-        await fetch(`${API_URL}/pagarme-settings`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(config)
-        });
-      } catch (backendErr) {
-        console.log("Configurações do Gateway salvas localmente.");
-      }
-
-      setSaveSuccess(true);
+      const { secret_key, public_key, is_connected, ...settings } = config;
+      const response = await authFetch(`${API_URL}/pagarme-settings`, { method: 'POST', body: JSON.stringify({
+        environment: config.environment === 'LIVE' ? 'production' : 'test', api_key: secret_key, encryption_key: public_key,
+        recipient_id: config.account_id, bank_code: config.bank_code, bank_name: config.bank_name,
+        agency: config.agency_number, account: config.account_number, account_digit: config.account_digit,
+        document_number: config.account_holder_document, legal_name: config.account_holder_name,
+        pix_key: config.pix_key, pix_key_type: config.pix_key_type, ui_settings: settings
+      }) });
+      if (!response.ok) throw new Error('Não foi possível salvar as configurações no servidor.');
+      setSaveSuccess(true); await loadConfig();
       setTimeout(() => setSaveSuccess(false), 3500);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao salvar configurações do Gateway.");
-    } finally {
-      setSaving(false);
-    }
+    } catch (error) { alert(error instanceof Error ? error.message : 'Erro ao salvar gateway'); }
+    finally { setSaving(false); }
   };
 
   const handleTestConnection = () => {
-    setTestingConnection(true);
-    setTestResult(null);
-
-    setTimeout(() => {
-      setTestingConnection(false);
-      if (config.public_key && config.secret_key) {
-        setTestResult({
-          success: true,
-          message: `Conexão bem-sucedida! Provedor ${config.gateway_provider} (${config.environment === 'LIVE' ? 'Produção Oficial' : 'Sandbox Testes'}) validado.`
-        });
-        setConfig(prev => ({ ...prev, is_connected: true }));
-      } else {
-        setTestResult({
-          success: false,
-          message: "Preencha a Chave Pública e a Chave Secreta para validar a conexão."
-        });
-      }
-    }, 1200);
+    setConfig(previous => ({ ...previous, is_connected: false }));
+    setTestResult({ success: false, message: 'As credenciais podem ser salvas. A validação de conexão e o processamento por cartão ainda não estão disponíveis.' });
   };
 
   const getFrequencyLabel = () => {

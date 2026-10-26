@@ -2250,7 +2250,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         isOpen={!!checkinSuccessData}
         onClose={() => {
           setCheckinSuccessData(null);
-          setActiveTab('salas'); // Retorna para o painel ao vivo das salas
+          switchTab('salas'); // Retorna para o painel ao vivo das salas
         }}
         onNewCheckin={() => {
           setCheckinSuccessData(null);

@@ -1,3 +1,4 @@
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -109,6 +110,8 @@ export interface FinancialSummaryData {
   income_by_category: { category: string; total: number; count: number }[];
   expense_by_category: { category: string; total: number; count: number }[];
   income_by_method: { payment_method: string; total: number; count: number }[];
+  payment_methods_mix?: { payment_method: string; total: number; count: number; percentage: number }[];
+  campus_ranking?: { campus_name: string; campus_id: string; total: number; count: number; percentage: number }[];
 }
 
 interface FinancialTreasuryProps {
@@ -141,6 +144,17 @@ const EXPENSE_CATEGORIES = [
   'Outras Despesas'
 ];
 
+const EXPENSE_CATEGORIES_COLORS = [
+  { name: 'Instalações & Aluguel', color: '#ec4899' },
+  { name: 'Energia & Água', color: '#f59e0b' },
+  { name: 'Materiais de Escritório / Limpeza', color: '#3b82f6' },
+  { name: 'Prebenda Pastoral / Salários', color: '#f97316' },
+  { name: 'Manutenção Predial', color: '#06b6d4' },
+  { name: 'Ação Social & Cestas', color: '#10b981' },
+  { name: 'Som & Mídia', color: '#8b5cf6' },
+  { name: 'Outras Despesas', color: '#94a3b8' }
+];
+
 export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   selectedCampusId = 'all',
   selectedOrganization,
@@ -153,6 +167,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       setActiveSubTab(initialSubTab);
     }
   }, [initialSubTab]);
+  const { isFeatureEnabled } = useFeatureFlags();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [projects, setProjects] = useState<SpecialProject[]>([]);
@@ -253,7 +268,14 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
 
       if (summaryRes.ok) {
         const sumJson = await summaryRes.json();
-        setSummary(sumJson);
+        setSummary({
+          ...(sumJson.summary || {}),
+          income_by_category: sumJson.income_by_category || [],
+          expense_by_category: sumJson.expense_by_category || [],
+          income_by_method: sumJson.income_by_method || [],
+          payment_methods_mix: sumJson.payment_methods_mix || [],
+          campus_ranking: sumJson.campus_ranking || []
+        });
       }
 
       if (projRes.ok) {
@@ -981,6 +1003,162 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                 )}
               </div>
 
+              {/* SEÇÃO ANALYTICS & RELATÓRIOS AVANÇADOS (PADRÃO JOTIVA) */}
+              {isFeatureEnabled('financial.advanced_reports', false) && <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '22px', marginTop: '10px' }}>
+
+                {/* 1. MIX DE MEIOS DE PAGAMENTO */}
+                <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '1.3rem' }}>🕒</span>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                      Por Meio de Pagamento
+                    </h3>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700, marginBottom: '6px' }}>
+                    Mix de pagamentos da igreja
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                    Compare Pix, Cartão de Crédito, Cartão de Débito e Boleto — em valores e percentuais, no período selecionado.
+                  </p>
+
+                  {/* Stacked Progress Bar (Barra Empilhada Proporcional) */}
+                  {(() => {
+                    const mix = summary.payment_methods_mix || [];
+                    if (!mix.length) return <p style={{ color: 'var(--text-muted)' }}>Sem recebimentos no período selecionado.</p>;
+
+                    const colorMap: Record<string, string> = {
+                      'PIX': '#10b981',
+                      'CREDIT_CARD': '#ef4444',
+                      'DEBIT_CARD': '#f59e0b',
+                      'BOLETO': '#3b82f6',
+                      'CASH': '#8b5cf6',
+                      'TRANSFER': '#06b6d4'
+                    };
+
+                    const labelMap: Record<string, string> = {
+                      'PIX': 'Pix',
+                      'CREDIT_CARD': 'Cartão de Crédito',
+                      'DEBIT_CARD': 'Cartão de Débito',
+                      'BOLETO': 'Boleto Bancário',
+                      'CASH': 'Espécie / Dinheiro',
+                      'TRANSFER': 'Transferência / TED'
+                    };
+
+                    return (
+                      <div>
+                        {/* Barra Segmentada */}
+                        <div style={{ width: '100%', height: '14px', borderRadius: '999px', display: 'flex', overflow: 'hidden', background: '#f1f5f9', marginBottom: '16px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)' }}>
+                          {mix.map((item, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                width: `${Math.max(item.percentage, 2)}%`,
+                                height: '100%',
+                                background: colorMap[item.payment_method] || '#64748b',
+                                transition: 'width 0.3s ease'
+                              }}
+                              title={`${labelMap[item.payment_method] || item.payment_method}: ${item.percentage}% (${formatCurrency(item.total)})`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Legendas e Valores Detalhados */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {mix.map((item, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', paddingBottom: '6px', borderBottom: '1px solid var(--panel-border)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: colorMap[item.payment_method] || '#64748b' }} />
+                                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{labelMap[item.payment_method] || item.payment_method}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{formatCurrency(item.total)}</span>
+                                <span style={{ fontWeight: 800, color: 'var(--text-main)', minWidth: '40px', textAlign: 'right' }}>{item.percentage}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 2. RANKING DE ARRECADAÇÃO POR IGREJA / CAMPUS */}
+                <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '1.3rem' }}>🏛️</span>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                      Por Igreja / Congregação
+                    </h3>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700, marginBottom: '6px' }}>
+                    Ranking de arrecadação
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                    Veja a contribuição de cada filial no total da denominação, com percentuais e exportação.
+                  </p>
+
+                  {(() => {
+                    const ranking = summary.campus_ranking || [];
+                    if (!ranking.length) return <p style={{ color: 'var(--text-muted)' }}>Sem arrecadação por unidade no período selecionado.</p>;
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {ranking.map((c, i) => (
+                          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: i === 0 ? '#10b981' : '#3b82f6' }} />
+                                <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>{c.campus_name}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{formatCurrency(c.total)}</span>
+                                <span style={{ fontWeight: 800, color: '#0f766e' }}>{c.percentage}%</span>
+                              </div>
+                            </div>
+                            <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+                              <div style={{ width: `${c.percentage}%`, height: '100%', background: i === 0 ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #60a5fa, #3b82f6)', borderRadius: '999px' }} />
+                            </div>
+                          </div>
+                        ))}
+
+                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const csvContent = 'data:text/csv;charset=utf-8,' +
+                                ['Congregação,Arrecadação,Percentual', ...ranking.map(r => `"${r.campus_name}","${r.total}","${r.percentage}%"`)].join('\n');
+                              const encodedUri = encodeURI(csvContent);
+                              const link = document.createElement('a');
+                              link.setAttribute('href', encodedUri);
+                              link.setAttribute('download', `ranking_arrecadacao_${new Date().toISOString().slice(0,10)}.csv`);
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: '1px solid var(--panel-border)',
+                              borderRadius: '8px',
+                              padding: '6px 12px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <span>📥</span> Exportar para Excel/CSV
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+              </div>}
+
             </div>
           )}
 
@@ -1060,25 +1238,150 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
 
           {/* TAB 3: DESPESAS & CONTAS */}
           {activeSubTab === 'expenses' && (
-            <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                  Despesas, Contas e Custos Fixos
-                </h3>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => {
-                    setModalTransactionType('EXPENSE');
-                    setFormData({ ...formData, category: 'Instalações & Aluguel' });
-                    setIsTransactionModalOpen(true);
-                  }}
-                >
-                  <PlusIcon /> Nova Movimentação
-                </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {/* CARD DE SAÍDAS (CONTROLE TOTAL DAS DESPESAS - PADRÃO JOTIVA) */}
+              <div style={{
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                borderRadius: '24px',
+                padding: '24px 28px',
+                color: '#ffffff',
+                boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.3)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '4px 12px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <span>📉</span> CONTROLE TOTAL DAS DESPESAS DA IGREJA
+                    </div>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#ffffff', margin: '8px 0 4px 0', letterSpacing: '-0.3px' }}>
+                      Saídas & Despesas Operacionais
+                    </h2>
+                    <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: 0, maxWidth: '560px', lineHeight: 1.4 }}>
+                      Registre cada saída por categoria, congregação e período. Mantenha o caixa equilibrado e a prestação de contas com o conselho sempre em dia.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalTransactionType('EXPENSE');
+                        setFormData({ ...formData, category: 'Instalações & Aluguel' });
+                        setIsTransactionModalOpen(true);
+                      }}
+                      style={{
+                        background: '#10b981',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '10px 18px',
+                        fontSize: '0.84rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                      }}
+                    >
+                      <PlusIcon /> Adicionar Saída
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-Card de Despesas por Categoria */}
+                <div style={{
+                  marginTop: '22px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '18px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '20px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                    <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Despesas por Categoria
+                    </span>
+                    <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                      Filtre por categoria e confira os subtotais
+                    </span>
+                  </div>
+
+                  {/* Grid de Categorias com Marcadores Coloridos */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+                    {EXPENSE_CATEGORIES_COLORS.map(cat => {
+                      const totalCat = expenseTransactions
+                        .filter(t => t.category === cat.name && t.status === 'PAID')
+                        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+                      const isSelected = selectedCategoryFilter === cat.name;
+
+                      return (
+                        <div
+                          key={cat.name}
+                          onClick={() => setSelectedCategoryFilter(prev => prev === cat.name ? '' : cat.name)}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: isSelected ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.04)',
+                            border: isSelected ? `1.5px solid ${cat.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                            padding: '10px 14px',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color, display: 'inline-block', boxShadow: `0 0 8px ${cat.color}66` }} />
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>{cat.name}</span>
+                          </div>
+                          <span style={{ fontSize: '0.84rem', fontWeight: 900, color: '#ffffff' }}>
+                            {formatCurrency(totalCat)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Totalizador no Período */}
+                  <div style={{
+                    marginTop: '16px',
+                    paddingTop: '14px',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      TOTAL NO PERÍODO
+                    </span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f87171' }}>
+                      {formatCurrency(summary.total_expense)}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              {/* Tabela de Transações de Saídas */}
+              <div className="portal-card" style={{ padding: '24px', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    Extrato de Saídas {selectedCategoryFilter ? `(${selectedCategoryFilter})` : ''}
+                  </h3>
+                  {selectedCategoryFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategoryFilter('')}
+                      style={{ background: 'none', border: 'none', color: '#0f766e', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      Limpar Filtro ({selectedCategoryFilter}) ✕
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1.5px solid var(--panel-border)', textAlign: 'left', color: 'var(--text-secondary)' }}>
@@ -1133,6 +1436,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
           )}
 

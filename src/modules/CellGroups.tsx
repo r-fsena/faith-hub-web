@@ -1,3 +1,4 @@
+import { getAuthHeaders } from '../services/apiClient';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -118,17 +119,7 @@ export default function CellGroups({ selectedCampusId = 'all', selectedOrganizat
     loadChurchMembers();
   }, [selectedCampusId, selectedOrganization]);
 
-  const getAuthHeaders = async () => {
-    try {
-      const session = await fetchAuthSession();
-      return {
-        'Authorization': `Bearer ${session.tokens?.idToken?.toString()}`,
-        'Content-Type': 'application/json'
-      };
-    } catch {
-      return { 'Content-Type': 'application/json' };
-    }
-  };
+
 
   const loadChurchMembers = async () => {
     try {

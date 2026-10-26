@@ -73,18 +73,7 @@ export const PastoralPrayers: React.FC<PastoralPrayersProps> = ({
     loadPrayers();
   }, [orgId, selectedCampusId]);
 
-  const getAuthHeaders = async () => {
-    try {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      };
-    } catch {
-      return { 'Content-Type': 'application/json' };
-    }
-  };
+
 
   const loadPrayers = async () => {
     setLoading(true);

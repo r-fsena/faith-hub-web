@@ -756,7 +756,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
         alert(data.message || '✓ Substituição confirmada na escala!');
         setSwapModalItem(null);
         setSelectedSwapSubstituteId('');
-        loadMinistryDetails(selectedMinistry.id);
+        fetchMinistryDetails(selectedMinistry.id);
       } else {
         alert(data.error || 'Erro ao realizar substituição');
       }
@@ -784,7 +784,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       const data = await res.json();
       if (res.ok) {
         alert(data.message || '✓ Pedido de troca cancelado. Voluntário original mantido!');
-        loadMinistryDetails(selectedMinistry.id);
+        fetchMinistryDetails(selectedMinistry.id);
       } else {
         alert(data.error || 'Erro ao cancelar troca');
       }
@@ -792,6 +792,23 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       console.error(e);
       alert('Erro ao cancelar troca');
     }
+  };
+
+  const handleSendReminders = async (schedule: ServiceSchedule) => {
+    if (!selectedMinistry) return;
+    setLoadingReminders(true);
+    setShowRemindersModal(true);
+    setRemindersData(null);
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/ministries/${selectedMinistry.id}/schedules/${schedule.id}/remind-volunteers`, { method: 'POST', headers });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || data.error || 'Erro ao preparar lembretes');
+      setRemindersData({ scheduleTitle: schedule.title, reminders: data.reminders || [] });
+    } catch (error) {
+      setShowRemindersModal(false);
+      alert(error instanceof Error ? error.message : 'Erro ao preparar lembretes');
+    } finally { setLoadingReminders(false); }
   };
 
   const fetchConflicts = async (dateStr: string) => {
@@ -4354,7 +4371,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                                       .filter(v => v.status === 'ACTIVE' || v.status === 'TRAINING')
                                       .map(v => {
                                         const cleanRoles = (v.roles_csv || '').toLowerCase().trim();
-                                        const isSkilled = !cleanRoles || cleanRoles.includes('geral') || cleanRoles.includes('todas') || cleanRoles.includes(item.role_name.toLowerCase());
+                                        const isSkilled = !cleanRoles || cleanRoles.includes('geral') || cleanRoles.includes('todas') || cleanRoles.includes(slot.role_name.toLowerCase());
                                         const roleLabel = isSkilled ? '⭐ [Apto]' : `[Restrito: ${v.roles_csv}]`;
                                         return (
                                           <option key={v.member_id} value={v.member_id}>

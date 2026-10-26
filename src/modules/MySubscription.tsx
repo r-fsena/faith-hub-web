@@ -1,3 +1,4 @@
+import { authFetch } from '../services/apiClient';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -121,7 +122,7 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
   const loadInvoices = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/saas/invoices?organization_id=${orgId}`);
+      const res = await authFetch(`${API_URL}/saas/invoices?organization_id=${encodeURIComponent(orgId)}`);
       if (res.ok) {
         const json = await res.json();
         setInvoices(json.data || []);
@@ -133,31 +134,10 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
     }
   };
 
-  const handleSimulatePayment = async (invoiceId: string) => {
+  const handleRefreshPayment = async () => {
     setIsPaying(true);
-    try {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      const headers = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-
-      const res = await fetch(`${API_URL}/saas/invoices/${invoiceId}/pay`, {
-        method: 'POST',
-        headers
-      });
-
-      if (res.ok) {
-        alert('🎉 Pagamento da mensalidade confirmado com sucesso! Sua assinatura Faith-Hub está em dia.');
-        setSelectedInvoiceForPayment(null);
-        loadInvoices();
-      } else {
-        alert('Erro ao processar pagamento.');
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Erro de comunicação.');
-    } finally {
-      setIsPaying(false);
-    }
+    try { await loadInvoices(); setSelectedInvoiceForPayment(null); }
+    finally { setIsPaying(false); }
   };
 
   const handleCopyPixCode = (code: string) => {
@@ -418,7 +398,7 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
-                  <QrCodeIcon />
+                  {selectedInvoiceForPayment.pix_qr_code ? <img alt="QR Code da cobrança" src={selectedInvoiceForPayment.pix_qr_code} style={{ width: 160, height: 160 }} /> : <span style={{ padding: 12, fontSize: 12 }}>QR Code ainda não disponível</span>}
                 </div>
                 <div>
                   <h2 className="modal-studio-title">
@@ -450,7 +430,7 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
                   <QrCodeIcon />
                 </div>
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '8px', fontWeight: 700 }}>
-                  QR CODE PIX DINÂMICO
+                  COBRANÇA DO PROVEDOR
                 </div>
               </div>
 
@@ -458,7 +438,8 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
               <div style={{ marginBottom: '10px' }}>
                 <button
                   type="button"
-                  onClick={() => handleCopyPixCode(selectedInvoiceForPayment.pix_copy_paste || '00020126580014br.gov.bcb.pix0136fa89c092-231a-493e-bfa1-923847294820520400005303986540297.005802BR5916FAITH HUB SAAS6009SAO PAULO62070503***6304')}
+                  disabled={!selectedInvoiceForPayment.pix_copy_paste}
+                  onClick={() => handleCopyPixCode(selectedInvoiceForPayment.pix_copy_paste || '')}
                   style={{
                     width: '100%',
                     background: copiedPix ? 'var(--pastel-green-bg)' : '#f8fafc',
@@ -497,9 +478,9 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
                 type="button"
                 className="btn-primary"
                 disabled={isPaying}
-                onClick={() => handleSimulatePayment(selectedInvoiceForPayment.id)}
+                onClick={() => handleRefreshPayment()}
               >
-                {isPaying ? 'Confirmando...' : '✓ Já realizei o Pagamento'}
+                {isPaying ? 'Consultando...' : 'Atualizar situação do pagamento'}
               </button>
             </div>
 

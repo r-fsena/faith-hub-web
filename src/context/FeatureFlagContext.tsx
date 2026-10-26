@@ -234,7 +234,7 @@ export function useFeatureFlags(): FeatureFlagContextType {
       plan: 'PRO',
       isLoading: false,
       isFeatureEnabled: () => true,
-      getFeatureConfig: () => null,
+      getFeatureConfig: <T,>(_key: string, fallback?: T) => fallback as T,
       toggleFlag: async () => false,
       batchUpdateFlags: async () => false,
       resetTenantFlags: async () => false,

@@ -6,6 +6,7 @@ interface ProposalData {
   id: string;
   token: string;
   church_name: string;
+  suggested_slug?: string;
   cnpj_cpf?: string;
   contact_name: string;
   contact_email: string;
