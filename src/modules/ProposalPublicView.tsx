@@ -41,6 +41,7 @@ interface ProposalData {
   first_cycle_amount?: number;
   notes_commercial?: string;
   checkout_available?: boolean;
+  billing_status?: string;
 }
 
 export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
@@ -54,7 +55,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
   // Checkout & Acceptance State
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [step, setStep] = useState<'view' | 'payment' | 'success'>('view');
+  const [step, setStep] = useState<'view' | 'payment' | 'pending' | 'success'>('view');
   
   // Payment State
 
@@ -75,8 +76,11 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
       data.asaas_payment_link = isTrustedAsaasCheckoutUrl(checkoutUrl) ? checkoutUrl : undefined;
       setProposal(data);
 
+      const returnedFromAsaas = new URLSearchParams(window.location.search).get('retorno') === 'asaas-sucesso';
       if (data.status === 'PAID') {
         setStep('success');
+      } else if (returnedFromAsaas || ['CHECKOUT_PAID', 'PENDING', 'ACTIVE'].includes(data.billing_status)) {
+        setStep('pending');
       } else if (data.status === 'ACCEPTED') {
         setStep('payment');
       }
@@ -396,6 +400,21 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
               ← Voltar para detalhes da proposta
             </button>
 
+          </div>
+        )}
+
+        {step === 'pending' && (
+          <div style={{ background: '#0f172a', border: '1px solid rgba(14, 165, 233, 0.35)', borderRadius: '24px', padding: '36px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+            <span style={{ fontSize: '2rem' }}>⏳</span>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#ffffff', margin: '10px 0' }}>
+              Aguardando confirmação do Asaas
+            </h2>
+            <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: 1.6, margin: '0 0 20px' }}>
+              Os dados do cartão foram recebidos pelo Asaas. Não é necessário abrir ou preencher o checkout novamente. O ambiente será liberado somente após a confirmação financeira enviada pelo provedor.
+            </p>
+            <button type="button" onClick={loadProposal} disabled={loading} style={{ width: '100%', background: '#0ea5e9', color: '#fff', border: 0, padding: '14px', borderRadius: '12px', fontWeight: 900, cursor: 'pointer' }}>
+              Atualizar status
+            </button>
           </div>
         )}
 
