@@ -364,7 +364,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
               </p>
             </div>
             <p style={{ margin: '0 0 20px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.82rem' }}>
-              Escolha PIX ou cartão de crédito diretamente na página protegida do provedor.
+              Informe o cartão de crédito diretamente na página protegida do provedor. O Faith-Hub não recebe os dados do cartão.
             </p>
             {proposal.asaas_payment_link ? (
               <a href={proposal.asaas_payment_link} style={{ display: 'block', textAlign: 'center', background: '#0ea5e9', color: '#fff', padding: '14px', borderRadius: '12px', textDecoration: 'none', fontWeight: 900 }}>
