@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 import Login from './Login';
@@ -30,6 +30,7 @@ import { Secretariat } from './modules/Secretariat';
 import { PublicDocumentVerification } from './modules/PublicDocumentVerification';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { StudioWorkspace, type StudioWorkspaceKind } from './components/StudioWorkspace';
 import { getAuthHeaders } from './services/apiClient';
 import './index.css';
 
@@ -102,19 +103,14 @@ const ArchiveIcon = () => (
 );
 
 // Navigation Structure
-export interface NavigationSubItem {
-  id: string;
-  label: string;
-  featureFlagKey?: string;
-}
-
 export interface NavigationItem {
   id: string;
   label: string;
   icon: React.ComponentType;
-  hasSubmenu?: boolean;
   featureFlagKey?: string;
-  subItems?: NavigationSubItem[];
+  visibleWhenAny?: string[];
+  allowedRoles?: string[];
+  matchTabs?: string[];
 }
 
 export interface NavigationCategory {
@@ -126,147 +122,156 @@ const navigationGroups: NavigationCategory[] = [
   {
     category: 'Geral',
     items: [
-      { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
+      { id: 'dashboard', label: 'Início', icon: DashboardIcon },
     ]
   },
   {
-    category: 'Pessoas & Comunidade',
+    category: 'Áreas de trabalho',
     items: [
-      { 
-        id: 'membros_group', 
-        label: 'Membros & Pastoral', 
+      {
+        id: 'people_workspace',
+        label: 'Pessoas',
         icon: UsersIcon,
-        hasSubmenu: true,
-        featureFlagKey: 'members.module_enabled',
-        subItems: [
-          { id: 'membros', label: 'Gestão de Membros', featureFlagKey: 'members.module_enabled' },
-          { id: 'celulas', label: 'Células & Redes', featureFlagKey: 'cell_groups.module_enabled' },
-          { id: 'ministerios', label: 'Ministérios & Escalas', featureFlagKey: 'cell_groups.module_enabled' },
-          { id: 'pastoral_radar', label: 'Radar de Cuidado (Evasão)', featureFlagKey: 'cell_groups.module_enabled' },
-          { id: 'visitantes', label: 'Funil de Visitantes & Acolhimento', featureFlagKey: 'cell_groups.module_enabled' },
-          { id: 'oracoes', label: 'Mural de Orações & Intercessão', featureFlagKey: 'prayers.module_enabled' },
-        ]
+        visibleWhenAny: ['members.module_enabled', 'cell_groups.module_enabled'],
+        matchTabs: ['membros', 'celulas', 'pastoral_radar', 'visitantes']
       },
       {
-        id: 'secretariat_group',
-        label: 'Secretaria Eclesiástica',
+        id: 'ministries_workspace',
+        label: 'Equipes & Ministérios',
+        icon: HeartIcon,
+        visibleWhenAny: ['cell_groups.module_enabled', 'kids.module_enabled'],
+        matchTabs: ['ministerios', 'kids_workspace', 'kids_salas', 'kids_checkin', 'kids_chamados', 'kids_familias', 'kids_config_salas', 'kids_relatorios', 'kids_ministerio']
+      },
+      {
+        id: 'secretariat_workspace',
+        label: 'Secretaria',
         icon: ArchiveIcon,
-        hasSubmenu: true,
         featureFlagKey: 'secretariat.module_enabled',
-        subItems: [
-          { id: 'secretariat_overview', label: 'Visão Geral', featureFlagKey: 'secretariat.module_enabled' },
-          { id: 'secretariat_records', label: 'Prontuários Eclesiásticos', featureFlagKey: 'secretariat.member_registry' },
-          { id: 'secretariat_movements', label: 'Movimentações & Transferências', featureFlagKey: 'secretariat.transfers' },
-          { id: 'secretariat_documents', label: 'Documentos & Certificados', featureFlagKey: 'secretariat.documents' },
-          { id: 'secretariat_baptisms', label: 'Batismos', featureFlagKey: 'secretariat.baptisms' },
-          { id: 'secretariat_templates', label: 'Modelos & Configurações', featureFlagKey: 'secretariat.template_editor' }
-        ]
+        matchTabs: ['secretariat_overview', 'secretariat_records', 'secretariat_movements', 'secretariat_documents', 'secretariat_baptisms', 'secretariat_templates']
       },
-      { 
-        id: 'kids_group', 
-        label: 'Ministério Infantil (Kids)', 
-        icon: BabyIcon,
-        hasSubmenu: true,
-        featureFlagKey: 'kids.module_enabled',
-        subItems: [
-          { id: 'kids_salas', label: 'Painel ao Vivo das Salas', featureFlagKey: 'kids.live_rooms_dashboard' },
-          { id: 'kids_checkin', label: 'Totem de Check-in Expresso', featureFlagKey: 'kids.express_kiosk_checkin' },
-          { id: 'kids_chamados', label: 'Central de Chamados', featureFlagKey: 'kids.emergency_parent_call' },
-          { id: 'kids_familias', label: 'Base de Famílias & Membros', featureFlagKey: 'kids.module_enabled' },
-          { id: 'kids_config_salas', label: 'Configuração de Salas', featureFlagKey: 'kids.module_enabled' },
-          { id: 'kids_relatorios', label: 'Relatórios & Exportação', featureFlagKey: 'kids.reports_export' },
-        ]
-      },
-      { 
-        id: 'ensino_group', 
-        label: 'Ensino & Espiritual', 
+      {
+        id: 'content_workspace',
+        label: 'Conteúdo & Comunicação',
         icon: BookIcon,
-        hasSubmenu: true,
-        subItems: [
-          { id: 'devocionais', label: 'Devocionais Diários', featureFlagKey: 'devotionals.module_enabled' },
-          { id: 'estudos', label: 'Estudos e Mídias', featureFlagKey: 'studies.module_enabled' },
-          { id: 'eventos', label: 'Eventos & Trilhas', featureFlagKey: 'events.module_enabled' },
-          { id: 'bible_config', label: 'Bíblias', featureFlagKey: 'bible.module_enabled' },
-        ]
+        visibleWhenAny: ['events.module_enabled', 'broadcasts.module_enabled', 'devotionals.module_enabled', 'studies.module_enabled', 'bible.module_enabled', 'prayers.module_enabled'],
+        matchTabs: ['eventos', 'transmissoes', 'devocionais', 'estudos', 'bible_config', 'oracoes']
       },
-    ]
-  },
-  {
-    category: 'Operações & Mídia',
-    items: [
       {
-        id: 'pdv_group',
-        label: 'Loja Oficial & PDV',
+        id: 'operations_workspace',
+        label: 'Loja & Operações',
         icon: CartIcon,
-        hasSubmenu: true,
         featureFlagKey: 'pdv.module_enabled',
-        subItems: [
-          { id: 'pdv_produtos', label: 'Catálogo de Produtos', featureFlagKey: 'pdv.stock_inventory' },
-          { id: 'pdv_pedidos', label: 'Monitor de Pedidos', featureFlagKey: 'pdv.order_kanban_monitor' },
-        ]
+        matchTabs: ['pdv_produtos', 'pdv_pedidos']
       },
-      { id: 'transmissoes', label: 'Central de Cultos & Lives', icon: VideoIcon, featureFlagKey: 'broadcasts.module_enabled' },
+      {
+        id: 'finance_workspace',
+        label: 'Finanças',
+        icon: CreditCardIcon,
+        featureFlagKey: 'financial.module_enabled',
+        allowedRoles: ['SUPERADMIN', 'PASTOR', 'ADMIN', 'TREASURER'],
+        matchTabs: ['financial_treasury', 'financial_projects', 'pagarme_financeiro']
+      },
     ]
   },
   {
-    category: 'Gestão Financeira & SaaS',
+    category: 'Organização',
     items: [
       {
-        id: 'financas_group',
-        label: 'Finanças & Tesouraria',
-        icon: CreditCardIcon,
-        hasSubmenu: true,
-        featureFlagKey: 'financial.module_enabled',
-        subItems: [
-          { id: 'financial_treasury', label: 'Painel & DRE da Igreja', featureFlagKey: 'financial.cashflow_ledger' },
-          { id: 'financial_projects', label: 'Campanhas & Projetos', featureFlagKey: 'financial.cashflow_ledger' },
-          { id: 'pagarme_financeiro', label: 'Gateway de Pagamento', featureFlagKey: 'financial.credit_card_gateway' },
-          { id: 'my_subscription', label: 'Minha Assinatura Faith-Hub', featureFlagKey: 'system.saas_subscription_portal' },
-        ]
-      },
-    ]
-  },
-  {
-    category: 'Configurações',
-    items: [
-      { id: 'church_branding', label: 'Identidade & PWA Studio', icon: PaletteIcon, featureFlagKey: 'system.custom_theme_colors' },
-      { id: 'campuses', label: 'Unidades & Filiais', icon: BuildingIcon, featureFlagKey: 'system.multicampus_enabled' },
-      { id: 'feature_flags', label: 'Feature Flags & Módulos', icon: SparklesIcon, featureFlagKey: 'system.saas_subscription_portal' },
-      { id: 'security_audit', label: 'Auditoria & LGPD', icon: ShieldIcon },
-      { id: 'configuracoes', label: 'Infraestrutura AWS', icon: SettingsIcon },
+        id: 'administration_workspace',
+        label: 'Administração',
+        icon: SettingsIcon,
+        allowedRoles: ['SUPERADMIN', 'PASTOR', 'ADMIN'],
+        matchTabs: ['church_branding', 'campuses', 'feature_flags', 'security_audit', 'configuracoes', 'my_subscription']
+      }
     ]
   }
 ];
 
+const navigationContext: Record<string, { area: string; title: string }> = {
+  dashboard: { area: 'Início', title: 'Visão geral' },
+  people_workspace: { area: 'Pessoas', title: 'Visão geral' },
+  membros: { area: 'Pessoas', title: 'Membros' },
+  visitantes: { area: 'Pessoas', title: 'Visitantes & acolhimento' },
+  pastoral_radar: { area: 'Pessoas', title: 'Cuidado pastoral' },
+  celulas: { area: 'Pessoas', title: 'Células & redes' },
+  ministries_workspace: { area: 'Equipes & Ministérios', title: 'Visão geral' },
+  ministerios: { area: 'Equipes & Ministérios', title: 'Ministérios & escalas' },
+  kids_workspace: { area: 'Equipes & Ministérios', title: 'Ministério Infantil' },
+  kids_salas: { area: 'Ministério Infantil', title: 'Salas ao vivo' },
+  kids_checkin: { area: 'Ministério Infantil', title: 'Check-in' },
+  kids_chamados: { area: 'Ministério Infantil', title: 'Chamados de responsáveis' },
+  kids_familias: { area: 'Ministério Infantil', title: 'Famílias & crianças' },
+  kids_config_salas: { area: 'Ministério Infantil', title: 'Configuração de salas' },
+  kids_relatorios: { area: 'Ministério Infantil', title: 'Relatórios' },
+  kids_ministerio: { area: 'Equipes & Ministérios', title: 'Ministério Infantil' },
+  secretariat_workspace: { area: 'Secretaria', title: 'Visão geral' },
+  secretariat_overview: { area: 'Secretaria', title: 'Painel detalhado' },
+  secretariat_records: { area: 'Secretaria', title: 'Pessoas & registros' },
+  secretariat_movements: { area: 'Secretaria', title: 'Movimentações & transferências' },
+  secretariat_documents: { area: 'Secretaria', title: 'Documentos' },
+  secretariat_baptisms: { area: 'Secretaria', title: 'Batismos' },
+  secretariat_templates: { area: 'Secretaria', title: 'Modelos' },
+  content_workspace: { area: 'Conteúdo & Comunicação', title: 'Visão geral' },
+  eventos: { area: 'Conteúdo & Comunicação', title: 'Eventos & jornadas' },
+  transmissoes: { area: 'Conteúdo & Comunicação', title: 'Cultos & transmissões' },
+  devocionais: { area: 'Conteúdo & Comunicação', title: 'Devocionais' },
+  estudos: { area: 'Conteúdo & Comunicação', title: 'Estudos & mídias' },
+  bible_config: { area: 'Conteúdo & Comunicação', title: 'Bíblia' },
+  oracoes: { area: 'Conteúdo & Comunicação', title: 'Orações' },
+  operations_workspace: { area: 'Loja & Operações', title: 'Visão geral' },
+  pdv_produtos: { area: 'Loja & Operações', title: 'Produtos & estoque' },
+  pdv_pedidos: { area: 'Loja & Operações', title: 'Monitor de pedidos' },
+  finance_workspace: { area: 'Finanças', title: 'Visão geral' },
+  financial_treasury: { area: 'Finanças', title: 'Tesouraria & DRE' },
+  financial_projects: { area: 'Finanças', title: 'Campanhas & projetos' },
+  pagarme_financeiro: { area: 'Finanças', title: 'Gateway de pagamento' },
+  administration_workspace: { area: 'Administração', title: 'Visão geral' },
+  campuses: { area: 'Administração', title: 'Igreja & unidades' },
+  church_branding: { area: 'Administração', title: 'Marca & PWA' },
+  feature_flags: { area: 'Administração', title: 'Módulos da plataforma' },
+  security_audit: { area: 'Administração', title: 'Auditoria & LGPD' },
+  my_subscription: { area: 'Administração', title: 'Assinatura Faith-Hub' },
+  configuracoes: { area: 'Administração', title: 'Configurações avançadas' }
+};
+
+const workspaceKindsByTab: Record<string, StudioWorkspaceKind> = {
+  people_workspace: 'people',
+  ministries_workspace: 'ministries',
+  kids_workspace: 'kids',
+  secretariat_workspace: 'secretariat',
+  content_workspace: 'content',
+  operations_workspace: 'operations',
+  finance_workspace: 'finance',
+  administration_workspace: 'administration'
+};
+
 interface SidebarNavProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  openSubmenus: Record<string, boolean>;
-  toggleSubmenu: (groupId: string) => void;
   setIsMobileSidebarOpen: (open: boolean) => void;
+  userRole?: string;
+  isSuperAdmin: boolean;
 }
 
 const SidebarNav: React.FC<SidebarNavProps> = ({
   activeTab,
   setActiveTab,
-  openSubmenus,
-  toggleSubmenu,
-  setIsMobileSidebarOpen
+  setIsMobileSidebarOpen,
+  userRole,
+  isSuperAdmin
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
+  const normalizedRole = isSuperAdmin ? 'SUPERADMIN' : String(userRole || 'MEMBER').toUpperCase();
 
   const filteredGroups = navigationGroups
     .map(group => {
       const visibleItems = group.items
-        .filter(item => !item.featureFlagKey || isFeatureEnabled(item.featureFlagKey))
-        .map(item => {
-          if (!item.subItems) return item;
-          const visibleSubItems = item.subItems.filter(
-            sub => !sub.featureFlagKey || isFeatureEnabled(sub.featureFlagKey)
-          );
-          return { ...item, subItems: visibleSubItems };
-        })
-        .filter(item => !item.hasSubmenu || (item.subItems && item.subItems.length > 0));
+        .filter(item => !item.allowedRoles || item.allowedRoles.includes(normalizedRole))
+        .filter(item => {
+          if (item.featureFlagKey && !isFeatureEnabled(item.featureFlagKey)) return false;
+          if (item.visibleWhenAny && !item.visibleWhenAny.some(flag => isFeatureEnabled(flag))) return false;
+          return true;
+        });
 
       return { ...group, items: visibleItems };
     })
@@ -279,47 +284,13 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
           <div className="nav-category">{group.category}</div>
           {group.items.map(item => {
             const IconComponent = item.icon;
-            const isGroupOpen = openSubmenus[item.id];
-            const isItemActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab));
-
-            if (item.hasSubmenu && item.subItems) {
-              return (
-                <div key={item.id}>
-                  <button
-                    className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
-                    onClick={() => toggleSubmenu(item.id)}
-                  >
-                    <div className="nav-item-left">
-                      <IconComponent />
-                      <span>{item.label}</span>
-                    </div>
-                    {isGroupOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                  </button>
-
-                  {isGroupOpen && (
-                    <div className="submenu-tree">
-                      {item.subItems.map(sub => (
-                        <button
-                          key={sub.id}
-                          className={`submenu-item-btn ${activeTab === sub.id ? 'active' : ''}`}
-                          onClick={() => {
-                            setActiveTab(sub.id);
-                            setIsMobileSidebarOpen(false);
-                          }}
-                        >
-                          <span>{sub.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+            const isItemActive = activeTab === item.id || Boolean(item.matchTabs?.includes(activeTab));
 
             return (
               <button
                 key={item.id}
-                className={`nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
+                className={`nav-item-btn ${isItemActive ? 'active' : ''}`}
+                aria-current={isItemActive ? 'page' : undefined}
                 onClick={() => {
                   setActiveTab(item.id);
                   setIsMobileSidebarOpen(false);
@@ -341,10 +312,11 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
 function App() {
   const demoModeEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true';
   const isDemo = demoModeEnabled && typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('demo') === 'true' || localStorage.getItem('faithhub_studio_demo') === 'true');
-  const initialTab = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('tab') || 'dashboard') : 'dashboard';
+  const initialTab = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('tab') || localStorage.getItem('faithhub_studio_last_tab') || 'dashboard')
+    : 'dashboard';
 
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [openSubmenus, setOpenSubmenus] = useState<{ [key: string]: boolean }>({});
   const [isAuthenticated, setIsAuthenticated] = useState(isDemo);
   const [isLoadingAuth, setIsLoadingAuth] = useState(!isDemo);
   const [user, setUser] = useState<any>(isDemo ? { signInDetails: { loginId: 'pastor@igrejaviva.com.br' } } : null);
@@ -414,6 +386,35 @@ function App() {
     upcomingEvents: [],
     activeBroadcast: null
   });
+  const workspaceOverview = useMemo(() => ({
+    membersCount: dashboardStats.membersCount,
+    cellsCount: dashboardStats.cellsCount,
+    ordersTotal: dashboardStats.ordersTotal,
+    eventsCount: dashboardStats.eventsCount,
+    recentMembersCount: dashboardStats.recentMembers.length,
+    hasActiveBroadcast: Boolean(dashboardStats.activeBroadcast)
+  }), [
+    dashboardStats.activeBroadcast,
+    dashboardStats.cellsCount,
+    dashboardStats.eventsCount,
+    dashboardStats.membersCount,
+    dashboardStats.ordersTotal,
+    dashboardStats.recentMembers.length
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const isPublicRoute = window.location.pathname.startsWith('/proposta/')
+      || window.location.pathname.startsWith('/verificar-documento/')
+      || params.has('proposta')
+      || params.has('verificar_documento');
+    if (isPublicRoute) return;
+    localStorage.setItem('faithhub_studio_last_tab', activeTab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab);
+    window.history.replaceState({}, '', url);
+  }, [activeTab]);
 
   useEffect(() => {
     // Carregar Branding Salvo
@@ -700,10 +701,6 @@ function App() {
     document.documentElement.style.setProperty('--accent-primary-light', '#f0fdfa');
   };
 
-  const toggleSubmenu = (groupId: string) => {
-    setOpenSubmenus(prev => ({ ...prev, [groupId]: !prev[groupId] }));
-  };
-
   // Se for acesso direto a uma Proposta Comercial (link público do cliente/pastor)
   const urlParams = new URLSearchParams(window.location.search);
   const documentVerificationToken = urlParams.get('verificar_documento') || (window.location.pathname.startsWith('/verificar-documento/') ? window.location.pathname.split('/verificar-documento/')[1] : null);
@@ -827,6 +824,8 @@ function App() {
   const selectedCampusName = selectedCampusId === 'all' 
     ? 'Todas as Unidades' 
     : campuses.find(c => c.id === selectedCampusId)?.name || 'Unidade Selecionada';
+  const currentNavigation = navigationContext[activeTab] || { area: 'Studio', title: 'Área de trabalho' };
+  const canAccessAdministration = isSuperAdmin || ['PASTOR', 'ADMIN'].includes(String(userProfile?.role || '').toUpperCase());
 
   return (
     <FeatureFlagProvider organizationId={selectedOrganization?.id || 'org_default'} campusId={selectedCampusId}>
@@ -1053,9 +1052,9 @@ function App() {
           <SidebarNav
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            openSubmenus={openSubmenus}
-            toggleSubmenu={toggleSubmenu}
             setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+            userRole={userProfile?.role}
+            isSuperAdmin={isSuperAdmin}
           />
 
           {/* Sidebar Footer User Area */}
@@ -1097,42 +1096,24 @@ function App() {
               >
                 ☰
               </button>
-              <div>
-                <div className="greeting-text" style={{ fontSize: '0.90rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{selectedOrganization.name}</span>
-                  <span style={{ margin: '0 6px', opacity: 0.5 }}>/</span>
-                  <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>
-                    {activeTab === 'dashboard' && 'Dashboard Central'}
-                    {activeTab === 'membros' && 'Membros & Liderança'}
-                    {activeTab === 'kids_salas' && 'Kids • Mural de Salas'}
-                    {activeTab === 'kids_checkin' && 'Kids • Totem de Check-in'}
-                    {activeTab === 'kids_chamados' && 'Kids • Chamados de Pais'}
-                    {activeTab === 'kids_familias' && 'Kids • Famílias & Membros'}
-                    {activeTab === 'kids_config_salas' && 'Kids • Configuração de Salas'}
-                    {activeTab === 'kids_relatorios' && 'Kids • Relatórios & Exportação'}
-                    {activeTab === 'kids_ministerio' && 'Ministério Infantil'}
-                    {activeTab === 'celulas' && 'Células & Grupos'}
-                    {activeTab === 'ministerios' && 'Ministérios & Escalas de Voluntários'}
-                    {activeTab === 'pastoral_radar' && 'Radar de Cuidado & Retenção Pastoral'}
-                    {activeTab === 'devocionais' && 'Devocionais'}
-                    {activeTab === 'estudos' && 'Biblioteca de Estudos'}
-                    {activeTab === 'eventos' && 'Eventos & Cursos'}
-                    {activeTab === 'bible_config' && 'Bíblias'}
-                    {activeTab === 'pdv_produtos' && 'PDV • Catálogo de Produtos'}
-                    {activeTab === 'pdv_pedidos' && 'PDV • Monitor de Pedidos'}
-                    {activeTab === 'transmissoes' && 'Cultos & Transmissões'}
-                    {activeTab === 'financial_treasury' && 'Finanças & Tesouraria'}
-                    {activeTab === 'financial_projects' && 'Campanhas & Projetos Especiais'}
-                    {activeTab === 'oracoes' && 'Mural de Orações & Intercessão Pastoral'}
-                    {activeTab === 'my_subscription' && 'Minha Assinatura Faith-Hub'}
-                    {activeTab === 'campuses' && 'Unidades & Filiais'}
-                    {activeTab === 'church_branding' && 'Identidade Visual & PWA'}
-                    {activeTab === 'feature_flags' && 'Feature Flags & Módulos'}
-                    {activeTab === 'security_audit' && 'Trilha de Auditoria Forense & LGPD'}
-                    {activeTab === 'pagarme_financeiro' && 'Gateway Pagar.me'}
-                    {activeTab === 'configuracoes' && 'Configurações'}
-                  </span>
-                </div>
+              <div className="studio-breadcrumb" aria-label="Localização atual">
+                <span>{selectedOrganization.name}</span>
+                <span className="studio-breadcrumb-separator">/</span>
+                <button type="button" onClick={() => {
+                  const workspaceByArea: Record<string, string> = {
+                    'Pessoas': 'people_workspace',
+                    'Equipes & Ministérios': 'ministries_workspace',
+                    'Ministério Infantil': 'kids_workspace',
+                    'Secretaria': 'secretariat_workspace',
+                    'Conteúdo & Comunicação': 'content_workspace',
+                    'Loja & Operações': 'operations_workspace',
+                    'Finanças': 'finance_workspace',
+                    'Administração': 'administration_workspace'
+                  };
+                  setActiveTab(workspaceByArea[currentNavigation.area] || 'dashboard');
+                }}>{currentNavigation.area}</button>
+                <span className="studio-breadcrumb-separator">/</span>
+                <strong>{currentNavigation.title}</strong>
               </div>
             </div>
 
@@ -1148,9 +1129,11 @@ function App() {
               <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
                 <BellIcon />
               </button>
-              <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Configurações" onClick={() => { setActiveTab('configuracoes'); setIsMobileSidebarOpen(false); }}>
-                <SettingsIcon />
-              </button>
+              {canAccessAdministration && (
+                <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Administração" onClick={() => { setActiveTab('administration_workspace'); setIsMobileSidebarOpen(false); }}>
+                  <SettingsIcon />
+                </button>
+              )}
               <div className="user-avatar-circle" style={{ cursor: 'pointer' }}>
                 {formattedUserName.charAt(0)}
               </div>
@@ -1467,6 +1450,18 @@ function App() {
             {/* ==========================================
                 ACTIVE MODULE RENDERERS (Multi-Campus Enabled)
                 ========================================== */}
+            {workspaceKindsByTab[activeTab] && (
+              <StudioWorkspace
+                kind={workspaceKindsByTab[activeTab]}
+                organizationId={selectedOrganization.id}
+                organizationName={selectedOrganization.name}
+                campusId={selectedCampusId}
+                campusesCount={campuses.length}
+                userRole={isSuperAdmin ? 'SUPERADMIN' : userProfile?.role}
+                overview={workspaceOverview}
+                onNavigate={setActiveTab}
+              />
+            )}
             <ErrorBoundary fallbackTitle="Erro ao carregar o módulo">
               {activeTab === 'campuses' && <Campuses selectedOrganization={selectedOrganization} />}
               {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
