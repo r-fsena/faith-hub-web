@@ -1569,7 +1569,6 @@ function App() {
                   currentUserRole={userProfile?.role || 'MEMBER'}
                   isSuperAdmin={isSuperAdmin}
                   initialSubTab={activeTab === 'escalas' ? 'schedules' : 'volunteers'}
-                  onSectionChange={(section) => navigateToTab(section === 'schedules' ? 'escalas' : 'ministerios')}
                 />
               )}
               {activeTab === 'pastoral_radar' && (

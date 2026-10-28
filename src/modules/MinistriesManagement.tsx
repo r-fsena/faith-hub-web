@@ -83,7 +83,6 @@ interface MinistriesManagementProps {
   currentUserRole?: string;
   isSuperAdmin?: boolean;
   initialSubTab?: 'schedules' | 'volunteers' | 'roles';
-  onSectionChange?: (section: 'ministries' | 'schedules') => void;
 }
 
 export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
@@ -92,8 +91,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   currentUserProfile,
   currentUserRole,
   isSuperAdmin = false,
-  initialSubTab = 'volunteers',
-  onSectionChange
+  initialSubTab = 'volunteers'
 }) => {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
@@ -233,7 +231,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
     try {
       const headers = await getAuthHeaders();
       const orgId = selectedOrganization?.id || 'org_default';
-      const res = await fetch(`${API_URL}/ministries?organization_id=${orgId}&campus_id=${selectedCampusId}`, { headers });
+      const res = await fetch(`${API_URL}/ministries?organization_id=${orgId}&campus_id=${selectedCampusId}&scope=manage`, { headers });
       if (res.ok) {
         const data = await res.json();
         setMinistries(data);
@@ -317,20 +315,15 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
 
   // Permissões RBAC
   const normalizedRole = (currentUserRole || currentUserProfile?.role || '').toUpperCase();
-  const isGlobalAdmin = isSuperAdmin || ['SUPERADMIN', 'PASTOR', 'ADMIN', 'TREASURER'].includes(normalizedRole);
+  const isGlobalAdmin = isSuperAdmin || ['SUPERADMIN', 'PASTOR', 'ADMIN'].includes(normalizedRole);
 
   const canManageMinistry = (min?: Ministry | null): boolean => {
     if (!min) return false;
     if (isGlobalAdmin) return true;
-    if (normalizedRole === 'LEADER') {
-      const uId = currentUserProfile?.id;
-      const uEmail = (currentUserProfile?.email || '').toLowerCase();
-      const uName = (currentUserProfile?.name || '').toLowerCase();
-
-      if (uId && min.leader_id === uId) return true;
-      if (uEmail && min.leader_id?.toLowerCase() === uEmail) return true;
-      if (uName && min.leader_name?.toLowerCase() === uName) return true;
-    }
+    const uId = currentUserProfile?.id;
+    const uEmail = (currentUserProfile?.email || '').toLowerCase();
+    if (uId && min.leader_id === uId) return true;
+    if (uEmail && min.leader_id?.toLowerCase() === uEmail) return true;
     return false;
   };
 
@@ -1266,14 +1259,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   };
 
   const isUserLeaderOfMin = (min: Ministry) => {
-    if (normalizedRole !== 'LEADER') return false;
-    const uId = currentUserProfile?.id;
-    const uEmail = (currentUserProfile?.email || '').toLowerCase();
-    const uName = (currentUserProfile?.name || '').toLowerCase();
-    if (uId && min.leader_id === uId) return true;
-    if (uEmail && min.leader_id?.toLowerCase() === uEmail) return true;
-    if (uName && min.leader_name?.toLowerCase() === uName) return true;
-    return false;
+    return !isGlobalAdmin && canManageMinistry(min);
   };
 
   return (
@@ -1477,7 +1463,9 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
       {filteredMinistries.length === 0 && (
         <div style={{ textAlign: 'center', padding: '36px', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
           <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>🔍</div>
-          <div style={{ fontWeight: 700, color: '#334155' }}>Nenhum ministério encontrado com os filtros atuais.</div>
+          <div style={{ fontWeight: 700, color: '#334155' }}>
+            {isGlobalAdmin ? 'Nenhum ministério encontrado com os filtros atuais.' : 'Nenhum ministério está atribuído a você como responsável.'}
+          </div>
         </div>
       )}
 
@@ -1542,7 +1530,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
               </div>
 
               {/* Botões de Ação do Ministério (Editar / Desativar) */}
-              <div style={{ display: 'flex', gap: '8px' }}>
+              {initialSubTab !== 'schedules' && <div style={{ display: 'flex', gap: '8px' }}>
                 {(isCurrentLeader || isGlobalAdmin) && (
                   <button
                     onClick={() => handleOpenEditMinistry(selectedMinistry)}
@@ -1583,26 +1571,24 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                     {(selectedMinistry.status || 'ACTIVE') === 'ACTIVE' ? '⏸️ Desativar' : '▶️ Reativar'}
                   </button>
                 )}
-              </div>
+              </div>}
             </div>
 
-            {/* Sub-Navegação */}
-            <div style={{ display: 'flex', gap: '6px', background: '#e2e8f0', padding: '4px', borderRadius: '12px' }}>
+            {/* Gestão interna do ministério; escalas possuem uma rota própria. */}
+            {initialSubTab !== 'schedules' && <div style={{ display: 'flex', gap: '6px', background: '#e2e8f0', padding: '4px', borderRadius: '12px' }}>
               {[
-                { id: 'schedules', label: `📅 Escalas (${schedules.length})` },
                 {
                   id: 'volunteers',
-                  label: `👥 Voluntários (${volunteers.length})`,
+                  label: `👥 Equipe de voluntários (${volunteers.length})`,
                   pendingCount: volunteers.filter(v => v.status === 'CANDIDATE').length
                 },
-                { id: 'roles', label: `🏷️ Funções (${roles.length})` }
+                { id: 'roles', label: `🏷️ Funções do ministério (${roles.length})` }
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => {
                     const nextTab = tab.id as 'schedules' | 'volunteers' | 'roles';
                     setActiveSubTab(nextTab);
-                    onSectionChange?.(nextTab === 'schedules' ? 'schedules' : 'ministries');
                   }}
                   style={{
                     display: 'inline-flex',
@@ -1635,7 +1621,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                   )}
                 </button>
               ))}
-            </div>
+            </div>}
           </div>
 
           {/* Banner de Modo Leitura para Líderes de Outros Ministérios */}

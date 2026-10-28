@@ -151,7 +151,9 @@ export default function StudioContextNavigationV2({
         <label htmlFor="studio-v2-section-select">Navegar nesta área</label>
         <select id="studio-v2-section-select" value={activeTab} onChange={event => onNavigate(event.target.value)}>
           {destinations.map(destination => (
-            <option key={destination.tab} value={destination.tab}>{ROOT_LABELS[destination.tab] || destination.label}</option>
+            <option key={destination.tab} value={destination.tab}>
+              {destination.tab === group.rootTab ? ROOT_LABELS[destination.tab] : destination.label}
+            </option>
           ))}
         </select>
 
@@ -167,7 +169,7 @@ export default function StudioContextNavigationV2({
                 onClick={() => onNavigate(destination.tab)}
               >
                 <span aria-hidden="true">{destination.icon}</span>
-                <span>{ROOT_LABELS[destination.tab] || destination.label}</span>
+                <span>{destination.tab === group.rootTab ? ROOT_LABELS[destination.tab] : destination.label}</span>
               </button>
             );
           })}
