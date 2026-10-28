@@ -143,15 +143,15 @@ const navigationGroups: NavigationCategory[] = [
         id: 'people_workspace',
         label: 'Pessoas',
         icon: UsersIcon,
-        visibleWhenAny: ['members.module_enabled', 'cell_groups.module_enabled'],
-        matchTabs: ['membros', 'celulas', 'pastoral_radar', 'visitantes']
+        visibleWhenAny: ['members.module_enabled', 'cell_groups.module_enabled', 'prayers.module_enabled'],
+        matchTabs: ['membros', 'celulas', 'pastoral_radar', 'visitantes', 'oracoes']
       },
       {
         id: 'ministries_workspace',
         label: 'Equipes & Ministérios',
         icon: HeartIcon,
         visibleWhenAny: ['cell_groups.module_enabled', 'kids.module_enabled'],
-        matchTabs: ['ministerios', 'kids_workspace', 'kids_salas', 'kids_checkin', 'kids_chamados', 'kids_familias', 'kids_config_salas', 'kids_relatorios', 'kids_ministerio']
+        matchTabs: ['ministerios', 'escalas', 'kids_workspace', 'kids_salas', 'kids_checkin', 'kids_chamados', 'kids_familias', 'kids_config_salas', 'kids_relatorios', 'kids_ministerio']
       },
       {
         id: 'secretariat_workspace',
@@ -164,8 +164,8 @@ const navigationGroups: NavigationCategory[] = [
         id: 'content_workspace',
         label: 'Conteúdo & Comunicação',
         icon: BookIcon,
-        visibleWhenAny: ['events.module_enabled', 'broadcasts.module_enabled', 'devotionals.module_enabled', 'studies.module_enabled', 'bible.module_enabled', 'prayers.module_enabled'],
-        matchTabs: ['eventos', 'transmissoes', 'devocionais', 'estudos', 'bible_config', 'oracoes']
+        visibleWhenAny: ['events.module_enabled', 'broadcasts.module_enabled', 'devotionals.module_enabled', 'studies.module_enabled', 'bible.module_enabled'],
+        matchTabs: ['eventos', 'transmissoes', 'devocionais', 'estudos', 'bible_config']
       },
       {
         id: 'operations_workspace',
@@ -205,8 +205,10 @@ const navigationContext: Record<string, { area: string; title: string }> = {
   visitantes: { area: 'Pessoas', title: 'Visitantes & acolhimento' },
   pastoral_radar: { area: 'Pessoas', title: 'Cuidado pastoral' },
   celulas: { area: 'Pessoas', title: 'Células & redes' },
+  oracoes: { area: 'Pessoas', title: 'Orações & intercessão' },
   ministries_workspace: { area: 'Equipes & Ministérios', title: 'Visão geral' },
-  ministerios: { area: 'Equipes & Ministérios', title: 'Ministérios & escalas' },
+  ministerios: { area: 'Equipes & Ministérios', title: 'Ministérios & voluntários' },
+  escalas: { area: 'Equipes & Ministérios', title: 'Escalas' },
   kids_workspace: { area: 'Equipes & Ministérios', title: 'Ministério Infantil' },
   kids_salas: { area: 'Ministério Infantil', title: 'Salas ao vivo' },
   kids_checkin: { area: 'Ministério Infantil', title: 'Check-in' },
@@ -228,7 +230,6 @@ const navigationContext: Record<string, { area: string; title: string }> = {
   devocionais: { area: 'Conteúdo & Comunicação', title: 'Devocionais' },
   estudos: { area: 'Conteúdo & Comunicação', title: 'Estudos & mídias' },
   bible_config: { area: 'Conteúdo & Comunicação', title: 'Bíblia' },
-  oracoes: { area: 'Conteúdo & Comunicação', title: 'Orações' },
   operations_workspace: { area: 'Loja & Operações', title: 'Visão geral' },
   pdv_produtos: { area: 'Loja & Operações', title: 'Produtos & estoque' },
   pdv_pedidos: { area: 'Loja & Operações', title: 'Monitor de pedidos' },
@@ -1559,13 +1560,16 @@ function App() {
                 />
               )}
               {activeTab === 'celulas' && <CellGroups selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-              {activeTab === 'ministerios' && (
+              {(activeTab === 'ministerios' || activeTab === 'escalas') && (
                 <MinistriesManagement 
+                  key={activeTab}
                   selectedCampusId={selectedCampusId} 
                   selectedOrganization={selectedOrganization} 
                   currentUserProfile={userProfile}
                   currentUserRole={userProfile?.role || 'MEMBER'}
                   isSuperAdmin={isSuperAdmin}
+                  initialSubTab={activeTab === 'escalas' ? 'schedules' : 'volunteers'}
+                  onSectionChange={(section) => navigateToTab(section === 'schedules' ? 'escalas' : 'ministerios')}
                 />
               )}
               {activeTab === 'pastoral_radar' && (

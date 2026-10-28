@@ -82,6 +82,8 @@ interface MinistriesManagementProps {
   currentUserProfile?: any;
   currentUserRole?: string;
   isSuperAdmin?: boolean;
+  initialSubTab?: 'schedules' | 'volunteers' | 'roles';
+  onSectionChange?: (section: 'ministries' | 'schedules') => void;
 }
 
 export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
@@ -89,11 +91,13 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   selectedOrganization,
   currentUserProfile,
   currentUserRole,
-  isSuperAdmin = false
+  isSuperAdmin = false,
+  initialSubTab = 'volunteers',
+  onSectionChange
 }) => {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<'schedules' | 'volunteers' | 'roles'>('schedules');
+  const [activeSubTab, setActiveSubTab] = useState<'schedules' | 'volunteers' | 'roles'>(initialSubTab);
   const [loading, setLoading] = useState(true);
 
   // Filtros de Ministérios
@@ -1281,15 +1285,17 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '1.8rem' }}>🎼</span>
             <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main, #0f172a)' }}>
-              Ministérios & Escalas de Voluntários
+              {initialSubTab === 'schedules' ? 'Escalas Ministeriais' : 'Ministérios & Voluntários'}
             </h1>
           </div>
           <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.92rem' }}>
-            Gerencie equipes, bolsão de voluntários e organize as escalas dos cultos com confirmação em tempo real.
+            {initialSubTab === 'schedules'
+              ? 'Planeje as equipes de cada culto, distribua funções e acompanhe confirmações e trocas.'
+              : 'Crie ministérios, defina líderes e funções, convide pessoas e acompanhe os voluntários.'}
           </p>
         </div>
 
-        {isGlobalAdmin && (
+        {isGlobalAdmin && initialSubTab !== 'schedules' && (
           <button
             onClick={handleOpenCreateMinistry}
             style={{
@@ -1593,7 +1599,11 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
               ].map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveSubTab(tab.id as any)}
+                  onClick={() => {
+                    const nextTab = tab.id as 'schedules' | 'volunteers' | 'roles';
+                    setActiveSubTab(nextTab);
+                    onSectionChange?.(nextTab === 'schedules' ? 'schedules' : 'ministries');
+                  }}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',

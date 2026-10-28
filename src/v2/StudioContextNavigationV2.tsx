@@ -15,11 +15,11 @@ interface NavigationGroupV2 {
 const NAVIGATION_GROUPS: NavigationGroupV2[] = [
   {
     rootTab: 'people_workspace', rootLabel: 'Pessoas',
-    tabs: ['people_workspace', 'membros', 'visitantes', 'pastoral_radar', 'celulas']
+    tabs: ['people_workspace', 'membros', 'visitantes', 'pastoral_radar', 'celulas', 'oracoes']
   },
   {
     rootTab: 'ministries_workspace', rootLabel: 'Equipes & Ministérios',
-    tabs: ['ministries_workspace', 'ministerios', 'kids_workspace']
+    tabs: ['ministries_workspace', 'ministerios', 'escalas', 'kids_workspace']
   },
   {
     rootTab: 'kids_workspace', rootLabel: 'Ministério Infantil',
@@ -32,7 +32,7 @@ const NAVIGATION_GROUPS: NavigationGroupV2[] = [
   },
   {
     rootTab: 'content_workspace', rootLabel: 'Conteúdo & Comunicação',
-    tabs: ['content_workspace', 'eventos', 'transmissoes', 'devocionais', 'estudos', 'bible_config', 'oracoes']
+    tabs: ['content_workspace', 'eventos', 'transmissoes', 'devocionais', 'estudos', 'bible_config']
   },
   {
     rootTab: 'operations_workspace', rootLabel: 'Loja & Operações',

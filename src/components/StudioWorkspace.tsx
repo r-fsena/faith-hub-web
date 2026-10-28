@@ -68,7 +68,8 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
       { tab: 'membros', icon: '👤', title: 'Membros', description: 'Cadastros, perfis, equipes e permissões.', featureFlag: 'members.module_enabled', emphasis: true },
       { tab: 'visitantes', icon: '🤝', title: 'Visitantes', description: 'Acolhimento, contatos e jornada de integração.', featureFlag: 'cell_groups.module_enabled' },
       { tab: 'pastoral_radar', icon: '❤️', title: 'Cuidado pastoral', description: 'Sinais de atenção, retenção e acompanhamento.', featureFlag: 'cell_groups.module_enabled' },
-      { tab: 'celulas', icon: '🏠', title: 'Células & redes', description: 'Grupos, lideranças e acompanhamento comunitário.', featureFlag: 'cell_groups.module_enabled' }
+      { tab: 'celulas', icon: '🏠', title: 'Células & redes', description: 'Grupos, lideranças e acompanhamento comunitário.', featureFlag: 'cell_groups.module_enabled' },
+      { tab: 'oracoes', icon: '🙏', title: 'Orações & intercessão', description: 'Pedidos, cuidado e acompanhamento pastoral.', featureFlag: 'prayers.module_enabled' }
     ]
   },
   ministries: {
@@ -76,7 +77,8 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
     description: 'Organize ministérios, voluntários, escalas e a operação segura do Ministério Infantil.',
     guidance: 'Use esta área para preparar as equipes antes das programações e acompanhar a operação durante o culto.',
     actions: [
-      { tab: 'ministerios', icon: '📋', title: 'Ministérios & escalas', description: 'Equipes, funções, voluntários e escalas.', featureFlag: 'cell_groups.module_enabled', emphasis: true },
+      { tab: 'ministerios', icon: '🙌', title: 'Ministérios & voluntários', description: 'Crie ministérios, funções, líderes e equipes de voluntários.', featureFlag: 'cell_groups.module_enabled', emphasis: true },
+      { tab: 'escalas', icon: '📅', title: 'Escalas', description: 'Planeje cultos, distribua funções e acompanhe confirmações.', featureFlag: 'cell_groups.module_enabled', emphasis: true },
       { tab: 'kids_workspace', icon: '🧸', title: 'Ministério Infantil', description: 'Acesse a central de operação do Kids.', featureFlag: 'kids.module_enabled', emphasis: true },
       { tab: 'kids_checkin', icon: '✅', title: 'Check-in Kids', description: 'Inicie rapidamente a recepção de crianças.', featureFlag: 'kids.express_kiosk_checkin' },
       { tab: 'kids_salas', icon: '🚸', title: 'Salas ao vivo', description: 'Ocupação, crianças presentes e chamados.', featureFlag: 'kids.live_rooms_dashboard' }
@@ -118,7 +120,6 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
       { tab: 'devocionais', icon: '☀️', title: 'Devocionais', description: 'Conteúdo diário para a comunidade.', featureFlag: 'devotionals.module_enabled' },
       { tab: 'estudos', icon: '📚', title: 'Estudos & mídias', description: 'Biblioteca de ensino e formação.', featureFlag: 'studies.module_enabled' },
       { tab: 'bible_config', icon: '📖', title: 'Bíblia', description: 'Versões e experiência bíblica do PWA.', featureFlag: 'bible.module_enabled' },
-      { tab: 'oracoes', icon: '🙏', title: 'Orações', description: 'Pedidos e acompanhamento de intercessão.', featureFlag: 'prayers.module_enabled' }
     ]
   },
   operations: {
