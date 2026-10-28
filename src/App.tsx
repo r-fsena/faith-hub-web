@@ -34,11 +34,18 @@ import { StudioWorkspace, type StudioWorkspaceKind } from './components/StudioWo
 import { StudioExperienceProvider } from './context/StudioExperienceContext';
 import { StudioCommandPalette, StudioFavoritesNav, StudioSearchTrigger } from './components/StudioCommandPalette';
 import { StudioHelpButton, StudioOnboardingCard, StudioOnboardingModal } from './components/StudioOnboarding';
+import { StudioVersionResolver, type StudioVersion, type StudioVersionOverride } from './v2/StudioVersionResolver';
 import { getAuthHeaders } from './services/apiClient';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 const StudioContextNavigationV2 = lazy(() => import('./v2/StudioContextNavigationV2'));
+
+function requestedStudioVersion(): StudioVersionOverride {
+  if (typeof window === 'undefined') return null;
+  const requested = new URLSearchParams(window.location.search).get('studio');
+  return requested === 'v1' || requested === 'v2' ? requested : null;
+}
 
 const ShieldIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -320,12 +327,11 @@ function App() {
   const initialTab = typeof window !== 'undefined'
     ? (new URLSearchParams(window.location.search).get('tab') || localStorage.getItem('faithhub_studio_last_tab') || 'dashboard')
     : 'dashboard';
-  const initialStudioVersion = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === 'v2'
-    ? 'v2'
-    : 'v1';
+  const initialVersionOverride = requestedStudioVersion();
 
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [studioVersion, setStudioVersion] = useState<'v1' | 'v2'>(initialStudioVersion);
+  const [studioVersionOverride, setStudioVersionOverride] = useState<StudioVersionOverride>(initialVersionOverride);
+  const [studioVersion, setStudioVersion] = useState<StudioVersion>(initialVersionOverride || 'v1');
   const [isAuthenticated, setIsAuthenticated] = useState(isDemo);
   const [isLoadingAuth, setIsLoadingAuth] = useState(!isDemo);
   const [user, setUser] = useState<any>(isDemo ? { signInDetails: { loginId: 'pastor@igrejaviva.com.br' } } : null);
@@ -390,10 +396,11 @@ function App() {
   const exitStudioV2 = useCallback(() => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      url.searchParams.delete('studio');
+      url.searchParams.set('studio', 'v1');
       url.searchParams.set('tab', activeTab);
       window.history.replaceState({ studioTab: activeTab, studioVersion: 'v1' }, '', url);
     }
+    setStudioVersionOverride('v1');
     setStudioVersion('v1');
   }, [activeTab]);
 
@@ -446,18 +453,15 @@ function App() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (studioVersion !== 'v2' || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
     const handleHistoryNavigation = () => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('studio') !== 'v2') {
-        setStudioVersion('v1');
-        return;
-      }
+      setStudioVersionOverride(requestedStudioVersion());
       setActiveTab(params.get('tab') || 'dashboard');
     };
     window.addEventListener('popstate', handleHistoryNavigation);
     return () => window.removeEventListener('popstate', handleHistoryNavigation);
-  }, [studioVersion]);
+  }, []);
 
   useEffect(() => {
     // Carregar Branding Salvo
@@ -872,6 +876,7 @@ function App() {
 
   return (
     <FeatureFlagProvider organizationId={selectedOrganization?.id || 'org_default'} campusId={selectedCampusId}>
+      <StudioVersionResolver requestedVersion={studioVersionOverride} onResolve={setStudioVersion} />
       <StudioExperienceProvider
         organizationId={selectedOrganization.id}
         campusId={selectedCampusId}
