@@ -128,7 +128,8 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
     guidance: 'Use os monitores operacionais durante o atendimento e deixe cadastros e ajustes para os momentos de preparação.',
     actions: [
       { tab: 'pdv_pedidos', icon: '🧾', title: 'Monitor de pedidos', description: 'Acompanhe o fluxo de pedidos em tempo real.', featureFlag: 'pdv.order_kanban_monitor', emphasis: true },
-      { tab: 'pdv_produtos', icon: '🛍️', title: 'Produtos & estoque', description: 'Catálogo, preços e disponibilidade.', featureFlag: 'pdv.stock_inventory' }
+      { tab: 'pdv_produtos', icon: '🛍️', title: 'Produtos', description: 'Catálogo, preços, grupos e disponibilidade comercial.' },
+      { tab: 'pdv_estoque', icon: '📦', title: 'Estoque', description: 'Saldos, reservas, entradas, saídas e estoque mínimo.', featureFlag: 'pdv.stock_inventory' }
     ]
   },
   finance: {

@@ -10,6 +10,7 @@ import Events from './modules/Events';
 import { Devotionals } from './modules/Devotionals';
 import { PdvProdutos } from './modules/PdvProdutos';
 import { PdvPedidos } from './modules/PdvPedidos';
+import { PdvEstoque } from './modules/PdvEstoque';
 import KidsMinistry from './modules/KidsMinistry';
 import ChurchBranding from './modules/ChurchBranding';
 import PagarmeSettings from './modules/PagarmeSettings';
@@ -172,7 +173,7 @@ const navigationGroups: NavigationCategory[] = [
         label: 'Loja & Operações',
         icon: CartIcon,
         featureFlagKey: 'pdv.module_enabled',
-        matchTabs: ['pdv_produtos', 'pdv_pedidos']
+        matchTabs: ['pdv_produtos', 'pdv_estoque', 'pdv_pedidos']
       },
       {
         id: 'finance_workspace',
@@ -231,7 +232,8 @@ const navigationContext: Record<string, { area: string; title: string }> = {
   estudos: { area: 'Conteúdo & Comunicação', title: 'Estudos & mídias' },
   bible_config: { area: 'Conteúdo & Comunicação', title: 'Bíblia' },
   operations_workspace: { area: 'Loja & Operações', title: 'Visão geral' },
-  pdv_produtos: { area: 'Loja & Operações', title: 'Produtos & estoque' },
+  pdv_produtos: { area: 'Loja & Operações', title: 'Produtos' },
+  pdv_estoque: { area: 'Loja & Operações', title: 'Estoque' },
   pdv_pedidos: { area: 'Loja & Operações', title: 'Monitor de pedidos' },
   finance_workspace: { area: 'Finanças', title: 'Visão geral' },
   financial_treasury: { area: 'Finanças', title: 'Tesouraria & DRE' },
@@ -1611,7 +1613,8 @@ function App() {
                 />
               )}
               {activeTab === 'pdv_produtos' && <PdvProdutos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-              {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'pdv_estoque' && <PdvEstoque selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
+              {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} currentUserRole={isSuperAdmin ? 'SUPERADMIN' : userProfile?.role} />}
               {activeTab === 'pagarme_financeiro' && <PagarmeSettings key={selectedOrganization?.id} />}
               {activeTab === 'church_branding' && <ChurchBranding selectedOrganization={selectedOrganization} />}
               {activeTab === 'feature_flags' && (

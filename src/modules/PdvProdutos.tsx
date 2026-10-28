@@ -48,6 +48,12 @@ type Product = {
   category: string;
   description: string;
   price: number;
+  sku: string;
+  barcode: string;
+  unit: string;
+  track_inventory: boolean;
+  available_quantity?: number;
+  minimum_stock?: number;
   image_urls: string[];
   status: 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 };
@@ -85,6 +91,10 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
     category: '',
     description: '',
     price: 0,
+    sku: '',
+    barcode: '',
+    unit: 'UN',
+    track_inventory: false,
     image_urls: [],
     status: 'ACTIVE'
   });
@@ -369,6 +379,10 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
       category: initialCategory,
       description: '',
       price: 0,
+      sku: '',
+      barcode: '',
+      unit: 'UN',
+      track_inventory: false,
       image_urls: [],
       status: 'ACTIVE'
     });
@@ -378,7 +392,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
   };
 
   const openEditModal = (p: Product) => {
-    setFormData({ ...p });
+    setFormData({ ...p, sku: p.sku || '', barcode: p.barcode || '', unit: p.unit || 'UN', track_inventory: Boolean(p.track_inventory) });
     setInlineNewGroup(false);
     setQuickGroupName('');
     setShowModal(true);
@@ -469,7 +483,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Remover este produto permanentemente? Operação irreversível.")) return;
+    if (!window.confirm("Desativar este produto? Ele deixará de aparecer no PWA, mas o histórico de vendas e estoque será preservado.")) return;
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/pdv/products/${id}`, { method: 'DELETE', headers });
@@ -581,7 +595,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                      className="action-circle-btn" 
                      style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, background: 'rgba(255,255,255,0.9)', color: 'var(--danger)' }} 
                      onClick={(e) => handleDelete(prod.id, e)}
-                     title="Excluir"
+                     title="Desativar e preservar histórico"
                    >
                      <TrashIcon />
                    </button>
@@ -593,6 +607,9 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                     {prod.category}
                   </div>
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{prod.name}</h3>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+                    {prod.sku ? `SKU ${prod.sku}` : 'Sem SKU'}{prod.track_inventory ? ` · ${prod.available_quantity || 0} ${prod.unit} disponíveis` : ' · Estoque não monitorado'}
+                  </div>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 14, minHeight: 36 }}>
                     {prod.description || 'Nenhuma descrição detalhada fornecida.'}
                   </p>
@@ -760,6 +777,23 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                     />
                   </div>
 
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px', gap: 10 }}>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">SKU</label>
+                      <input className="input-modern" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="Ex.: BIB-NVI-001" maxLength={80} />
+                    </div>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Código de barras</label>
+                      <input className="input-modern" value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} placeholder="EAN/GTIN" maxLength={120} />
+                    </div>
+                    <div className="form-group-modern">
+                      <label className="form-label-modern">Unidade</label>
+                      <select className="select-modern" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}>
+                        <option value="UN">UN</option><option value="CX">CX</option><option value="KG">KG</option><option value="LT">LT</option><option value="PCT">PCT</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="form-group-modern">
                     <label className="form-label-modern">Descrição & Ingredientes</label>
                     <textarea 
@@ -866,6 +900,17 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                         checked={formData.status === 'ACTIVE'} 
                         onChange={e => setFormData({...formData, status: e.target.checked ? 'ACTIVE' : 'INACTIVE'})} 
                       />
+                      <span className="slider-round"></span>
+                    </label>
+                  </div>
+
+                  <div className="toggle-card-modern" style={{ marginTop: 10 }}>
+                    <div className="toggle-card-info">
+                      <div className="toggle-card-title"><span>📦</span> Controlar Estoque</div>
+                      <div className="toggle-card-desc">Reservar no pedido e baixar após a confirmação do pagamento</div>
+                    </div>
+                    <label className="switch-control">
+                      <input type="checkbox" checked={formData.track_inventory} onChange={e => setFormData({...formData, track_inventory: e.target.checked})} />
                       <span className="slider-round"></span>
                     </label>
                   </div>

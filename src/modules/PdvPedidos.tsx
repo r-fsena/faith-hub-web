@@ -23,6 +23,7 @@ type OrderData = {
   items_json: string | OrderItem[];
   total_price: number;
   created_at: string;
+  payment_status: 'PENDING' | 'PAID' | 'CANCELED';
 };
 
 export interface KanbanStage {
@@ -104,11 +105,13 @@ export function parseKanbanConfig(raw: any): KanbanStage[] {
 interface PdvPedidosProps {
   selectedCampusId?: string;
   selectedOrganization?: any;
+  currentUserRole?: string;
 }
 
-export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
+export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all', selectedOrganization, currentUserRole = 'MEMBER' }) => {
   const orgId = selectedOrganization?.id || 'org_default';
   const orgSlug = selectedOrganization?.slug || 'faithhub';
+  const canManagePayments = ['SUPERADMIN', 'PASTOR', 'ADMIN', 'TREASURER'].includes(String(currentUserRole).toUpperCase());
 
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,20 +210,30 @@ export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all'
     return () => clearInterval(interval);
   }, [selectedCampusId, selectedOrganization]);
 
-  const updateStatus = async (id: string, newStatus: string) => {
+  const updateOrder = async (id: string, payload: { status?: string; payment_status?: 'PENDING' | 'PAID' | 'CANCELED' }) => {
     try {
        const headers = await getAuthHeaders();
-       const res = await fetch(`${API_URL}/pdv/orders/${id}/status`, {
+       const res = await fetch(`${API_URL}/pdv/orders/${id}/status?organization_id=${encodeURIComponent(orgId)}`, {
           method: 'PUT',
           headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
+          body: JSON.stringify(payload)
        });
        if (res.ok) {
           loadOrders();
+       } else {
+          const data = await res.json();
+          alert(data.message || 'Não foi possível atualizar o pedido.');
        }
     } catch(err) {
       console.error(err);
     }
+  };
+
+  const updateStatus = (id: string, newStatus: string) => updateOrder(id, { status: newStatus });
+
+  const confirmPayment = async (order: OrderData) => {
+    if (!confirm(`Confirmar o pagamento do pedido #${order.id.substring(0, 6).toUpperCase()} e realizar a baixa definitiva no estoque?`)) return;
+    await updateOrder(order.id, { payment_status: 'PAID' });
   };
 
   const handleSaveKanbanConfig = async (e: React.FormEvent) => {
@@ -413,6 +426,9 @@ export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all'
                                      <div style={{ fontSize: '0.90rem', fontWeight: 900, color: 'var(--accent-primary)' }}>
                                        R$ {Number(order.total_price || 0).toFixed(2).replace('.', ',')}
                                      </div>
+                                     <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 7px', borderRadius: 999, fontSize: '.64rem', fontWeight: 900, background: order.payment_status === 'PAID' ? '#ecfdf5' : order.payment_status === 'CANCELED' ? '#fef2f2' : '#fffbeb', color: order.payment_status === 'PAID' ? '#047857' : order.payment_status === 'CANCELED' ? '#b91c1c' : '#b45309' }}>
+                                       {order.payment_status === 'PAID' ? '✓ PAGO' : order.payment_status === 'CANCELED' ? 'CANCELADO' : 'AGUARDANDO PAGAMENTO'}
+                                     </span>
                                    </div>
                                 </div>
 
@@ -464,9 +480,15 @@ export const PdvPedidos: React.FC<PdvPedidosProps> = ({ selectedCampusId = 'all'
                                            {st.icon} {st.title.toUpperCase()}
                                          </option>
                                        ))}
-                                       <option value="CANCELADO">❌ CANCELADO / REEMBOLSADO</option>
+                                       {canManagePayments && <option value="CANCELADO">❌ CANCELADO / REEMBOLSADO</option>}
                                      </select>
                                    </div>
+
+                                   {canManagePayments && order.payment_status === 'PENDING' && order.status !== 'CANCELADO' && (
+                                     <button type="button" className="btn-primary" onClick={() => confirmPayment(order)} style={{ width: '100%', marginTop: 10, justifyContent: 'center', fontSize: '.78rem' }}>
+                                       ✓ Confirmar pagamento e baixar estoque
+                                     </button>
+                                   )}
 
                                 </div>
                              </div>
