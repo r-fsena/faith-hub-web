@@ -27,6 +27,7 @@ import { VisitorsFunnel } from './modules/VisitorsFunnel';
 import { MinistriesManagement } from './modules/MinistriesManagement';
 import { PublicWelcomeView } from './modules/PublicWelcomeView';
 import { Secretariat } from './modules/Secretariat';
+import { PublicDocumentVerification } from './modules/PublicDocumentVerification';
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getAuthHeaders } from './services/apiClient';
@@ -158,7 +159,7 @@ const navigationGroups: NavigationCategory[] = [
           { id: 'secretariat_movements', label: 'Movimentações & Transferências', featureFlagKey: 'secretariat.transfers' },
           { id: 'secretariat_documents', label: 'Documentos & Certificados', featureFlagKey: 'secretariat.documents' },
           { id: 'secretariat_baptisms', label: 'Batismos', featureFlagKey: 'secretariat.baptisms' },
-          { id: 'secretariat_templates', label: 'Modelos & Configurações', featureFlagKey: 'secretariat.documents' }
+          { id: 'secretariat_templates', label: 'Modelos & Configurações', featureFlagKey: 'secretariat.template_editor' }
         ]
       },
       { 
@@ -705,6 +706,10 @@ function App() {
 
   // Se for acesso direto a uma Proposta Comercial (link público do cliente/pastor)
   const urlParams = new URLSearchParams(window.location.search);
+  const documentVerificationToken = urlParams.get('verificar_documento') || (window.location.pathname.startsWith('/verificar-documento/') ? window.location.pathname.split('/verificar-documento/')[1] : null);
+  if (documentVerificationToken) {
+    return <PublicDocumentVerification token={decodeURIComponent(documentVerificationToken)} />;
+  }
   const proposalToken = urlParams.get('proposta') || (window.location.pathname.startsWith('/proposta/') ? window.location.pathname.split('/proposta/')[1] : null);
 
   if (proposalToken) {

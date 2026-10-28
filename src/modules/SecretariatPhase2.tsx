@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getAuthHeaders } from '../services/apiClient';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
+import { downloadSecretariatPdf } from '../services/secretariatDocumentPdf';
+import { SecretariatTemplateStudio } from './SecretariatTemplateStudio';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -25,7 +27,7 @@ const initialForms = {
   document: { member_id: '', template_id: '', signatory_id: '', request_id: '', destination_church: '' },
   baptism: { member_id: '', baptism_date: '', baptism_church: '', baptism_location: '', baptism_city: '', officiant_name: '', ceremony_name: '', notes: '' },
   template: { document_type: 'PRESENTATION_LETTER', name: '', title: '', body: '', footer: '', orientation: 'portrait' },
-  signatory: { member_id: '', name: '', title: '' }
+  signatory: { member_id: '', name: '', title: '', signature_object_key: '' }
 };
 
 function dateLabel(value?: string): string {
@@ -67,8 +69,11 @@ function statusStyle(status?: string): React.CSSProperties {
 export const SecretariatPhase2: React.FC<Props> = ({ organizationId, campusId, activeSubtab, onDataChanged }) => {
   const { isFeatureEnabled } = useFeatureFlags();
   const requiredFlag = activeSubtab === 'secretariat_movements' ? 'secretariat.transfers'
-    : activeSubtab === 'secretariat_baptisms' ? 'secretariat.baptisms' : 'secretariat.documents';
+    : activeSubtab === 'secretariat_baptisms' ? 'secretariat.baptisms'
+      : activeSubtab === 'secretariat_templates' ? 'secretariat.template_editor' : 'secretariat.documents';
   const featureEnabled = isFeatureEnabled(requiredFlag, false);
+  const pdfEnabled = isFeatureEnabled('secretariat.document_pdf', false);
+  const publicVerificationEnabled = isFeatureEnabled('secretariat.public_verification', false);
   const [references, setReferences] = useState<any>({ members: [], campuses: [], templates: [], signatories: [] });
   const [movements, setMovements] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
@@ -178,6 +183,27 @@ export const SecretariatPhase2: React.FC<Props> = ({ organizationId, campusId, a
     } catch (revokeError: any) { setError(revokeError.message); } finally { setSaving(false); }
   };
 
+  const downloadPdf = async (document: any) => {
+    setSaving(true); setError('');
+    try {
+      let verificationUrl = '';
+      if (publicVerificationEnabled && document.status === 'VALID') {
+        const verification = await callApi(`documents/${encodeURIComponent(document.id)}/verification`, {
+          method: 'POST', body: JSON.stringify({ organization_id: organizationId, campus_id: campusId })
+        });
+        verificationUrl = verification.verification_url || '';
+      }
+      const fileChecksum = await downloadSecretariatPdf(document, verificationUrl);
+      await callApi(`documents/${encodeURIComponent(document.id)}/file-checksum`, {
+        method: 'PATCH', body: JSON.stringify({ organization_id: organizationId, campus_id: campusId, file_checksum: fileChecksum })
+      });
+      await loadData();
+      setSuccess('PDF gerado e baixado com sucesso.');
+    } catch (downloadError: any) {
+      setError(downloadError.message || 'Não foi possível gerar o PDF.');
+    } finally { setSaving(false); }
+  };
+
   const memberOptions = references.members || [];
   const campusOptions = references.campuses || [];
   const templateOptions = references.templates || [];
@@ -216,7 +242,7 @@ export const SecretariatPhase2: React.FC<Props> = ({ organizationId, campusId, a
             <div style={{ flex: '1 1 260px' }}><strong>{item.document_number}</strong><small>{item.member_name || 'Sem membro'} · {typeLabel(item.document_type)} · Modelo v{item.template_version}</small></div>
             <div><small>Emissão</small><strong>{dateLabel(item.issued_at)}</strong></div>
             <span style={statusStyle(item.status)}>{statusLabel(item.status)}</span>
-            <div style={{ display: 'flex', gap: 6 }}><button className="btn-secondary" onClick={() => { setPreview(item); setModal('preview'); }}>Visualizar</button>{item.status === 'VALID' && <button className="btn-secondary" disabled={saving} onClick={() => revokeDocument(item)}>Cancelar</button>}</div>
+            <div style={{ display: 'flex', gap: 6 }}><button className="btn-secondary" onClick={() => { setPreview(item); setModal('preview'); }}>Visualizar</button>{pdfEnabled && <button className="btn-primary" disabled={saving} onClick={() => downloadPdf(item)}>Baixar PDF</button>}{item.status === 'VALID' && <button className="btn-secondary" disabled={saving} onClick={() => revokeDocument(item)}>Cancelar</button>}</div>
           </div>)}
         </DataList>
       </div>
@@ -249,18 +275,18 @@ export const SecretariatPhase2: React.FC<Props> = ({ organizationId, campusId, a
 
   const renderTemplates = () => (
     <div style={{ display: 'grid', gap: 16 }}>
+      <SecretariatTemplateStudio
+        templates={templates}
+        campuses={campusOptions}
+        loading={loading}
+        saving={saving}
+        callApi={callApi}
+        onRefresh={loadData}
+        onSaving={setSaving}
+        onFeedback={(kind, message) => kind === 'success' ? (setSuccess(message), setError('')) : (setError(message), setSuccess(''))}
+      />
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
-        <SectionHeader title="Modelos de documentos" subtitle="Cada alteração cria uma nova versão preservando documentos anteriores" actions={actions} />
-        <DataList empty="Nenhum modelo cadastrado." loading={loading}>
-          {templates.map(item => <div key={item.id} className="secretariat-data-row" style={rowStyle}>
-            <div style={{ flex: '1 1 280px' }}><strong>{item.name}</strong><small>{typeLabel(item.document_type)} · Versão {item.version}</small></div>
-            <span style={statusStyle(item.is_active ? 'VALID' : 'REVOKED')}>{item.is_active ? 'Ativo' : 'Inativo'}</span>
-            <button className="btn-secondary" onClick={() => { setPreview({ ...item, template_snapshot: { rendered: item.template_schema } }); setModal('preview'); }}>Pré-visualizar</button>
-          </div>)}
-        </DataList>
-      </div>
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
-        <SectionHeader title="Signatários autorizados" subtitle="Pessoas exibidas na assinatura dos documentos" />
+        <SectionHeader title="Signatários autorizados" subtitle="Pessoas exibidas na assinatura dos documentos" actions={<button className="btn-primary" onClick={() => openModal('signatory')}>+ Signatário</button>} />
         <DataList empty="Nenhum signatário cadastrado." loading={loading}>
           {signatories.map(item => <div key={item.id} className="secretariat-data-row" style={rowStyle}><div style={{ flex: 1 }}><strong>{item.name}</strong><small>{item.title}</small></div><span style={statusStyle(item.is_active ? 'VALID' : 'REVOKED')}>{item.is_active ? 'Ativo' : 'Inativo'}</span></div>)}
         </DataList>
@@ -313,7 +339,7 @@ const FormModal: React.FC<FormModalProps> = ({ type, form, saving, onClose, onSu
         {type === 'document' && <>{memberSelect()}<Field label="Modelo"><select required className="input-modern" value={form.template_id} onChange={e => onChange('template_id', e.target.value)}><option value="">Selecione um modelo</option>{templates.map(template => <option key={template.id} value={template.id}>{template.name} · v{template.version}</option>)}</select></Field><Field label="Signatário"><select className="input-modern" value={form.signatory_id} onChange={e => onChange('signatory_id', e.target.value)}><option value="">Sem signatário</option>{signatories.map(item => <option key={item.id} value={item.id}>{item.name} · {item.title}</option>)}</select></Field><Field label="Vincular solicitação"><select className="input-modern" value={form.request_id} onChange={e => onChange('request_id', e.target.value)}><option value="">Sem solicitação vinculada</option>{requests.filter(request => !form.member_id || request.member_id === form.member_id).map(request => <option key={request.id} value={request.id}>{typeLabel(request.request_type)} · {request.member_name}</option>)}</select></Field><Field label="Igreja de destino (quando aplicável)" full><input className="input-modern" value={form.destination_church} onChange={e => onChange('destination_church', e.target.value)} /></Field></>}
         {type === 'baptism' && <>{memberSelect()}<Field label="Data do batismo"><input required type="date" className="input-modern" value={form.baptism_date} onChange={e => onChange('baptism_date', e.target.value)} /></Field><Field label="Igreja"><input className="input-modern" value={form.baptism_church} onChange={e => onChange('baptism_church', e.target.value)} /></Field><Field label="Local"><input className="input-modern" value={form.baptism_location} onChange={e => onChange('baptism_location', e.target.value)} /></Field><Field label="Cidade"><input className="input-modern" value={form.baptism_city} onChange={e => onChange('baptism_city', e.target.value)} /></Field><Field label="Ministro responsável"><input className="input-modern" value={form.officiant_name} onChange={e => onChange('officiant_name', e.target.value)} /></Field><Field label="Cerimônia"><input className="input-modern" value={form.ceremony_name} onChange={e => onChange('ceremony_name', e.target.value)} /></Field><Field label="Observações" full><textarea rows={3} className="input-modern" value={form.notes} onChange={e => onChange('notes', e.target.value)} /></Field></>}
         {type === 'template' && <><Field label="Tipo"><select className="input-modern" value={form.document_type} onChange={e => onChange('document_type', e.target.value)}><option value="PRESENTATION_LETTER">Carta de apresentação</option><option value="TRANSFER_LETTER">Carta de transferência</option><option value="BAPTISM_CERTIFICATE">Certificado de batismo</option><option value="DECLARATION">Declaração</option><option value="OTHER">Outro</option></select></Field><Field label="Nome do modelo"><input required className="input-modern" value={form.name} onChange={e => onChange('name', e.target.value)} /></Field><Field label="Título do documento" full><input required className="input-modern" value={form.title} onChange={e => onChange('title', e.target.value)} /></Field><Field label="Conteúdo" full><textarea required rows={8} className="input-modern" value={form.body} onChange={e => onChange('body', e.target.value)} placeholder="Use {{member_name}}, {{registry_number}}, {{organization_name}}, {{issue_date}}, {{signatory_name}}..." /></Field><Field label="Rodapé" full><textarea rows={3} className="input-modern" value={form.footer} onChange={e => onChange('footer', e.target.value)} /></Field><Field label="Orientação"><select className="input-modern" value={form.orientation} onChange={e => onChange('orientation', e.target.value)}><option value="portrait">Retrato</option><option value="landscape">Paisagem</option></select></Field></>}
-        {type === 'signatory' && <>{memberSelect(false)}<Field label="Nome"><input required className="input-modern" value={form.name} onChange={e => onChange('name', e.target.value)} /></Field><Field label="Função / título"><input required className="input-modern" value={form.title} onChange={e => onChange('title', e.target.value)} placeholder="Ex: Pastor Presidente" /></Field></>}
+        {type === 'signatory' && <>{memberSelect(false)}<Field label="Nome"><input required className="input-modern" value={form.name} onChange={e => onChange('name', e.target.value)} /></Field><Field label="Função / título"><input required className="input-modern" value={form.title} onChange={e => onChange('title', e.target.value)} placeholder="Ex: Pastor Presidente" /></Field><Field label="URL HTTPS da assinatura digitalizada" full><input type="url" className="input-modern" value={form.signature_object_key} onChange={e => onChange('signature_object_key', e.target.value)} placeholder="https://... (opcional)" /></Field></>}
       </div>
       <div className="modal-studio-footer"><button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>Cancelar</button><button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button></div>
     </div>
