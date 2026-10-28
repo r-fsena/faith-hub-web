@@ -1,0 +1,211 @@
+.studio-v2-status,
+.studio-v2-context {
+  margin: 0 auto 18px;
+  max-width: 1440px;
+}
+
+.studio-v2-status {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 13px;
+  border: 1px solid #c7d2fe;
+  border-radius: 13px;
+  background: linear-gradient(90deg, #eef2ff, #f8fafc);
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.studio-v2-status strong,
+.studio-v2-pilot strong {
+  margin-right: 6px;
+  color: #4338ca;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.studio-v2-status button,
+.studio-v2-pilot button {
+  padding: 6px 9px;
+  border-radius: 8px;
+  color: #4f46e5;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.studio-v2-status button:hover,
+.studio-v2-pilot button:hover {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.studio-v2-context {
+  overflow: hidden;
+  border: 1px solid #dbe3ed;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.055);
+}
+
+.studio-v2-context-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 16px;
+  border-bottom: 1px solid #e8edf3;
+  background: linear-gradient(110deg, #f8fafc, #f0fdfa);
+}
+
+.studio-v2-context-location {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+}
+
+.studio-v2-back {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #99d8cf;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #0f766e;
+  font-size: 0.77rem;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(15, 118, 110, 0.07);
+}
+
+.studio-v2-back > span:first-child {
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.studio-v2-back:hover {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.studio-v2-root-label {
+  padding: 8px 2px;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.studio-v2-breadcrumb {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: #94a3b8;
+  font-size: 0.73rem;
+  white-space: nowrap;
+}
+
+.studio-v2-breadcrumb button,
+.studio-v2-breadcrumb strong {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-v2-breadcrumb button {
+  color: #64748b;
+  font: inherit;
+  font-weight: 750;
+}
+
+.studio-v2-breadcrumb button:hover { color: #0f766e; text-decoration: underline; }
+.studio-v2-breadcrumb strong { color: #1e293b; }
+
+.studio-v2-pilot {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.studio-v2-section-switcher {
+  padding: 10px 12px;
+}
+
+.studio-v2-section-switcher > label,
+.studio-v2-section-switcher > select {
+  display: none;
+}
+
+.studio-v2-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.studio-v2-tabs button {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 780;
+}
+
+.studio-v2-tabs button:hover {
+  border-color: #dbe3ed;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.studio-v2-tabs button.is-active {
+  border-color: #99d8cf;
+  background: #eafaf7;
+  color: #0f766e;
+  box-shadow: inset 0 -2px 0 #0f766e;
+}
+
+@media (max-width: 900px) {
+  .studio-v2-context-location { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .studio-v2-pilot > span { display: none; }
+}
+
+@media (max-width: 720px) {
+  .studio-v2-context-top { align-items: flex-start; }
+  .studio-v2-breadcrumb { white-space: normal; }
+  .studio-v2-pilot button { padding-right: 0; }
+  .studio-v2-section-switcher > label {
+    display: block;
+    margin-bottom: 5px;
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .studio-v2-section-switcher > select {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #1e293b;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 750;
+  }
+  .studio-v2-tabs { display: none; }
+}

@@ -27,9 +27,12 @@ export const STUDIO_DESTINATIONS: StudioDestination[] = [
   { tab: 'kids_workspace', label: 'Ministério Infantil', area: 'Equipes', description: 'Central de operação do Kids.', icon: '🧸', keywords: 'kids criança infantil', featureFlag: 'kids.module_enabled' },
   { tab: 'kids_checkin', label: 'Check-in Kids', area: 'Ministério Infantil', description: 'Entrada segura de crianças.', icon: '✅', keywords: 'kids checkin entrada criança', featureFlag: 'kids.express_kiosk_checkin' },
   { tab: 'kids_salas', label: 'Salas Kids ao vivo', area: 'Ministério Infantil', description: 'Presença, ocupação e chamados.', icon: '🚸', keywords: 'kids sala presença chamado', featureFlag: 'kids.live_rooms_dashboard' },
+  { tab: 'kids_chamados', label: 'Chamados', area: 'Ministério Infantil', description: 'Contato com pais e responsáveis.', icon: '🔔', keywords: 'kids chamado pais responsável', featureFlag: 'kids.emergency_parent_call' },
   { tab: 'kids_familias', label: 'Famílias & crianças', area: 'Ministério Infantil', description: 'Vínculos familiares e cadastros.', icon: '👨‍👩‍👧', keywords: 'kids familia criança responsável', featureFlag: 'kids.module_enabled' },
   { tab: 'kids_config_salas', label: 'Configurar salas Kids', area: 'Ministério Infantil', description: 'Capacidade e faixas etárias.', icon: '🏫', keywords: 'kids configurar sala capacidade idade', featureFlag: 'kids.module_enabled' },
+  { tab: 'kids_relatorios', label: 'Relatórios', area: 'Ministério Infantil', description: 'Histórico e exportações da operação.', icon: '📊', keywords: 'kids relatório exportação histórico', featureFlag: 'kids.reports_export' },
   { tab: 'secretariat_workspace', label: 'Secretaria', area: 'Secretaria', description: 'Área de trabalho da Secretaria.', icon: '🗂️', keywords: 'secretaria eclesiástica documento', featureFlag: 'secretariat.module_enabled' },
+  { tab: 'secretariat_overview', label: 'Painel detalhado', area: 'Secretaria', description: 'Indicadores e pendências da Secretaria.', icon: '📊', keywords: 'secretaria painel indicador pendência', featureFlag: 'secretariat.module_enabled' },
   { tab: 'secretariat_records', label: 'Prontuários eclesiásticos', area: 'Secretaria', description: 'Registros e situação eclesiástica.', icon: '👤', keywords: 'prontuario cadastro registro', featureFlag: 'secretariat.member_registry' },
   { tab: 'secretariat_movements', label: 'Transferências', area: 'Secretaria', description: 'Movimentações internas e externas.', icon: '↔️', keywords: 'transferencia movimentação carta', featureFlag: 'secretariat.transfers' },
   { tab: 'secretariat_documents', label: 'Documentos & certificados', area: 'Secretaria', description: 'Solicitações, emissão e histórico.', icon: '📄', keywords: 'documento certificado carta emitir', featureFlag: 'secretariat.documents' },
@@ -54,7 +57,8 @@ export const STUDIO_DESTINATIONS: StudioDestination[] = [
   { tab: 'church_branding', label: 'Marca & PWA', area: 'Administração', description: 'Logotipo, cores e identidade.', icon: '🎨', keywords: 'marca logo cor pwa identidade', featureFlag: 'system.custom_theme_colors', roles: ['SUPERADMIN', 'PASTOR', 'ADMIN'] },
   { tab: 'feature_flags', label: 'Módulos da plataforma', area: 'Administração', description: 'Recursos disponíveis para a igreja.', icon: '✨', keywords: 'módulo feature flag recurso', featureFlag: 'system.saas_subscription_portal', roles: ['SUPERADMIN', 'PASTOR', 'ADMIN'] },
   { tab: 'my_subscription', label: 'Assinatura Faith-Hub', area: 'Administração', description: 'Plano, cobrança e situação.', icon: '💎', keywords: 'assinatura plano cobrança saas', featureFlag: 'system.saas_subscription_portal', roles: ['SUPERADMIN', 'PASTOR', 'ADMIN'] },
-  { tab: 'security_audit', label: 'Auditoria & LGPD', area: 'Administração', description: 'Segurança e rastreabilidade.', icon: '🛡️', keywords: 'auditoria segurança lgpd log', roles: ['SUPERADMIN', 'PASTOR', 'ADMIN'] }
+  { tab: 'security_audit', label: 'Auditoria & LGPD', area: 'Administração', description: 'Segurança e rastreabilidade.', icon: '🛡️', keywords: 'auditoria segurança lgpd log', roles: ['SUPERADMIN', 'PASTOR', 'ADMIN'] },
+  { tab: 'configuracoes', label: 'Configurações avançadas', area: 'Administração', description: 'Infraestrutura e integrações técnicas.', icon: '🔧', keywords: 'configuração integração infraestrutura', roles: ['SUPERADMIN', 'PASTOR', 'ADMIN'] }
 ];
 
 export function destinationFor(tab: string): StudioDestination | undefined {

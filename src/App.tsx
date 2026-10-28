@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useState, useEffect, useMemo } from 'react';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 import Login from './Login';
@@ -38,6 +38,7 @@ import { getAuthHeaders } from './services/apiClient';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
+const StudioContextNavigationV2 = lazy(() => import('./v2/StudioContextNavigationV2'));
 
 const ShieldIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -319,8 +320,12 @@ function App() {
   const initialTab = typeof window !== 'undefined'
     ? (new URLSearchParams(window.location.search).get('tab') || localStorage.getItem('faithhub_studio_last_tab') || 'dashboard')
     : 'dashboard';
+  const initialStudioVersion = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === 'v2'
+    ? 'v2'
+    : 'v1';
 
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [studioVersion, setStudioVersion] = useState<'v1' | 'v2'>(initialStudioVersion);
   const [isAuthenticated, setIsAuthenticated] = useState(isDemo);
   const [isLoadingAuth, setIsLoadingAuth] = useState(!isDemo);
   const [user, setUser] = useState<any>(isDemo ? { signInDetails: { loginId: 'pastor@igrejaviva.com.br' } } : null);
@@ -372,6 +377,26 @@ function App() {
   // Calendar State
   const [selectedCalDay, setSelectedCalDay] = useState(new Date().getDate());
 
+  const navigateToTab = useCallback((tab: string) => {
+    if (!tab || tab === activeTab) return;
+    if (studioVersion === 'v2' && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.pushState({ studioTab: tab, studioVersion: 'v2' }, '', url);
+    }
+    setActiveTab(tab);
+  }, [activeTab, studioVersion]);
+
+  const exitStudioV2 = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('studio');
+      url.searchParams.set('tab', activeTab);
+      window.history.replaceState({ studioTab: activeTab, studioVersion: 'v1' }, '', url);
+    }
+    setStudioVersion('v1');
+  }, [activeTab]);
+
   // Dashboard Live Stats State (Zero Mock)
   const [dashboardStats, setDashboardStats] = useState<{
     membersCount: number;
@@ -419,6 +444,20 @@ function App() {
     url.searchParams.set('tab', activeTab);
     window.history.replaceState({}, '', url);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (studioVersion !== 'v2' || typeof window === 'undefined') return;
+    const handleHistoryNavigation = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('studio') !== 'v2') {
+        setStudioVersion('v1');
+        return;
+      }
+      setActiveTab(params.get('tab') || 'dashboard');
+    };
+    window.addEventListener('popstate', handleHistoryNavigation);
+    return () => window.removeEventListener('popstate', handleHistoryNavigation);
+  }, [studioVersion]);
 
   useEffect(() => {
     // Carregar Branding Salvo
@@ -693,7 +732,7 @@ function App() {
       document.documentElement.style.setProperty('--accent-primary-gradient', `linear-gradient(135deg, ${org.primary_color} 0%, #14b8a6 100%)`);
     }
     setSelectedCampusId('all');
-    setActiveTab('dashboard');
+    navigateToTab('dashboard');
   };
 
   const handleReturnToMasterHub = () => {
@@ -839,7 +878,7 @@ function App() {
         userId={userProfile?.id || userProfile?.email || user?.username || 'studio-user'}
         userRole={isSuperAdmin ? 'SUPERADMIN' : (userProfile?.role || 'MEMBER')}
         activeTab={activeTab}
-        onNavigate={setActiveTab}
+        onNavigate={navigateToTab}
         isDemo={isDemo}
         campusesCount={campuses.length}
         membersCount={dashboardStats.membersCount}
@@ -926,7 +965,7 @@ function App() {
             ======================================================== */}
         <aside className={`sidebar ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
           {/* Brand Header */}
-          <div className="sidebar-header" onClick={() => { setActiveTab('church_branding'); setIsMobileSidebarOpen(false); }} style={{ cursor: 'pointer' }} title="Clique para personalizar a identidade da igreja">
+          <div className="sidebar-header" onClick={() => { navigateToTab('church_branding'); setIsMobileSidebarOpen(false); }} style={{ cursor: 'pointer' }} title="Clique para personalizar a identidade da igreja">
             {churchSettings.logo_icon_url ? (
               <img 
                 src={churchSettings.logo_icon_url} 
@@ -1044,7 +1083,7 @@ function App() {
                 <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
 
                 <button
-                  onClick={() => { setActiveTab('campuses'); setIsCampusDropdownOpen(false); setIsMobileSidebarOpen(false); }}
+                  onClick={() => { navigateToTab('campuses'); setIsCampusDropdownOpen(false); setIsMobileSidebarOpen(false); }}
                   style={{
                     textAlign: 'left',
                     padding: '8px 10px',
@@ -1067,7 +1106,7 @@ function App() {
           {/* Navigation Categories */}
           <SidebarNav
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={navigateToTab}
             setIsMobileSidebarOpen={setIsMobileSidebarOpen}
             userRole={userProfile?.role}
             isSuperAdmin={isSuperAdmin}
@@ -1126,7 +1165,7 @@ function App() {
                     'Finanças': 'finance_workspace',
                     'Administração': 'administration_workspace'
                   };
-                  setActiveTab(workspaceByArea[currentNavigation.area] || 'dashboard');
+                  navigateToTab(workspaceByArea[currentNavigation.area] || 'dashboard');
                 }}>{currentNavigation.area}</button>
                 <span className="studio-breadcrumb-separator">/</span>
                 <strong>{currentNavigation.title}</strong>
@@ -1143,7 +1182,7 @@ function App() {
                 <BellIcon />
               </button>
               {canAccessAdministration && (
-                <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Administração" onClick={() => { setActiveTab('administration_workspace'); setIsMobileSidebarOpen(false); }}>
+                <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Administração" onClick={() => { navigateToTab('administration_workspace'); setIsMobileSidebarOpen(false); }}>
                   <SettingsIcon />
                 </button>
               )}
@@ -1155,6 +1194,17 @@ function App() {
 
           {/* Page Container */}
           <div className="page-container">
+            {studioVersion === 'v2' && (
+              <Suspense fallback={null}>
+                <StudioContextNavigationV2
+                  activeTab={activeTab}
+                  role={isSuperAdmin ? 'SUPERADMIN' : String(userProfile?.role || 'MEMBER').toUpperCase()}
+                  isDemo={isDemo}
+                  onNavigate={navigateToTab}
+                  onExitV2={exitStudioV2}
+                />
+              </Suspense>
+            )}
             {activeTab === 'dashboard' && (
               <div className="animate-fade-in dashboard-grid-layout">
                 {/* ==========================================
@@ -1165,7 +1215,7 @@ function App() {
                   {/* 1. TOP 4 KPI CARDS (Live RDS Data) */}
                   <div className="kpi-grid">
                     {/* KPI 1: Membros */}
-                    <div className="kpi-card" onClick={() => setActiveTab('membros')}>
+                    <div className="kpi-card" onClick={() => navigateToTab('membros')}>
                       <div className="kpi-top-row">
                         <span className="kpi-title-tag">Membros Cadastrados</span>
                         <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-green-bg)', color: 'var(--pastel-green-text)' }}>
@@ -1185,7 +1235,7 @@ function App() {
                     </div>
 
                     {/* KPI 2: Células */}
-                    <div className="kpi-card" onClick={() => setActiveTab('celulas')}>
+                    <div className="kpi-card" onClick={() => navigateToTab('celulas')}>
                       <div className="kpi-top-row">
                         <span className="kpi-title-tag">Células & Redes</span>
                         <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-purple-bg)', color: 'var(--pastel-purple-text)' }}>
@@ -1205,7 +1255,7 @@ function App() {
                     </div>
 
                     {/* KPI 3: Monitor de PDV */}
-                    <div className="kpi-card" onClick={() => setActiveTab('pdv_pedidos')}>
+                    <div className="kpi-card" onClick={() => navigateToTab('pdv_pedidos')}>
                       <div className="kpi-top-row">
                         <span className="kpi-title-tag">Vendas na Loja / PDV</span>
                         <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-blue-bg)', color: 'var(--pastel-blue-text)' }}>
@@ -1225,7 +1275,7 @@ function App() {
                     </div>
 
                     {/* KPI 4: Eventos */}
-                    <div className="kpi-card" onClick={() => setActiveTab('eventos')}>
+                    <div className="kpi-card" onClick={() => navigateToTab('eventos')}>
                       <div className="kpi-top-row">
                         <span className="kpi-title-tag">Eventos & Cursos</span>
                         <div className="kpi-icon-wrapper" style={{ background: 'var(--pastel-orange-bg)', color: 'var(--pastel-orange-text)' }}>
@@ -1257,7 +1307,7 @@ function App() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '12px' }}>
                       <div 
                         className="project-card-item" 
-                        onClick={() => setActiveTab('campuses')}
+                        onClick={() => navigateToTab('campuses')}
                         style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
                       >
                         <div className="project-icon-box" style={{ background: '#e0f2fe', color: '#0369a1' }}>
@@ -1271,7 +1321,7 @@ function App() {
 
                       <div 
                         className="project-card-item" 
-                        onClick={() => setActiveTab('church_branding')}
+                        onClick={() => navigateToTab('church_branding')}
                         style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
                       >
                         <div className="project-icon-box" style={{ background: '#f0fdfa', color: '#0f766e' }}>
@@ -1285,7 +1335,7 @@ function App() {
 
                       <div 
                         className="project-card-item" 
-                        onClick={() => setActiveTab('pagarme_financeiro')}
+                        onClick={() => navigateToTab('pagarme_financeiro')}
                         style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
                       >
                         <div className="project-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
@@ -1299,7 +1349,7 @@ function App() {
 
                       <div 
                         className="project-card-item" 
-                        onClick={() => setActiveTab('pdv_produtos')}
+                        onClick={() => navigateToTab('pdv_produtos')}
                         style={{ cursor: 'pointer', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '14px', margin: 0 }}
                       >
                         <div className="project-icon-box" style={{ background: '#fdf2f8', color: '#db2777' }}>
@@ -1320,7 +1370,7 @@ function App() {
                         <div className="card-title">Membros Cadastrados Recentemente</div>
                         <div className="card-subtitle">Acompanhamento da membresia e liderança</div>
                       </div>
-                      <button className="link-btn" onClick={() => setActiveTab('membros')}>
+                      <button className="link-btn" onClick={() => navigateToTab('membros')}>
                         Ver Todos <ArrowRightIcon />
                       </button>
                     </div>
@@ -1408,7 +1458,7 @@ function App() {
                         <div className="card-title">Próximos Eventos</div>
                         <div className="card-subtitle">Programações da igreja</div>
                       </div>
-                      <button className="link-btn" onClick={() => setActiveTab('eventos')}>
+                      <button className="link-btn" onClick={() => navigateToTab('eventos')}>
                         + Add
                       </button>
                     </div>
@@ -1473,7 +1523,7 @@ function App() {
                 campusesCount={campuses.length}
                 userRole={isSuperAdmin ? 'SUPERADMIN' : userProfile?.role}
                 overview={workspaceOverview}
-                onNavigate={setActiveTab}
+                onNavigate={navigateToTab}
               />
             )}
             <ErrorBoundary fallbackTitle="Erro ao carregar o módulo">
@@ -1485,7 +1535,7 @@ function App() {
                     selectedCampusId={selectedCampusId}
                     selectedOrganization={selectedOrganization}
                     activeSubtab={activeTab}
-                    onNavigateSubtab={setActiveTab}
+                    onNavigateSubtab={navigateToTab}
                   />
                 </FeatureGate>
               )}
@@ -1494,7 +1544,7 @@ function App() {
                   selectedCampusId={selectedCampusId} 
                   selectedOrganization={selectedOrganization}
                   activeSubtab={activeTab}
-                  onNavigateSubtab={(subtab) => setActiveTab(subtab)}
+                  onNavigateSubtab={navigateToTab}
                 />
               )}
               {activeTab === 'transmissoes' && (
@@ -1576,7 +1626,7 @@ function App() {
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '28px', maxWidth: '460px', margin: '0 auto 28px auto', lineHeight: '1.6', fontSize: '0.92rem' }}>
                   Gerencie integrações com AWS Cognito, parâmetros da igreja, credenciais de streaming e notificações push do aplicativo Faith-Hub.
                 </p>
-                <button className="btn-primary" onClick={() => setActiveTab('dashboard')}>
+                <button className="btn-primary" onClick={() => navigateToTab('dashboard')}>
                   Retornar ao Dashboard Central
                 </button>
               </div>
