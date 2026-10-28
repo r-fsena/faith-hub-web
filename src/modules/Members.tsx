@@ -1413,10 +1413,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     </span>
                   </div>
 
-                  {/* Permissões Operacionais PWA */}
+                  {/* Permissões Operacionais e Administrativas */}
                   <div className="form-group-modern" style={{ marginTop: '16px' }}>
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>🛠️ Permissões Operacionais (PWA & Celular)</span>
+                      <span>🛠️ Permissões Operacionais e Administrativas</span>
                       <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
                         {(inviteForm.operational_permissions || []).length} habilitada(s)
                       </span>
@@ -1434,7 +1434,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         { id: 'kids_checkin', icon: '🚸', label: 'Check-in Kids', desc: 'Entrada de crianças nas salas e totem' },
                         { id: 'kids_checkout', icon: '🛡️', label: 'Checkout Kids', desc: 'Leitor QR/PIN e devolução aos pais' },
                         { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
-                        { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' }
+                        { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' },
+                        { id: 'secretariat.view', icon: '🗂️', label: 'Consultar Secretaria', desc: 'Visualização de painéis e prontuários eclesiásticos' },
+                        { id: 'secretariat.manage_members', icon: '✍️', label: 'Editar Prontuários', desc: 'Cadastro e atualização de dados eclesiásticos' }
                       ].map(perm => {
                         const isChecked = (inviteForm.operational_permissions || []).includes(perm.id);
                         return (
@@ -1474,7 +1476,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       })}
                     </div>
                     <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                      Define as ferramentas que estarão liberadas no menu "Operacional" no celular deste usuário.
+                      Define as ferramentas operacionais e administrativas liberadas para este usuário.
                     </span>
                     {((inviteForm.role || '').toUpperCase().includes('ADMIN') || (inviteForm.role || '').toUpperCase().includes('PASTOR')) && (
                       <div style={{
@@ -1773,10 +1775,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     </div>
                   </div>
 
-                  {/* Permissões Operacionais PWA */}
+                  {/* Permissões Operacionais e Administrativas */}
                   <div className="form-group-modern" style={{ marginTop: '16px' }}>
                     <label className="form-label-modern" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>🛠️ Permissões Operacionais (PWA & Celular)</span>
+                      <span>🛠️ Permissões Operacionais e Administrativas</span>
                       <span style={{ fontSize: '0.70rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
                         {(editOperationalPermissions || []).length} habilitada(s)
                       </span>
@@ -1794,7 +1796,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         { id: 'kids_checkin', icon: '🚸', label: 'Check-in Kids', desc: 'Entrada de crianças nas salas e totem' },
                         { id: 'kids_checkout', icon: '🛡️', label: 'Checkout Kids', desc: 'Leitor QR/PIN e devolução aos pais' },
                         { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
-                        { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' }
+                        { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' },
+                        { id: 'secretariat.view', icon: '🗂️', label: 'Consultar Secretaria', desc: 'Visualização de painéis e prontuários eclesiásticos' },
+                        { id: 'secretariat.manage_members', icon: '✍️', label: 'Editar Prontuários', desc: 'Cadastro e atualização de dados eclesiásticos' }
                       ].map(perm => {
                         const isChecked = (editOperationalPermissions || []).includes(perm.id);
                         return (
@@ -1834,7 +1838,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                       })}
                     </div>
                     <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                      Define as ferramentas que estarão liberadas no menu "Operacional" no celular deste usuário.
+                      Define as ferramentas operacionais e administrativas liberadas para este usuário.
                     </span>
                     {((memberToEdit.role || '').toUpperCase().includes('ADMIN') || (memberToEdit.role || '').toUpperCase().includes('PASTOR')) && (
                       <div style={{
