@@ -1436,7 +1436,12 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
                         { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' },
                         { id: 'secretariat.view', icon: '🗂️', label: 'Consultar Secretaria', desc: 'Visualização de painéis e prontuários eclesiásticos' },
-                        { id: 'secretariat.manage_members', icon: '✍️', label: 'Editar Prontuários', desc: 'Cadastro e atualização de dados eclesiásticos' }
+                        { id: 'secretariat.manage_members', icon: '✍️', label: 'Editar Prontuários', desc: 'Cadastro e atualização de dados eclesiásticos' },
+                        { id: 'secretariat.manage_transfers', icon: '🔁', label: 'Gerir Transferências', desc: 'Criar movimentações e transferências de membros' },
+                        { id: 'secretariat.manage_baptisms', icon: '💧', label: 'Registrar Batismos', desc: 'Cadastrar dados e cerimônias de batismo' },
+                        { id: 'secretariat.issue_documents', icon: '📄', label: 'Emitir Documentos', desc: 'Criar solicitações e emitir cartas ou certificados' },
+                        { id: 'secretariat.manage_templates', icon: '📝', label: 'Gerir Modelos', desc: 'Criar modelos e cadastrar signatários' },
+                        { id: 'secretariat.approve', icon: '✅', label: 'Aprovar Secretaria', desc: 'Aprovar transferências, solicitações e cancelamentos' }
                       ].map(perm => {
                         const isChecked = (inviteForm.operational_permissions || []).includes(perm.id);
                         return (
@@ -1798,7 +1803,12 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                         { id: 'events_checkin', icon: '🎟️', label: 'Portaria de Eventos', desc: 'Validação de ingressos na portaria' },
                         { id: 'kids_calls', icon: '📢', label: 'Chamador de Pais', desc: 'Notificar pais durante o culto' },
                         { id: 'secretariat.view', icon: '🗂️', label: 'Consultar Secretaria', desc: 'Visualização de painéis e prontuários eclesiásticos' },
-                        { id: 'secretariat.manage_members', icon: '✍️', label: 'Editar Prontuários', desc: 'Cadastro e atualização de dados eclesiásticos' }
+                        { id: 'secretariat.manage_members', icon: '✍️', label: 'Editar Prontuários', desc: 'Cadastro e atualização de dados eclesiásticos' },
+                        { id: 'secretariat.manage_transfers', icon: '🔁', label: 'Gerir Transferências', desc: 'Criar movimentações e transferências de membros' },
+                        { id: 'secretariat.manage_baptisms', icon: '💧', label: 'Registrar Batismos', desc: 'Cadastrar dados e cerimônias de batismo' },
+                        { id: 'secretariat.issue_documents', icon: '📄', label: 'Emitir Documentos', desc: 'Criar solicitações e emitir cartas ou certificados' },
+                        { id: 'secretariat.manage_templates', icon: '📝', label: 'Gerir Modelos', desc: 'Criar modelos e cadastrar signatários' },
+                        { id: 'secretariat.approve', icon: '✅', label: 'Aprovar Secretaria', desc: 'Aprovar transferências, solicitações e cancelamentos' }
                       ].map(perm => {
                         const isChecked = (editOperationalPermissions || []).includes(perm.id);
                         return (

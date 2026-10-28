@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { getAuthHeaders } from '../services/apiClient';
+import { SecretariatPhase2 } from './SecretariatPhase2';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://566n5qz7te.execute-api.us-east-2.amazonaws.com';
 
@@ -116,6 +117,7 @@ export const Secretariat: React.FC<SecretariatProps> = ({
   const [selectedRecord, setSelectedRecord] = useState<SecretariatRecord | null>(null);
   const [recordForm, setRecordForm] = useState<RecordForm>(EMPTY_FORM);
   const [isSaving, setIsSaving] = useState(false);
+  const [phase2Refresh, setPhase2Refresh] = useState(0);
 
   const organizationId = selectedOrganization?.id || 'org_default';
 
@@ -204,10 +206,16 @@ export const Secretariat: React.FC<SecretariatProps> = ({
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
       <div>
         <div style={{ color: 'var(--accent-primary)', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Secretaria Eclesiástica · Fase 1
+          Secretaria Eclesiástica · Gestão Integrada
         </div>
         <h1 style={{ margin: '4px 0 4px', fontSize: '1.65rem', color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
-          {activeSubtab === 'secretariat_records' ? 'Prontuários Eclesiásticos' : 'Visão Geral da Secretaria'}
+          {{
+            secretariat_records: 'Prontuários Eclesiásticos',
+            secretariat_movements: 'Movimentações e Transferências',
+            secretariat_documents: 'Documentos e Solicitações',
+            secretariat_baptisms: 'Batismos e Certificados',
+            secretariat_templates: 'Modelos e Signatários'
+          }[activeSubtab] || 'Visão Geral da Secretaria'}
         </h1>
         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.84rem' }}>
           {selectedOrganization?.name || 'Organização ativa'} · {selectedCampusId === 'all' ? 'Todas as unidades' : 'Unidade selecionada'}
@@ -215,8 +223,10 @@ export const Secretariat: React.FC<SecretariatProps> = ({
       </div>
       <button
         type="button"
-        onClick={loadSecretariat}
-        disabled={isLoading}
+        onClick={() => activeSubtab !== 'secretariat_overview' && activeSubtab !== 'secretariat_records'
+          ? setPhase2Refresh(value => value + 1)
+          : loadSecretariat()}
+        disabled={(activeSubtab === 'secretariat_overview' || activeSubtab === 'secretariat_records') && isLoading}
         style={{ border: '1px solid var(--panel-border)', background: 'var(--bg-card)', borderRadius: 10, padding: '9px 14px', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer' }}
       >
         {isLoading ? 'Atualizando...' : '↻ Atualizar'}
@@ -350,7 +360,15 @@ export const Secretariat: React.FC<SecretariatProps> = ({
     <div style={{ paddingBottom: 32 }}>
       {renderHeader()}
       {error && <div style={{ marginBottom: 16, padding: '11px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '0.78rem', fontWeight: 700 }}>{error}</div>}
-      {isLoading && records.length === 0 && metrics.total_members === 0 ? (
+      {activeSubtab !== 'secretariat_overview' && activeSubtab !== 'secretariat_records' ? (
+        <SecretariatPhase2
+          key={`${activeSubtab}-${phase2Refresh}`}
+          organizationId={organizationId}
+          campusId={selectedCampusId}
+          activeSubtab={activeSubtab}
+          onDataChanged={loadDashboard}
+        />
+      ) : isLoading && records.length === 0 && metrics.total_members === 0 ? (
         <div style={{ ...cardStyle, padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando dados da Secretaria...</div>
       ) : activeSubtab === 'secretariat_records' && registryEnabled ? renderRecords() : renderOverview()}
 
