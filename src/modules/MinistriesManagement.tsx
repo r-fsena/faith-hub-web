@@ -1427,10 +1427,63 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                   }}>
                     {isInactive ? '⏸️ Inativo' : (isSelected ? 'Selecionado' : '🟢 Ativo')}
                   </span>
-                  {isUserLeader && (
-                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: '6px', fontWeight: 800, boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}>
-                      ⭐ Seu Ministério
-                    </span>
+                  {initialSubTab !== 'schedules' && (canManageMinistry(min) || isGlobalAdmin) && (
+                    <div role="group" aria-label={`Ações de ${min.name}`} style={{ display: 'flex', gap: '5px', marginTop: '2px' }}>
+                      {canManageMinistry(min) && (
+                        <button
+                          type="button"
+                          title={`Editar ${min.name}`}
+                          aria-label={`Editar ${min.name}`}
+                          onClick={event => {
+                            event.stopPropagation();
+                            handleOpenEditMinistry(min);
+                          }}
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '9px',
+                            border: '1px solid rgba(255,255,255,0.8)',
+                            background: '#ffffff',
+                            color: '#334155',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 8px rgba(15,23,42,0.16)',
+                            fontSize: '0.88rem'
+                          }}
+                        >
+                          <span aria-hidden="true">✏️</span>
+                        </button>
+                      )}
+                      {isGlobalAdmin && (
+                        <button
+                          type="button"
+                          title={`${isInactive ? 'Reativar' : 'Desativar'} ${min.name}`}
+                          aria-label={`${isInactive ? 'Reativar' : 'Desativar'} ${min.name}`}
+                          onClick={event => {
+                            event.stopPropagation();
+                            handleToggleMinistryStatus(min);
+                          }}
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '9px',
+                            border: `1px solid ${isInactive ? '#a7f3d0' : '#fed7aa'}`,
+                            background: isInactive ? '#ecfdf5' : '#fff7ed',
+                            color: isInactive ? '#047857' : '#c2410c',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 8px rgba(15,23,42,0.12)',
+                            fontSize: '0.88rem'
+                          }}
+                        >
+                          <span aria-hidden="true">{isInactive ? '▶️' : '⏸️'}</span>
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1447,6 +1500,11 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                       Líder: <strong>{min.leader_name || 'A definir'}</strong>
                     </span>
                   </div>
+                  {isUserLeader && (
+                    <span style={{ display: 'inline-flex', marginTop: '7px', fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>
+                      ⭐ Seu Ministério
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', fontSize: '0.74rem', color: '#64748b' }}>
@@ -1529,49 +1587,6 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
                 </div>
               </div>
 
-              {/* Botões de Ação do Ministério (Editar / Desativar) */}
-              {initialSubTab !== 'schedules' && <div style={{ display: 'flex', gap: '8px' }}>
-                {(isCurrentLeader || isGlobalAdmin) && (
-                  <button
-                    onClick={() => handleOpenEditMinistry(selectedMinistry)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      color: '#334155',
-                      fontWeight: 700,
-                      fontSize: '0.80rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ✏️ Editar
-                  </button>
-                )}
-                {isGlobalAdmin && (
-                  <button
-                    onClick={() => handleToggleMinistryStatus(selectedMinistry)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      background: (selectedMinistry.status || 'ACTIVE') === 'ACTIVE' ? '#fff7ed' : '#ecfdf5',
-                      color: (selectedMinistry.status || 'ACTIVE') === 'ACTIVE' ? '#c2410c' : '#047857',
-                      fontWeight: 700,
-                      fontSize: '0.80rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {(selectedMinistry.status || 'ACTIVE') === 'ACTIVE' ? '⏸️ Desativar' : '▶️ Reativar'}
-                  </button>
-                )}
-              </div>}
             </div>
 
             {/* Gestão interna do ministério; escalas possuem uma rota própria. */}
