@@ -1535,7 +1535,7 @@ function App() {
             <ErrorBoundary fallbackTitle="Erro ao carregar o módulo">
               {activeTab === 'campuses' && <Campuses selectedOrganization={selectedOrganization} />}
               {activeTab === 'membros' && <Members selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
-              {activeTab.startsWith('secretariat_') && (
+              {activeTab.startsWith('secretariat_') && activeTab !== 'secretariat_workspace' && (
                 <FeatureGate flag="secretariat.module_enabled">
                   <Secretariat
                     selectedCampusId={selectedCampusId}
@@ -1545,7 +1545,7 @@ function App() {
                   />
                 </FeatureGate>
               )}
-              {(activeTab.startsWith('kids_') || activeTab === 'kids_ministerio') && (
+              {((activeTab.startsWith('kids_') && activeTab !== 'kids_workspace') || activeTab === 'kids_ministerio') && (
                 <KidsMinistry 
                   selectedCampusId={selectedCampusId} 
                   selectedOrganization={selectedOrganization}
