@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { getAuthHeaders } from '../services/apiClient';
+import { useStudioExperience } from '../context/StudioExperienceContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -162,6 +163,7 @@ export function StudioWorkspace({
   kind, organizationId, organizationName, campusId, campusesCount, userRole, overview, onNavigate
 }: StudioWorkspaceProps) {
   const { isFeatureEnabled, isLoading: flagsLoading } = useFeatureFlags();
+  const { navigate, personalizationEnabled, toggleFavorite, isFavorite } = useStudioExperience();
   const config = WORKSPACES[kind];
   const [metrics, setMetrics] = useState<WorkspaceMetric[]>([]);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
@@ -352,11 +354,16 @@ export function StudioWorkspace({
           <div className="workspace-empty-state"><strong>Nenhuma ferramenta habilitada nesta área</strong><span>Consulte a administração da organização para revisar os módulos disponíveis.</span></div>
         )}
         {actions.map(action => (
-          <button key={action.tab} type="button" className={`workspace-action-card ${action.emphasis ? 'is-emphasis' : ''}`} onClick={() => onNavigate(action.tab)}>
-            <span className="workspace-action-icon" aria-hidden="true">{action.icon}</span>
-            <span className="workspace-action-copy"><strong>{action.title}</strong><small>{action.description}</small></span>
-            <span className="workspace-action-arrow" aria-hidden="true">→</span>
-          </button>
+          <article key={action.tab} className={`workspace-action-card ${action.emphasis ? 'is-emphasis' : ''}`}>
+            <button type="button" className="workspace-action-main" onClick={() => personalizationEnabled ? navigate(action.tab) : onNavigate(action.tab)}>
+              <span className="workspace-action-icon" aria-hidden="true">{action.icon}</span>
+              <span className="workspace-action-copy"><strong>{action.title}</strong><small>{action.description}</small></span>
+              <span className="workspace-action-arrow" aria-hidden="true">→</span>
+            </button>
+            {personalizationEnabled && (
+              <button type="button" className={`workspace-favorite-button ${isFavorite(action.tab) ? 'is-favorite' : ''}`} onClick={() => toggleFavorite(action.tab)} aria-label={isFavorite(action.tab) ? `Remover ${action.title} dos favoritos` : `Favoritar ${action.title}`}>★</button>
+            )}
+          </article>
         ))}
       </div>
     </section>

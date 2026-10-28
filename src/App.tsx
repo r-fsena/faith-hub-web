@@ -31,6 +31,9 @@ import { PublicDocumentVerification } from './modules/PublicDocumentVerification
 import { FeatureFlagProvider, useFeatureFlags, FeatureGate } from './context/FeatureFlagContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { StudioWorkspace, type StudioWorkspaceKind } from './components/StudioWorkspace';
+import { StudioExperienceProvider } from './context/StudioExperienceContext';
+import { StudioCommandPalette, StudioFavoritesNav, StudioSearchTrigger } from './components/StudioCommandPalette';
+import { StudioHelpButton, StudioOnboardingCard, StudioOnboardingModal } from './components/StudioOnboarding';
 import { getAuthHeaders } from './services/apiClient';
 import './index.css';
 
@@ -279,6 +282,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
 
   return (
     <div className="sidebar-nav">
+      <StudioFavoritesNav role={normalizedRole} onCloseMobile={() => setIsMobileSidebarOpen(false)} />
       {filteredGroups.map((group, gIdx) => (
         <div key={gIdx}>
           <div className="nav-category">{group.category}</div>
@@ -829,6 +833,18 @@ function App() {
 
   return (
     <FeatureFlagProvider organizationId={selectedOrganization?.id || 'org_default'} campusId={selectedCampusId}>
+      <StudioExperienceProvider
+        organizationId={selectedOrganization.id}
+        campusId={selectedCampusId}
+        userId={userProfile?.id || userProfile?.email || user?.username || 'studio-user'}
+        userRole={isSuperAdmin ? 'SUPERADMIN' : (userProfile?.role || 'MEMBER')}
+        activeTab={activeTab}
+        onNavigate={setActiveTab}
+        isDemo={isDemo}
+        campusesCount={campuses.length}
+        membersCount={dashboardStats.membersCount}
+        brandingConfigured={Boolean(churchSettings.logo_icon_url || (churchSettings.church_name && churchSettings.church_name !== 'Minha Igreja'))}
+      >
       <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
       {/* ========================================================
@@ -1118,14 +1134,11 @@ function App() {
             </div>
 
             <div className="topbar-center">
-              <div className="search-pill">
-                <SearchIcon />
-                <input type="text" placeholder="Buscar no sistema..." />
-                <span style={{ fontSize: '0.70rem', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>⌘K</span>
-              </div>
+              <StudioSearchTrigger />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <StudioHelpButton />
               <button style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#f8fafc', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }} title="Notificações">
                 <BellIcon />
               </button>
@@ -1148,6 +1161,7 @@ function App() {
                     DASHBOARD MAIN COLUMN (Left 2/3)
                     ========================================== */}
                 <div className="dashboard-main-column">
+                  <StudioOnboardingCard />
                   {/* 1. TOP 4 KPI CARDS (Live RDS Data) */}
                   <div className="kpi-grid">
                     {/* KPI 1: Membros */}
@@ -1571,6 +1585,13 @@ function App() {
         </main>
       </div>
     </div>
+      <StudioCommandPalette
+        organizationId={selectedOrganization.id}
+        campusId={selectedCampusId}
+        role={isSuperAdmin ? 'SUPERADMIN' : String(userProfile?.role || 'MEMBER').toUpperCase()}
+      />
+      <StudioOnboardingModal />
+      </StudioExperienceProvider>
     </FeatureFlagProvider>
   );
 }
