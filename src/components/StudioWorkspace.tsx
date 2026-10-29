@@ -3,6 +3,7 @@ import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { getAuthHeaders } from '../services/apiClient';
 import { useStudioExperience } from '../context/StudioExperienceContext';
 import { OperationsOverview } from './OperationsOverview';
+import { ContentOverview } from './ContentOverview';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -326,6 +327,8 @@ export function StudioWorkspace({
 
       {kind === 'operations' ? (
         <OperationsOverview organizationId={organizationId} campusId={campusId} onNavigate={onNavigate} />
+      ) : kind === 'content' && isFeatureEnabled('content.analytics_dashboard', false) ? (
+        <ContentOverview organizationId={organizationId} campusId={campusId} onNavigate={onNavigate} />
       ) : (
         <>
           <div className="workspace-section-heading">
