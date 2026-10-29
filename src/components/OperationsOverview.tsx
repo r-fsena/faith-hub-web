@@ -109,6 +109,7 @@ export function OperationsOverview({ organizationId, campusId, onNavigate }: Ope
   const [data, setData] = useState<OperationsAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refreshToken, setRefreshToken] = useState(0);
 
   const handlePreset = (nextPreset: PeriodPreset) => {
     setPreset(nextPreset);
@@ -141,7 +142,7 @@ export function OperationsOverview({ organizationId, campusId, onNavigate }: Ope
     };
     load();
     return () => controller.abort();
-  }, [campusId, endDate, organizationId, startDate]);
+  }, [campusId, endDate, organizationId, refreshToken, startDate]);
 
   const dailySeries = useMemo(() => {
     const values = new Map((data?.sales_by_day || []).map(point => [point.sale_date, point]));
@@ -192,7 +193,7 @@ export function OperationsOverview({ organizationId, campusId, onNavigate }: Ope
       {error && (
         <div className="operations-error">
           <div><strong>Indicadores indisponíveis</strong><span>{error}</span></div>
-          <button type="button" onClick={() => handlePreset(preset === 'custom' ? 'current_month' : preset)}>Tentar novamente</button>
+          <button type="button" onClick={() => setRefreshToken(value => value + 1)}>Tentar novamente</button>
         </div>
       )}
 
