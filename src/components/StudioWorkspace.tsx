@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { getAuthHeaders } from '../services/apiClient';
 import { useStudioExperience } from '../context/StudioExperienceContext';
+import { OperationsOverview } from './OperationsOverview';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -278,9 +279,7 @@ export function StudioWorkspace({
         }
 
         if (kind === 'operations') {
-          setSafe([
-            { label: 'Vendas registradas', value: money(overview?.ordersTotal), helper: 'Total disponível no painel', tab: 'pdv_pedidos' }
-          ]);
+          setSafe([]);
           return;
         }
 
@@ -325,25 +324,31 @@ export function StudioWorkspace({
         <div><strong>Como usar esta área</strong><p>{config.guidance}</p></div>
       </div>
 
-      <div className="workspace-section-heading">
-        <div><span>Visão rápida</span><h2>O que precisa da sua atenção</h2></div>
-        {loadingMetrics && <small>Atualizando indicadores…</small>}
-        {metricsError && <button type="button" className="workspace-text-button" onClick={() => window.location.reload()}>Tentar novamente</button>}
-      </div>
+      {kind === 'operations' ? (
+        <OperationsOverview organizationId={organizationId} campusId={campusId} onNavigate={onNavigate} />
+      ) : (
+        <>
+          <div className="workspace-section-heading">
+            <div><span>Visão rápida</span><h2>O que precisa da sua atenção</h2></div>
+            {loadingMetrics && <small>Atualizando indicadores…</small>}
+            {metricsError && <button type="button" className="workspace-text-button" onClick={() => window.location.reload()}>Tentar novamente</button>}
+          </div>
 
-      <div className="workspace-metrics-grid">
-        {loadingMetrics && metrics.length === 0 && Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="workspace-skeleton-card" aria-hidden="true" />
-        ))}
-        {!loadingMetrics && metricsError && metrics.length === 0 && (
-          <div className="workspace-empty-state"><strong>Indicadores temporariamente indisponíveis</strong><span>Os atalhos continuam disponíveis para você trabalhar normalmente.</span></div>
-        )}
-        {metrics.map(metric => (
-          <button key={metric.label} type="button" className={`workspace-metric-card tone-${metric.tone || 'brand'}`} onClick={() => metric.tab && onNavigate(metric.tab)} disabled={!metric.tab}>
-            <span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.helper}</small>
-          </button>
-        ))}
-      </div>
+          <div className="workspace-metrics-grid">
+            {loadingMetrics && metrics.length === 0 && Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="workspace-skeleton-card" aria-hidden="true" />
+            ))}
+            {!loadingMetrics && metricsError && metrics.length === 0 && (
+              <div className="workspace-empty-state"><strong>Indicadores temporariamente indisponíveis</strong><span>Os atalhos continuam disponíveis para você trabalhar normalmente.</span></div>
+            )}
+            {metrics.map(metric => (
+              <button key={metric.label} type="button" className={`workspace-metric-card tone-${metric.tone || 'brand'}`} onClick={() => metric.tab && onNavigate(metric.tab)} disabled={!metric.tab}>
+                <span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.helper}</small>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="workspace-section-heading workspace-actions-heading">
         <div><span>Atalhos</span><h2>O que você quer fazer?</h2></div>
