@@ -52,6 +52,8 @@ type Product = {
   barcode: string;
   unit: string;
   track_inventory: boolean;
+  is_available_for_purchase: boolean;
+  purchase_available?: boolean;
   available_quantity?: number;
   minimum_stock?: number;
   image_urls: string[];
@@ -95,6 +97,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
     barcode: '',
     unit: 'UN',
     track_inventory: false,
+    is_available_for_purchase: true,
     image_urls: [],
     status: 'ACTIVE'
   });
@@ -383,6 +386,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
       barcode: '',
       unit: 'UN',
       track_inventory: false,
+      is_available_for_purchase: true,
       image_urls: [],
       status: 'ACTIVE'
     });
@@ -392,7 +396,14 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
   };
 
   const openEditModal = (p: Product) => {
-    setFormData({ ...p, sku: p.sku || '', barcode: p.barcode || '', unit: p.unit || 'UN', track_inventory: Boolean(p.track_inventory) });
+    setFormData({
+      ...p,
+      sku: p.sku || '',
+      barcode: p.barcode || '',
+      unit: p.unit || 'UN',
+      track_inventory: Boolean(p.track_inventory),
+      is_available_for_purchase: p.is_available_for_purchase !== false
+    });
     setInlineNewGroup(false);
     setQuickGroupName('');
     setShowModal(true);
@@ -472,7 +483,8 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
         setShowModal(false);
         loadProducts();
       } else {
-        alert("Erro ao salvar produto.");
+        const error = await res.json().catch(() => ({}));
+        alert(error.message || error.error || "Erro ao salvar produto.");
       }
     } catch (err) {
       console.error(err);
@@ -585,8 +597,13 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                    
                    {/* Status Badge */}
                    <div style={{ position: 'absolute', top: 12, left: 12 }}>
-                     <span className={`status-badge ${prod.status === 'ACTIVE' ? 'excellent' : (prod.status === 'DRAFT' ? 'pending' : '')}`} style={prod.status === 'INACTIVE' ? { background: '#fee2e2', color: '#dc2626' } : {}}>
-                       {prod.status === 'ACTIVE' ? 'PUBLICADO' : (prod.status === 'DRAFT' ? 'RASCUNHO' : 'ESGOTADO')}
+                     <span
+                       className={`status-badge ${prod.status === 'ACTIVE' && prod.purchase_available !== false ? 'excellent' : (prod.status === 'DRAFT' ? 'pending' : '')}`}
+                       style={prod.status === 'ACTIVE' && prod.purchase_available !== false ? {} : { background: '#e2e8f0', color: '#475569' }}
+                     >
+                       {prod.status === 'ACTIVE'
+                         ? (prod.purchase_available === false ? 'INDISPONÍVEL' : 'PUBLICADO')
+                         : (prod.status === 'DRAFT' ? 'RASCUNHO' : 'ARQUIVADO')}
                      </span>
                    </div>
 
@@ -891,16 +908,16 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                         <span style={{ color: '#059669' }}>🛒</span> Disponível para Compra
                       </div>
                       <div className="toggle-card-desc">
-                        Aparecerá no cardápio de compras do membro
+                        Permite comprar no PWA; o produto permanece visível em cinza quando indisponível
                       </div>
                     </div>
                     <label className="switch-control">
                       <input 
                         type="checkbox" 
-                        checked={formData.status === 'ACTIVE'} 
-                        onChange={e => setFormData({...formData, status: e.target.checked ? 'ACTIVE' : 'INACTIVE'})} 
+                        checked={formData.is_available_for_purchase}
+                        onChange={e => setFormData({...formData, is_available_for_purchase: e.target.checked})}
                       />
-                      <span className="slider-round"></span>
+                      <span className="switch-slider"></span>
                     </label>
                   </div>
 
@@ -911,7 +928,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                     </div>
                     <label className="switch-control">
                       <input type="checkbox" checked={formData.track_inventory} onChange={e => setFormData({...formData, track_inventory: e.target.checked})} />
-                      <span className="slider-round"></span>
+                      <span className="switch-slider"></span>
                     </label>
                   </div>
 
@@ -1088,7 +1105,7 @@ export const PdvProdutos: React.FC<PdvProdutosProps> = ({ selectedCampusId = 'al
                                 checked={isGroupActive} 
                                 onChange={() => handleToggleGroupActive(group.id)} 
                               />
-                              <span className="slider-round"></span>
+                              <span className="switch-slider"></span>
                             </label>
                           </div>
 
