@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import './Members.css';
+import './PdvEstoque.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -60,6 +61,25 @@ const movementLabels: Record<string, string> = {
   ENTRY: 'Entrada', EXIT: 'Saída', ADJUSTMENT: 'Ajuste', LOSS: 'Perda/avaria', OPENING_BALANCE: 'Saldo inicial',
   RESERVATION: 'Reserva de pedido', RESERVATION_RELEASE: 'Liberação de reserva', SALE: 'Venda', SALE_REVERSAL: 'Estorno da venda'
 };
+
+const StockEntryIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 3v10" /><path d="m8 9 4 4 4-4" /><path d="M5 15v4h14v-4" />
+  </svg>
+);
+
+const StockExitIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 21V11" /><path d="m8 15 4-4 4 4" /><path d="M5 9V5h14v4" />
+  </svg>
+);
+
+const StockAdjustmentIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 7h10" /><path d="M18 7h2" /><circle cx="16" cy="7" r="2" />
+    <path d="M4 17h2" /><path d="M10 17h10" /><circle cx="8" cy="17" r="2" />
+  </svg>
+);
 
 interface PdvEstoqueProps {
   selectedCampusId?: string;
@@ -265,13 +285,24 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
                       <tr key={`${item.product_id}-${item.campus_id}`}>
                         <td><strong>{item.name}</strong><div style={{ color: 'var(--text-muted)', fontSize: '.7rem' }}>{item.sku || 'Sem SKU'} · {item.category}</div></td>
                         <td>{item.campus_name}</td><td><strong>{item.on_hand_quantity} {item.unit}</strong></td><td>{item.reserved_quantity}</td><td><strong>{item.available_quantity}</strong></td>
-                        <td><button type="button" onClick={() => updateMinimumStock(item)} title="Editar estoque mínimo" style={{ border: 0, background: 'transparent', color: 'var(--accent-primary)', fontWeight: 800, cursor: 'pointer' }}>{item.minimum_stock} ✎</button></td>
+                        <td>
+                          <button
+                            type="button"
+                            className="inventory-minimum-button"
+                            onClick={() => updateMinimumStock(item)}
+                            title={`Alterar estoque mínimo de ${item.name}`}
+                            aria-label={`Alterar estoque mínimo de ${item.name}. Valor atual: ${item.minimum_stock} ${item.unit}`}
+                          >
+                            <span className="inventory-minimum-value">{item.minimum_stock}</span>
+                            <span className="inventory-minimum-unit">{item.unit}</span>
+                          </button>
+                        </td>
                         <td><span style={{ background: meta.background, color: meta.color, borderRadius: 999, padding: '5px 9px', fontWeight: 800, fontSize: '.7rem' }}>{meta.label}</span></td>
                         <td>
-                          {item.track_inventory ? <div style={{ display: 'flex', gap: 5 }}>
-                            <button className="action-circle-btn" title="Registrar entrada" onClick={() => openMovement(item, 'ENTRY')}>＋</button>
-                            <button className="action-circle-btn" title="Registrar saída" onClick={() => openMovement(item, 'EXIT')}>−</button>
-                            <button className="action-circle-btn" title="Ajustar saldo contado" onClick={() => openMovement(item, item.on_hand_quantity === 0 ? 'OPENING_BALANCE' : 'ADJUSTMENT')}>⚖</button>
+                          {item.track_inventory ? <div className="inventory-action-group">
+                            <button type="button" className="inventory-action-button is-entry" data-tooltip="Registrar entrada" title="Registrar entrada" aria-label={`Registrar entrada de ${item.name}`} onClick={() => openMovement(item, 'ENTRY')}><StockEntryIcon /></button>
+                            <button type="button" className="inventory-action-button is-exit" data-tooltip="Registrar saída" title="Registrar saída" aria-label={`Registrar saída de ${item.name}`} onClick={() => openMovement(item, 'EXIT')}><StockExitIcon /></button>
+                            <button type="button" className="inventory-action-button is-adjustment" data-tooltip="Ajustar saldo" title="Ajustar saldo contado" aria-label={`Ajustar saldo contado de ${item.name}`} onClick={() => openMovement(item, item.on_hand_quantity === 0 ? 'OPENING_BALANCE' : 'ADJUSTMENT')}><StockAdjustmentIcon /></button>
                           </div> : <span style={{ color: 'var(--text-muted)', fontSize: '.72rem' }}>Ative no cadastro do produto</span>}
                         </td>
                       </tr>

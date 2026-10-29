@@ -1,0 +1,132 @@
+.inventory-minimum-button {
+  min-width: 76px;
+  min-height: 46px;
+  padding: 7px 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent-primary) 60%, #94a3b8);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-primary) 9%, #ffffff);
+  color: var(--accent-primary);
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.inventory-minimum-button:hover,
+.inventory-minimum-button:focus-visible {
+  transform: translateY(-1px);
+  border-style: solid;
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 15%, #ffffff);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  outline: none;
+}
+
+.inventory-minimum-value {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.inventory-minimum-unit {
+  font-size: .62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  opacity: .75;
+}
+
+.inventory-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.inventory-action-button {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  border: 1px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.inventory-action-button svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.inventory-action-button.is-entry {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+}
+
+.inventory-action-button.is-exit {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.inventory-action-button.is-adjustment {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.inventory-action-button:hover,
+.inventory-action-button:focus-visible {
+  transform: translateY(-2px);
+  filter: saturate(1.12);
+  box-shadow: 0 7px 16px rgba(15, 23, 42, .14);
+  outline: none;
+}
+
+.inventory-action-button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translate(-50%, 4px);
+  z-index: 20;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+}
+
+.inventory-action-button:hover::after,
+.inventory-action-button:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+@media (max-width: 760px) {
+  .inventory-action-button {
+    width: 40px;
+    height: 40px;
+  }
+}

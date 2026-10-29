@@ -36,7 +36,7 @@ const NAVIGATION_GROUPS: NavigationGroupV2[] = [
   },
   {
     rootTab: 'operations_workspace', rootLabel: 'Loja & Operações',
-    tabs: ['operations_workspace', 'pdv_pedidos', 'pdv_produtos', 'pdv_estoque']
+    tabs: ['operations_workspace', 'pdv_produtos', 'pdv_estoque', 'pdv_pedidos']
   },
   {
     rootTab: 'finance_workspace', rootLabel: 'Finanças',
