@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SaasPlans, type SaasPlan } from './SaasPlans';
 import { ProposalComposer, type ProposalDraft, type CreatedProposal } from '../components/commercial/ProposalComposer';
+import { FeatureFlagProvider } from '../context/FeatureFlagContext';
+import { PublicJourneyRequests } from '../components/PublicJourney';
 import { getAuthHeaders } from '../services/apiClient';
 
-type MasterTab = 'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users';
+type MasterTab = 'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users' | 'journey';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -25,6 +27,8 @@ export interface Organization {
   plan_contract?: { name: string; monthly_price: number; max_members: number; max_campuses: number };
   capacity_warning?: string;
   created_at?: string;
+  trial_expires_at?: string | null;
+  trial_pending_start?: boolean | number;
 }
 
 export interface Proposal {
@@ -564,6 +568,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               { id: 'orgs', label: 'Redes & Igrejas', icon: '🏛️', count: organizations.length },
               { id: 'proposals', label: 'Funil de Propostas', icon: '📊', count: proposals.length },
               { id: 'subscriptions', label: 'Assinaturas Asaas', icon: '💳', count: subscriptions.length },
+              { id: 'journey', label: 'Jornada digital', icon: '🚀', count: null },
               { id: 'plans', label: 'Planos & Preços', icon: '💎', count: availablePlans.length },
               { id: 'master_users', label: 'Equipe Master', icon: '🛡️', count: masterUsers.length > 0 ? masterUsers.length : null }
             ].map(tab => (
@@ -654,11 +659,12 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               {activeTab === 'proposals' && 'Funil de Propostas Comerciais'}
               {activeTab === 'subscriptions' && 'Assinaturas & Faturamento Asaas'}
               {activeTab === 'plans' && 'Planos e contratação'}
+              {activeTab === 'journey' && 'Jornada digital'}
               {activeTab === 'master_users' && 'Equipe Master Global'}
             </h2>
           </div>
 
-          {activeTab !== 'plans' && (
+          {activeTab !== 'plans' && activeTab !== 'journey' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '14px' }}>
             
             <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
@@ -694,6 +700,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         {/* Tab Content */}
         <main style={{ padding: activeTab === 'plans' ? 'clamp(16px, 2.2vw, 32px)' : '32px', flex: 1 }}>
           
+          {activeTab === 'journey' && <FeatureFlagProvider organizationId="org_default"><PublicJourneyRequests /></FeatureFlagProvider>}
           {/* TAB 1: REDES & IGREJAS ATIVAS */}
           {activeTab === 'orgs' && (
             <div>

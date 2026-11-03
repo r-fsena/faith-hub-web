@@ -171,8 +171,7 @@ export function StudioExperienceProvider({
     if (organizationId) automatic.add('organization');
     if (canConfigureOrganization && campusesCount > 0) automatic.add('campus');
     if (canConfigureOrganization && brandingConfigured) automatic.add('branding');
-    if (canConfigureOrganization && membersCount > 0) automatic.add('members');
-    if (activeTab && !WORKSPACE_TABS.has(activeTab)) automatic.add('first_module');
+    if (canConfigureOrganization && membersCount > 1) automatic.add('members');
     if (!automatic.size) return;
     commit(current => {
       const merged = [...new Set([...current.onboarding_steps, ...automatic])];

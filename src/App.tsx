@@ -39,6 +39,7 @@ import { StudioHelpButton, StudioOnboardingCard, StudioOnboardingModal } from '.
 import { StudioVersionResolver, type StudioVersion, type StudioVersionOverride } from './v2/StudioVersionResolver';
 import { getAuthHeaders } from './services/apiClient';
 import { SignOutIcon, StudioAccountMenu } from './components/StudioAccountMenu';
+import { PublicJourneyOnboarding } from './components/PublicJourney';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -817,6 +818,9 @@ function App() {
   const formattedUserName = userName.charAt(0).toUpperCase() + userName.slice(1);
 
   // SE NÃO SELECIONOU UMA ORGANIZAÇÃO/REDE E FOR SUPERADMIN, EXIBE A TELA DO HUB MASTER!
+  if (!selectedOrganization && !isSuperAdmin) {
+    return <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'#f4f8fa',padding:24}}><section style={{maxWidth:520,padding:36,background:'white',borderRadius:20,lineHeight:1.8}}><h1 style={{fontSize:25}}>Seu ambiente está em preparação</h1><p>Acompanhe sua contratação ou solicitação de teste no site. Se já recebeu a confirmação, atualize a página para carregar seu acesso.</p><a className="pj-button" href="https://faithhubs.com/ativacao">Acompanhar ativação</a><button onClick={()=>window.location.reload()} style={{display:'block',marginTop:20,color:'#0f766e'}}>Atualizar acesso</button><button onClick={()=>void handleSignOut()} style={{display:'block',marginTop:16,color:'#b91c1c'}}>Sair da conta</button></section></div>;
+  }
   if (!selectedOrganization) {
     return (
       <OrganizationSelector
@@ -826,6 +830,13 @@ function App() {
         userEmail={user?.signInDetails?.loginId || userProfile?.email || ''}
       />
     );
+  }
+
+  if (!isSuperAdmin && selectedOrganization.trial_pending_start) {
+    return <FeatureFlagProvider organizationId={selectedOrganization.id}><div style={{minHeight:'100vh',padding:'50px 20px',maxWidth:900,margin:'auto'}}><PublicJourneyOnboarding organizationId={selectedOrganization.id} onNavigate={()=>{}} onActivated={()=>window.location.reload()} /><button className="studio-sign-out" onClick={()=>void handleSignOut()}>Sair da conta</button></div></FeatureFlagProvider>;
+  }
+  if (!isSuperAdmin && selectedOrganization.trial_expires_at && new Date(selectedOrganization.trial_expires_at).getTime() <= Date.now()) {
+    return <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'#f4f8fa',padding:24}}><section style={{maxWidth:500,padding:36,background:'white',borderRadius:20,border:'1px solid #dfebe8',lineHeight:1.8}}><h1 style={{fontSize:25}}>Seu teste Conectar terminou</h1><p>Contrate um plano para continuar usando a igreja. A conversão mantém o mesmo ambiente e seus dados, sem uma nova importação.</p><a href="https://faithhubs.com/contratar" className="pj-button" style={{marginTop:20,textDecoration:'none'}}>Contratar e manter meus dados</a><button onClick={()=>void handleSignOut()} style={{display:'block',marginTop:18,color:'#b91c1c'}}>Sair da conta</button></section></div>;
   }
 
   // SE A ORGANIZAÇÃO ESTIVER INATIVA E O USUÁRIO NÃO FOR MASTER SUPERADMIN, BLOQUEIA O ACESSO AO STUDIO!
@@ -1233,6 +1244,7 @@ function App() {
 
           {/* Page Container */}
           <div className="page-container">
+            <PublicJourneyOnboarding organizationId={selectedOrganization.id} onNavigate={navigateToTab} />
             {studioVersion === 'v2' && (
               <Suspense fallback={null}>
                 <StudioContextNavigationV2
