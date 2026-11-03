@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
-    "test:commercial": "node tests/commercial-flow.browser.cjs"
+    "test:commercial": "node tests/commercial-flow.browser.cjs",
+    "test:sign-out": "node tests/studio-sign-out.browser.cjs"
   },
   "dependencies": {
     "aws-amplify": "^6.22.2",

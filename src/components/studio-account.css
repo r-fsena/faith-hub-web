@@ -1,0 +1,15 @@
+.studio-account { position: relative; flex-shrink: 0; }
+.studio-account-trigger { border: 1px solid transparent; cursor: pointer; }
+.studio-account-trigger:hover { box-shadow: 0 0 0 4px var(--accent-primary-light, #f0fdfa); }
+.studio-account-trigger:focus-visible, .studio-sign-out:focus-visible { outline: 3px solid var(--accent-primary, #0f766e); outline-offset: 3px; }
+.studio-account-panel { position: absolute; top: calc(100% + 12px); right: 0; z-index: 70; width: 280px; max-width: calc(100vw - 28px); background: #fff; border: 1px solid var(--panel-border, #e2e8f0); border-radius: 14px; padding: 8px; box-shadow: 0 12px 36px #0f172a24; color: #1e293b; }
+.studio-account-identity { display: flex; flex-direction: column; gap: 5px; padding: 12px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; overflow-wrap: anywhere; }
+.studio-account-identity strong { font-size: .87rem; font-weight: 750; }
+.studio-account-identity span { font-size: .77rem; color: #64748b; }
+.studio-account-identity small { font-size: .7rem; color: #64748b; }
+.studio-sign-out { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; border: 1px solid transparent; border-radius: 9px; padding: 10px 12px; background: #fff; color: #b91c1c; font: inherit; font-size: .82rem; font-weight: 650; cursor: pointer; text-align: left; }
+.studio-sign-out svg { flex-shrink: 0; }
+.studio-sign-out:hover:not(:disabled) { background: #fff1f2; border-color: #ffe4e6; }
+.studio-sign-out:disabled { opacity: .6; cursor: wait; }
+.sidebar-footer > .studio-sign-out { border-color: #e2e8f0; }
+.studio-sign-out-error { margin: 8px 4px 4px; padding: 9px 10px; border-radius: 8px; font-size: .76rem; line-height: 1.5; background: #fff1f2; color: #9f1239; }

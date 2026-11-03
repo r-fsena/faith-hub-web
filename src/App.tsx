@@ -38,6 +38,7 @@ import { StudioCommandPalette, StudioFavoritesNav, StudioSearchTrigger } from '.
 import { StudioHelpButton, StudioOnboardingCard, StudioOnboardingModal } from './components/StudioOnboarding';
 import { StudioVersionResolver, type StudioVersion, type StudioVersionOverride } from './v2/StudioVersionResolver';
 import { getAuthHeaders } from './services/apiClient';
+import { SignOutIcon, StudioAccountMenu } from './components/StudioAccountMenu';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
@@ -338,6 +339,8 @@ function App() {
   const [studioVersion, setStudioVersion] = useState<StudioVersion>(initialVersionOverride || 'v1');
   const [isAuthenticated, setIsAuthenticated] = useState(isDemo);
   const [isLoadingAuth, setIsLoadingAuth] = useState(!isDemo);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
   const [user, setUser] = useState<any>(isDemo ? { signInDetails: { loginId: 'pastor@igrejaviva.com.br' } } : null);
 
   // User Profile & Multi-Tenancy Segregation State
@@ -493,6 +496,21 @@ function App() {
     return () => window.removeEventListener('church-branding-updated', handleBrandingUpdated);
   }, []);
 
+  const clearStudioSession = useCallback(() => {
+    localStorage.removeItem('faithhub_active_org');
+    localStorage.removeItem('faithhub_studio_demo');
+    setIsAuthenticated(false);
+    setUser(null);
+    setUserProfile(null);
+    setIsSuperAdmin(false);
+    setSelectedOrganization(null);
+    setAllowedCampusIds([]);
+    setCampuses([]);
+    setSelectedCampusId('all');
+    setIsMobileSidebarOpen(false);
+    setIsCampusDropdownOpen(false);
+  }, []);
+
   useEffect(() => {
     checkAuth();
 
@@ -502,10 +520,7 @@ function App() {
           checkAuth();
           break;
         case 'signedOut':
-          setIsAuthenticated(false);
-          setUser(null);
-          setUserProfile(null);
-          setIsSuperAdmin(false);
+          clearStudioSession();
           break;
       }
     });
@@ -719,11 +734,17 @@ function App() {
   };
 
   const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    setSignOutError('');
     try {
-      localStorage.removeItem('faithhub_active_org');
       await signOut();
+      clearStudioSession();
     } catch (error) {
       console.error('Error signing out: ', error);
+      setSignOutError('Não foi possível sair da conta. Tente novamente.');
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
@@ -1141,6 +1162,10 @@ function App() {
                 </button>
               )}
             </div>
+            <button type="button" className="studio-sign-out" disabled={isSigningOut} onClick={() => { void handleSignOut(); }}>
+              <SignOutIcon />{isSigningOut ? 'Saindo…' : 'Sair da conta'}
+            </button>
+            {signOutError && <p className="studio-sign-out-error" role="alert">{signOutError}</p>}
           </div>
         </aside>
 
@@ -1195,9 +1220,14 @@ function App() {
                   <SettingsIcon />
                 </button>
               )}
-              <div className="user-avatar-circle" style={{ cursor: 'pointer' }}>
-                {formattedUserName.charAt(0)}
-              </div>
+              <StudioAccountMenu
+                name={formattedUserName}
+                email={userProfile?.email || user?.signInDetails?.loginId}
+                role={isSuperAdmin ? 'Administrador Master' : (userProfile?.role || 'Liderança')}
+                pending={isSigningOut}
+                error={signOutError}
+                onSignOut={handleSignOut}
+              />
             </div>
           </header>
 
