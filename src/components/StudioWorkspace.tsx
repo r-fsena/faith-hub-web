@@ -68,8 +68,8 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
     guidance: 'Comece pelas pessoas que precisam de acompanhamento e use os cadastros como fonte única de informação.',
     actions: [
       { tab: 'membros', icon: '👤', title: 'Membros', description: 'Cadastros, perfis, equipes e permissões.', featureFlag: 'members.module_enabled', emphasis: true },
-      { tab: 'visitantes', icon: '🤝', title: 'Visitantes', description: 'Acolhimento, contatos e jornada de integração.', featureFlag: 'cell_groups.module_enabled' },
-      { tab: 'pastoral_radar', icon: '❤️', title: 'Cuidado pastoral', description: 'Sinais de atenção, retenção e acompanhamento.', featureFlag: 'cell_groups.module_enabled' },
+      { tab: 'visitantes', icon: '🤝', title: 'Visitantes', description: 'Acolhimento, contatos e jornada de integração.', featureFlag: 'visitors.module_enabled' },
+      { tab: 'pastoral_radar', icon: '❤️', title: 'Cuidado pastoral', description: 'Sinais de atenção, retenção e acompanhamento.', featureFlag: 'pastoral.module_enabled' },
       { tab: 'celulas', icon: '🏠', title: 'Células & redes', description: 'Grupos, lideranças e acompanhamento comunitário.', featureFlag: 'cell_groups.module_enabled' },
       { tab: 'oracoes', icon: '🙏', title: 'Orações & intercessão', description: 'Pedidos, cuidado e acompanhamento pastoral.', featureFlag: 'prayers.module_enabled' }
     ]
@@ -79,8 +79,8 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
     description: 'Organize ministérios, voluntários, escalas e a operação segura do Ministério Infantil.',
     guidance: 'Use esta área para preparar as equipes antes das programações e acompanhar a operação durante o culto.',
     actions: [
-      { tab: 'ministerios', icon: '🙌', title: 'Ministérios & voluntários', description: 'Crie ministérios, funções, líderes e equipes de voluntários.', featureFlag: 'cell_groups.module_enabled', emphasis: true },
-      { tab: 'escalas', icon: '📅', title: 'Escalas', description: 'Planeje cultos, distribua funções e acompanhe confirmações.', featureFlag: 'cell_groups.module_enabled', emphasis: true },
+      { tab: 'ministerios', icon: '🙌', title: 'Ministérios & voluntários', description: 'Crie ministérios, funções, líderes e equipes de voluntários.', featureFlag: 'ministries.module_enabled', emphasis: true },
+      { tab: 'escalas', icon: '📅', title: 'Escalas', description: 'Planeje cultos, distribua funções e acompanhe confirmações.', featureFlag: 'volunteers.module_enabled', emphasis: true },
       { tab: 'kids_workspace', icon: '🧸', title: 'Ministério Infantil', description: 'Acesse a central de operação do Kids.', featureFlag: 'kids.module_enabled', emphasis: true },
       { tab: 'kids_checkin', icon: '✅', title: 'Check-in Kids', description: 'Inicie rapidamente a recepção de crianças.', featureFlag: 'kids.express_kiosk_checkin' },
       { tab: 'kids_salas', icon: '🚸', title: 'Salas ao vivo', description: 'Ocupação, crianças presentes e chamados.', featureFlag: 'kids.live_rooms_dashboard' }
@@ -140,7 +140,7 @@ const WORKSPACES: Record<StudioWorkspaceKind, WorkspaceConfig> = {
     guidance: 'Confira primeiro as pendências financeiras e o saldo; depois avance para lançamentos, projetos ou conciliação.',
     actions: [
       { tab: 'financial_treasury', icon: '📈', title: 'Tesouraria & DRE', description: 'Entradas, saídas, saldo e relatórios.', featureFlag: 'financial.cashflow_ledger', emphasis: true },
-      { tab: 'financial_projects', icon: '🎯', title: 'Campanhas & projetos', description: 'Metas, arrecadações e acompanhamento.', featureFlag: 'financial.cashflow_ledger' },
+      { tab: 'financial_projects', icon: '🎯', title: 'Campanhas & projetos', description: 'Metas, arrecadações e acompanhamento.', featureFlag: 'financial.special_projects' },
       { tab: 'pagarme_financeiro', icon: '🔐', title: 'Gateway de pagamento', description: 'Conexão financeira, Pix e cartões.', featureFlag: 'financial.credit_card_gateway' }
     ]
   },
@@ -242,7 +242,7 @@ export function StudioWorkspace({
           return;
         }
 
-        if (kind === 'finance') {
+        if (kind === 'finance' && isFeatureEnabled('financial.cashflow_ledger')) {
           const headers = await getAuthHeaders();
           const [summaryResponse, projectsResponse] = await Promise.all([
             fetch(`${API_URL}/financial/summary?${params}`, { headers }),
@@ -298,7 +298,7 @@ export function StudioWorkspace({
 
     load();
     return () => { active = false; };
-  }, [campusId, campusesCount, kind, organizationId, overview, userRole]);
+  }, [campusId, campusesCount, kind, organizationId, overview, userRole, isFeatureEnabled]);
 
   return (
     <section className="studio-workspace animate-fade-in" aria-labelledby={`workspace-${kind}-title`}>

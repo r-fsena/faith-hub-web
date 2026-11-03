@@ -17,6 +17,10 @@ export interface Organization {
   status: string;
   total_campuses?: number;
   total_members?: number;
+  active_members?: number;
+  active_campuses?: number;
+  plan_contract?: { name: string; monthly_price: number; max_members: number; max_campuses: number };
+  capacity_warning?: string;
   created_at?: string;
 }
 
@@ -98,11 +102,14 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     primary_color: string;
     secondary_color: string;
     status: string;
+    monthly_amount?: string;
+    max_members?: string;
+    max_campuses?: string;
   }>({
     name: '',
     slug: '',
     cnpj: '',
-    plan: 'PRO',
+    plan: 'CONECTAR',
     primary_color: '#0f766e',
     secondary_color: '#14b8a6',
     status: 'ACTIVE'
@@ -133,9 +140,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
     contact_name: '',
     contact_email: '',
     contact_phone: '',
-    plan_tier: 'PRO',
+    plan_tier: 'CONECTAR',
     billing_cycle: 'MONTHLY',
-    monthly_amount: '297',
+    monthly_amount: '99',
+    max_members: '300',
+    max_campuses: '1',
     setup_fee: '0',
     suggested_slug: '',
     expires_days: '15',
@@ -294,7 +303,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       name: org.name,
       slug: org.slug,
       cnpj: org.cnpj || '',
-      plan: org.plan || 'PRO',
+      plan: org.plan || 'CONECTAR',
+      monthly_amount: org.plan_contract ? String(org.plan_contract.monthly_price) : '',
+      max_members: org.plan_contract ? String(org.plan_contract.max_members) : '',
+      max_campuses: org.plan_contract ? String(org.plan_contract.max_campuses) : '',
       primary_color: org.primary_color || '#0f766e',
       secondary_color: org.secondary_color || '#14b8a6',
       status: org.status || 'ACTIVE'
@@ -308,7 +320,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       name: '',
       slug: '',
       cnpj: '',
-      plan: 'PRO',
+      plan: 'CONECTAR',
       primary_color: '#0f766e',
       secondary_color: '#14b8a6',
       status: 'ACTIVE'
@@ -318,13 +330,16 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
 
   const handleSaveOrg = async (e: React.FormEvent) => {
     e.preventDefault();
+    const original = organizations.find(org => org.id === editingOrgId);
+    const planChanged = Boolean(original && original.plan !== orgFormData.plan);
+    if (planChanged && !confirm('Mudar os módulos contratados deste ambiente? Os dados serão preservados. Revise a cobrança separadamente antes de confirmar.')) return;
     setSavingOrg(true);
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/organizations`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(orgFormData)
+        body: JSON.stringify({ ...orgFormData, confirm_plan_change: planChanged })
       });
       if (res.ok) {
         setIsOrgModalOpen(false);
@@ -333,7 +348,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           name: '',
           slug: '',
           cnpj: '',
-          plan: 'PRO',
+          plan: 'CONECTAR',
           primary_color: '#0f766e',
           secondary_color: '#14b8a6',
           status: 'ACTIVE'
@@ -357,7 +372,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       setProposalForm(prev => ({
         ...prev,
         plan_tier: planId,
-        monthly_amount: String(selected.monthly_price)
+        monthly_amount: selected.monthly_price === null ? '' : String(selected.monthly_price),
+        max_members: selected.max_members === null ? '' : String(selected.max_members),
+        max_campuses: selected.max_campuses === null ? '' : String(selected.max_campuses),
+        billing_cycle: 'MONTHLY'
       }));
     } else {
       setProposalForm(prev => ({ ...prev, plan_tier: planId }));
@@ -390,9 +408,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
           contact_name: '',
           contact_email: '',
           contact_phone: '',
-          plan_tier: 'PRO',
+          plan_tier: 'CONECTAR',
           billing_cycle: 'MONTHLY',
-          monthly_amount: '297',
+          monthly_amount: '99',
+    max_members: '300',
+    max_campuses: '1',
           setup_fee: '0',
           suggested_slug: '',
           expires_days: '15',
@@ -404,9 +424,12 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         });
         fetchProposals();
         alert(`✓ Proposta comercial gerada com sucesso!\nLink: ${data.proposal.proposal_url}`);
+      } else {
+        const error = await res.json();
+        throw new Error(error.message || 'Erro ao criar proposta');
       }
     } catch (e) {
-      alert('Erro ao criar proposta comercial');
+      alert((e as Error).message || 'Erro ao criar proposta comercial');
     } finally {
       setSavingProposal(false);
     }
@@ -714,7 +737,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
               <div style={{ fontSize: '0.70rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>💵 MRR Ativo (Asaas)</div>
               <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#059669', marginTop: '2px' }}>
-                R$ {Number(proposalStats.active_mrr || (organizations.length * 297)).toFixed(2).replace('.', ',')}
+                R$ {Number(proposalStats.active_mrr || 0).toFixed(2).replace('.', ',')}
               </div>
             </div>
 
@@ -843,6 +866,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                               </div>
                             </div>
 
+                            {org.capacity_warning && <p role="status" style={{ color: '#b45309', fontSize: '.78rem' }}>{org.capacity_warning}</p>}
                             {/* Plan Badge + 3-Dots Menu Button */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                               {isInactive ? (
@@ -851,7 +875,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                                 </span>
                               ) : (
                                 <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '0.70rem', fontWeight: 800 }}>
-                                  {org.plan || 'PRO'}
+                                  {org.plan_contract?.name || org.plan || 'Plano legado'}
                                 </span>
                               )}
 
@@ -1280,7 +1304,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                             {sub.church_name || sub.org_name || 'Igreja Cliente'}
                           </td>
                           <td style={{ padding: '16px 18px', fontWeight: 800, color: 'var(--accent-primary)' }}>
-                            R$ {Number(sub.value || 297).toFixed(2).replace('.', ',')}
+                            R$ {Number(sub.value || 0).toFixed(2).replace('.', ',')}
                           </td>
                           <td style={{ padding: '16px 18px', color: 'var(--text-secondary)' }}>
                             {sub.cycle === 'YEARLY' ? 'Anual' : 'Mensal'}
@@ -1779,15 +1803,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                     {availablePlans.length > 0 ? (
                       availablePlans.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name} (R$ {Number(p.monthly_price).toFixed(0)}/mês)
+                          {p.name} ({p.monthly_price === null ? 'Sob proposta' : `R$ ${Number(p.monthly_price).toFixed(0)}/mês`})
                         </option>
                       ))
                     ) : (
-                      <>
-                        <option value="STARTER">Starter</option>
-                        <option value="PRO">Pro</option>
-                        <option value="ENTERPRISE">Enterprise</option>
-                      </>
+                      <option value="">Carregue o catálogo comercial</option>
                     )}
                   </select>
                 </div>
@@ -1813,10 +1833,16 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                     style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
                   >
                     <option value="MONTHLY">Mensal</option>
-                    <option value="YEARLY">Anual</option>
+                    {availablePlans.find(plan => plan.id === proposalForm.plan_tier)?.yearly_price && <option value="YEARLY">Anual contratado</option>}
                   </select>
                 </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <label>Membros ativos no total da organização<input style={{ width: '100%', padding: 10 }} type="number" min="1" step="1" required value={proposalForm.max_members} onChange={event => setProposalForm({ ...proposalForm, max_members: event.target.value })} /></label>
+                <label>Unidades, incluindo a sede<input style={{ width: '100%', padding: 10 }} type="number" min="1" step="1" required value={proposalForm.max_campuses} onChange={event => setProposalForm({ ...proposalForm, max_campuses: event.target.value })} /></label>
+              </div>
+              <p>Os limites são compartilhados na organização. Enterprise exige preço e capacidades definidos. Nenhum plano significa capacidade ilimitada.</p>
 
               {/* Commercial Conditions & Discounts Section */}
               <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
@@ -2094,16 +2120,20 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Plano Contratado</label>
                   <select
                     value={orgFormData.plan}
-                    onChange={e => setOrgFormData({ ...orgFormData, plan: e.target.value })}
+                    onChange={e => setOrgFormData({ ...orgFormData, plan: e.target.value, monthly_amount: '', max_members: '', max_campuses: '' })}
                     style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box', fontWeight: 700 }}
                   >
-                    <option value="START">START</option>
-                    <option value="PRO">PRO</option>
-                    <option value="KINGDOM">KINGDOM</option>
-                    <option value="ENTERPRISE">ENTERPRISE</option>
+                    {editingOrgId && !availablePlans.some(plan => plan.id === orgFormData.plan) && <option value={orgFormData.plan}>{orgFormData.plan} — contrato legado</option>}
+                    {availablePlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
                   </select>
                 </div>
               </div>
+
+              {availablePlans.find(plan => plan.id === orgFormData.plan)?.requires_proposal && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <label>Mensalidade contratada<input type="number" min="0.01" step="0.01" required value={orgFormData.monthly_amount || ''} onChange={event => setOrgFormData({ ...orgFormData, monthly_amount: event.target.value })} /></label>
+                <label>Membros ativos no total<input type="number" min="1" step="1" required value={orgFormData.max_members || ''} onChange={event => setOrgFormData({ ...orgFormData, max_members: event.target.value })} /></label>
+                <label>Unidades incluindo a sede<input type="number" min="1" step="1" required value={orgFormData.max_campuses || ''} onChange={event => setOrgFormData({ ...orgFormData, max_campuses: event.target.value })} /></label>
+              </div>}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>

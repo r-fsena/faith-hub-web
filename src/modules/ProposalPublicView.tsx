@@ -24,6 +24,7 @@ interface ProposalData {
   contact_email: string;
   contact_phone?: string;
   plan_tier: string;
+  plan_contract?: { name: string; max_members: number; max_campuses: number };
   billing_cycle: string;
   monthly_amount: number;
   setup_fee: number;
@@ -243,13 +244,14 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
               </div>
             </div>
 
+            {proposal.plan_contract && <p>Até {proposal.plan_contract.max_members.toLocaleString('pt-BR')} membros ativos no total da organização e {proposal.plan_contract.max_campuses} unidade(s), incluindo a sede. A capacidade é compartilhada entre as unidades.</p>}
             {/* Grid de Condições Financeiras */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
               
               {/* Card Plano & Mensalidade */}
               <div style={{ background: isFirstFree ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius: '20px', padding: '24px', color: '#ffffff', boxShadow: isFirstFree ? '0 10px 25px rgba(5, 150, 105, 0.25)' : '0 10px 25px rgba(2, 132, 199, 0.25)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.9 }}>
-                  PLANO RECOMENDADO • {proposal.plan_tier}
+                  PLANO • {proposal.plan_contract?.name || proposal.plan_tier}
                 </span>
 
                 {isFirstFree ? (

@@ -8,6 +8,7 @@ export interface FeatureFlagItem {
   description: string;
   enabled: boolean;
   hasOverride: boolean;
+  contracted?: boolean;
   config?: any;
 }
 

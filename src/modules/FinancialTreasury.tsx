@@ -168,6 +168,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     }
   }, [initialSubTab]);
   const { isFeatureEnabled } = useFeatureFlags();
+  const treasuryEnabled = isFeatureEnabled('financial.cashflow_ledger');
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [projects, setProjects] = useState<SpecialProject[]>([]);
@@ -244,7 +245,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
 
   useEffect(() => {
     loadAllFinancialData();
-  }, [orgId, selectedCampusId]);
+  }, [orgId, selectedCampusId, treasuryEnabled]);
 
   const loadAllFinancialData = async () => {
     setLoading(true);
@@ -258,17 +259,17 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       const headers = await getAuthHeaders();
 
       const [transRes, summaryRes, projRes] = await Promise.all([
-        fetch(`${API_URL}/financial/transactions?${params.toString()}`, { headers }),
-        fetch(`${API_URL}/financial/summary?${params.toString()}`, { headers }),
+        treasuryEnabled ? fetch(`${API_URL}/financial/transactions?${params.toString()}`, { headers }) : Promise.resolve(null),
+        treasuryEnabled ? fetch(`${API_URL}/financial/summary?${params.toString()}`, { headers }) : Promise.resolve(null),
         fetch(`${API_URL}/financial/projects?organization_id=${orgId}`, { headers })
       ]);
 
-      if (transRes.ok) {
+      if (transRes?.ok) {
         const json = await transRes.json();
         setTransactions(json.data || []);
       }
 
-      if (summaryRes.ok) {
+      if (summaryRes?.ok) {
         const sumJson = await summaryRes.json();
         setSummary({
           ...(sumJson.summary || {}),

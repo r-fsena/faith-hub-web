@@ -1,3 +1,4 @@
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthHeaders } from '../services/apiClient';
 import './OperationsOverview.css';
@@ -43,6 +44,7 @@ function rate(part: unknown, total: unknown): string {
 }
 
 export function ContentOverview({ organizationId, campusId, onNavigate }: Props) {
+  const { isFeatureEnabled } = useFeatureFlags();
   const initial = useMemo(() => presetRange('current_month'), []);
   const [preset, setPreset] = useState<PeriodPreset>('current_month');
   const [startDate, setStartDate] = useState(initial.start);
@@ -110,7 +112,7 @@ export function ContentOverview({ organizationId, campusId, onNavigate }: Props)
         <div className="operations-kpi tone-violet"><span>Interações reais</span><strong>{n(data.summary.interactions)}</strong><small>Aberturas, inícios e ações</small></div>
         <div className="operations-kpi tone-amber"><span>Conclusões</span><strong>{n(data.summary.completions) + n(data.studies.completed_chapters)}</strong><small>Jornadas concluídas no período</small></div>
       </div>
-      <div className="content-module-grid">{modules.map(module => <button type="button" key={module.key} className="content-module-card" onClick={() => onNavigate(module.tab)}>
+      <div className="content-module-grid">{modules.filter(module => module.key !== 'events' || isFeatureEnabled('events.module_enabled')).map(module => <button type="button" key={module.key} className="content-module-card" onClick={() => onNavigate(module.tab)}>
         <div className="content-module-heading"><span>{module.icon}</span><div><strong>{module.title}</strong><small>Monitoramento ativo</small></div><b>→</b></div>
         <div className="content-module-facts">{module.facts.map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}</div>
       </button>)}</div>

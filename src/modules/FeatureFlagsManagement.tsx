@@ -85,41 +85,14 @@ export const FeatureFlagsManagement: React.FC<FeatureFlagsManagementProps> = ({
     }
   };
 
-  const handleApplyPreset = async (presetPlan: 'STARTER' | 'PRO' | 'ENTERPRISE') => {
-    if (!window.confirm(`Deseja aplicar o preset de funcionalidades do plano ${presetPlan}?`)) {
-      return;
-    }
-
+  const handleApplyContract = async () => {
+    if (!window.confirm('Reativar os recursos contratados neste ambiente?')) return;
     setIsProcessing(true);
-    const updates: Array<{ feature_key: string; is_enabled: boolean }> = [];
-
-    catalog.forEach(item => {
-      let shouldEnable = true;
-      if (presetPlan === 'STARTER') {
-        if (
-          item.key.startsWith('pdv.') ||
-          item.key.includes('express_kiosk') ||
-          item.key.includes('thermal_badge') ||
-          item.key.includes('multicampus') ||
-          item.key.includes('custom_domain')
-        ) {
-          shouldEnable = false;
-        }
-      } else if (presetPlan === 'PRO') {
-        if (item.key.includes('custom_domain') || item.key.includes('delivery_mode_home')) {
-          shouldEnable = false;
-        }
-      }
-      updates.push({ feature_key: item.key, is_enabled: shouldEnable });
-    });
-
+    const updates = catalog.filter(item => item.contracted === true && item.key !== 'system.plan_entitlements')
+      .map(item => ({ feature_key: item.key, is_enabled: true }));
     const ok = await batchUpdateFlags(updates);
     setIsProcessing(false);
-    if (ok) {
-      showToast(`Preset do plano ${presetPlan} aplicado com sucesso!`);
-    } else {
-      showToast(`Erro ao aplicar o preset do plano ${presetPlan}.`, 'error');
-    }
+    showToast(ok ? 'Recursos contratados reativados.' : 'Não foi possível reativar os recursos.', ok ? 'success' : 'error');
   };
 
   const handleResetOverrides = async () => {
@@ -305,55 +278,7 @@ export const FeatureFlagsManagement: React.FC<FeatureFlagsManagementProps> = ({
 
         {/* Quick Presets */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Presets Rápidos:</span>
-          <button
-            onClick={() => handleApplyPreset('STARTER')}
-            disabled={isProcessing}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: '#f1f5f9',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            STARTER
-          </button>
-          <button
-            onClick={() => handleApplyPreset('PRO')}
-            disabled={isProcessing}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: 'rgba(15, 118, 110, 0.1)',
-              color: '#0f766e',
-              border: '1px solid rgba(15, 118, 110, 0.3)',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            PRO
-          </button>
-          <button
-            onClick={() => handleApplyPreset('ENTERPRISE')}
-            disabled={isProcessing}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: 'rgba(99, 102, 241, 0.1)',
-              color: '#6366f1',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            ENTERPRISE
-          </button>
+          <button onClick={handleApplyContract} disabled={isProcessing || !catalog.some(item => item.contracted === true)}>Reativar recursos contratados</button>
           <button
             onClick={handleResetOverrides}
             disabled={isProcessing}
@@ -641,7 +566,8 @@ export const FeatureFlagsManagement: React.FC<FeatureFlagsManagementProps> = ({
                   <input
                     type="checkbox"
                     checked={isEnabled}
-                    disabled={isProcessing}
+                    title={item.contracted === false ? 'Recurso não contratado' : undefined}
+                    disabled={isProcessing || item.contracted === false || item.key === 'system.plan_entitlements'}
                     onChange={() => handleToggle(item.key, isEnabled)}
                     style={{ opacity: 0, width: 0, height: 0 }}
                   />

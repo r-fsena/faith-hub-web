@@ -153,10 +153,10 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
   const pendingInvoice = invoices.find(i => i.status === 'PENDING' || i.status === 'OVERDUE');
 
   // Determina o nome do plano de forma resiliente
-  const effectivePlanName = subscription?.plan_name || (selectedOrganization?.plan === 'ENTERPRISE' ? 'Enterprise' : selectedOrganization?.plan === 'STARTER' ? 'Starter' : 'Pro');
-  const effectiveBadge = subscription?.plan_badge || (selectedOrganization?.plan === 'ENTERPRISE' ? 'Redes & Sedes' : selectedOrganization?.plan === 'STARTER' ? 'Iniciante' : 'Mais Popular');
+  const effectivePlanName = subscription?.plan_name || selectedOrganization?.plan_contract?.name || selectedOrganization?.plan || 'Plano contratado';
+  const effectiveBadge = subscription?.plan_badge || effectivePlanName;
   const isYearly = subscription?.cycle === 'YEARLY';
-  const effectiveValue = Number(subscription?.value || (selectedOrganization?.plan === 'ENTERPRISE' ? 597 : selectedOrganization?.plan === 'STARTER' ? 99 : 399.90));
+  const effectiveValue = subscription?.value == null ? null : Number(subscription.value);
 
   return (
     <div className="members-container animate-fade-in" style={{ paddingBottom: '60px' }}>
@@ -229,7 +229,7 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
             Faith-Hub {effectivePlanName}
           </h2>
           <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#38bdf8', marginBottom: '16px' }}>
-            {formatCurrency(effectiveValue)} <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>{isYearly ? '/ ano' : '/ mês'}</span>
+            {effectiveValue === null ? 'Consulte as condições contratadas' : formatCurrency(effectiveValue)} <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>{effectiveValue === null ? '' : isYearly ? '/ ano' : '/ mês'}</span>
           </div>
 
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: '#cbd5e1' }}>
@@ -238,14 +238,11 @@ export const MySubscription: React.FC<MySubscriptionProps> = ({ selectedOrganiza
                 <div key={idx}>✓ {feat}</div>
               ))
             ) : (
-              <>
-                <div>✓ Aplicativo PWA Whitelabel Personalizado</div>
-                <div>✓ Membros, Células, Ensino & Dízimos Ilimitados</div>
-                <div>✓ Módulo Financeiro, DRE e Gateway Pagar.me</div>
-                <div>✓ Notificações Push & Central de Cultos</div>
-                <div>✓ Suporte Dedicado & Nuvem Serverless AWS</div>
-              </>
+              <p>Consulte os módulos disponíveis e as condições da sua proposta.</p>
             )}
+            {subscription?.max_members && <div>Até {subscription.max_members} membros ativos no total da organização</div>}
+            {subscription?.max_campuses && <div>Até {subscription.max_campuses} unidade(s), incluindo a sede</div>}
+            {selectedOrganization?.capacity_warning && <p role="status">{selectedOrganization.capacity_warning}</p>}
           </div>
         </div>
 

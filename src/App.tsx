@@ -1,3 +1,4 @@
+import { PlanModuleBoundary } from './components/PlanModuleBoundary';
 import { lazy, Suspense, useCallback, useState, useEffect, useMemo } from 'react';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
@@ -151,7 +152,7 @@ const navigationGroups: NavigationCategory[] = [
         id: 'ministries_workspace',
         label: 'Equipes & Ministérios',
         icon: HeartIcon,
-        visibleWhenAny: ['cell_groups.module_enabled', 'kids.module_enabled'],
+        visibleWhenAny: ['ministries.module_enabled', 'volunteers.module_enabled', 'kids.module_enabled'],
         matchTabs: ['ministerios', 'escalas', 'kids_workspace', 'kids_salas', 'kids_checkin', 'kids_chamados', 'kids_familias', 'kids_config_salas', 'kids_relatorios', 'kids_ministerio']
       },
       {
@@ -1522,6 +1523,7 @@ function App() {
             {/* ==========================================
                 ACTIVE MODULE RENDERERS (Multi-Campus Enabled)
                 ========================================== */}
+            <PlanModuleBoundary tab={activeTab}>
             {workspaceKindsByTab[activeTab] && (
               <StudioWorkspace
                 kind={workspaceKindsByTab[activeTab]}
@@ -1626,6 +1628,7 @@ function App() {
               )}
               {activeTab === 'security_audit' && <SecurityAuditLogs selectedOrganization={selectedOrganization} />}
             </ErrorBoundary>
+            </PlanModuleBoundary>
 
             {/* Settings View */}
             {activeTab === 'configuracoes' && (
