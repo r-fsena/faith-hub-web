@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SaasPlans, type SaasPlan } from './SaasPlans';
+import { ProposalComposer, type ProposalDraft, type CreatedProposal } from '../components/commercial/ProposalComposer';
 import { getAuthHeaders } from '../services/apiClient';
+
+type MasterTab = 'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -82,7 +85,7 @@ interface OrganizationSelectorProps {
 }
 
 export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSelectOrg, onSignOut, userName, userEmail }) => {
-  const [activeTab, setActiveTab] = useState<'orgs' | 'proposals' | 'subscriptions' | 'plans' | 'master_users'>('orgs');
+  const [activeTab, setActiveTab] = useState<MasterTab>('orgs');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   
   // Organizations State
@@ -117,7 +120,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
 
   // Proposals Funnel State
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [proposalStats, setProposalStats] = useState<any>({
+  const [proposalStats, setProposalStats] = useState({
     total_proposals: 0,
     active_mrr: 0,
     pipeline_mrr: 0,
@@ -127,34 +130,12 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [proposalFilter, setProposalFilter] = useState('ALL');
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
-  const [savingProposal, setSavingProposal] = useState(false);
+  const [proposalPlan, setProposalPlan] = useState<SaasPlan | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   // Dynamic Plans State
   const [availablePlans, setAvailablePlans] = useState<SaasPlan[]>([]);
   
-  // New Proposal Form
-  const [proposalForm, setProposalForm] = useState({
-    church_name: '',
-    cnpj_cpf: '',
-    contact_name: '',
-    contact_email: '',
-    contact_phone: '',
-    plan_tier: 'CONECTAR',
-    billing_cycle: 'MONTHLY',
-    monthly_amount: '99',
-    max_members: '300',
-    max_campuses: '1',
-    setup_fee: '0',
-    suggested_slug: '',
-    expires_days: '15',
-    notes: '',
-    discount_type: 'NONE',
-    discount_value: '100',
-    discount_duration_months: '6',
-    notes_commercial: ''
-  });
-
   // Subscriptions State
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
@@ -291,7 +272,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       } else {
         alert('Erro ao atualizar status do ambiente.');
       }
-    } catch (e) {
+    } catch {
       alert('Erro ao conectar ao servidor.');
     }
   };
@@ -359,80 +340,30 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         const err = await res.json();
         alert(`Erro ao salvar organização: ${err.error || err.message}`);
       }
-    } catch (e) {
+    } catch {
       alert('Erro ao salvar organização');
     } finally {
       setSavingOrg(false);
     }
   };
 
-  const handlePlanChangeInProposal = (planId: string) => {
-    const selected = availablePlans.find(p => p.id === planId);
-    if (selected) {
-      setProposalForm(prev => ({
-        ...prev,
-        plan_tier: planId,
-        monthly_amount: selected.monthly_price === null ? '' : String(selected.monthly_price),
-        max_members: selected.max_members === null ? '' : String(selected.max_members),
-        max_campuses: selected.max_campuses === null ? '' : String(selected.max_campuses),
-        billing_cycle: 'MONTHLY'
-      }));
-    } else {
-      setProposalForm(prev => ({ ...prev, plan_tier: planId }));
-    }
-  };
-
-  const handleCreateProposal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingProposal(true);
-    try {
-      const headers = await getAuthHeaders();
-      const selectedPlan = availablePlans.find(p => p.id === proposalForm.plan_tier);
-      const res = await fetch(`${API_URL}/proposals`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          ...proposalForm,
-          discount_value: Number(proposalForm.discount_value || 0),
-          discount_duration_months: Number(proposalForm.discount_duration_months || 0),
-          features_included: selectedPlan?.features || undefined,
-          created_by: userName
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIsProposalModalOpen(false);
-        setProposalForm({
-          church_name: '',
-          cnpj_cpf: '',
-          contact_name: '',
-          contact_email: '',
-          contact_phone: '',
-          plan_tier: 'CONECTAR',
-          billing_cycle: 'MONTHLY',
-          monthly_amount: '99',
-    max_members: '300',
-    max_campuses: '1',
-          setup_fee: '0',
-          suggested_slug: '',
-          expires_days: '15',
-          notes: '',
-          discount_type: 'NONE',
-          discount_value: '100',
-          discount_duration_months: '6',
-          notes_commercial: ''
-        });
-        fetchProposals();
-        alert(`✓ Proposta comercial gerada com sucesso!\nLink: ${data.proposal.proposal_url}`);
-      } else {
-        const error = await res.json();
-        throw new Error(error.message || 'Erro ao criar proposta');
-      }
-    } catch (e) {
-      alert((e as Error).message || 'Erro ao criar proposta comercial');
-    } finally {
-      setSavingProposal(false);
-    }
+  const handleCreateProposal = async (draft: ProposalDraft): Promise<CreatedProposal> => {
+    const selectedPlan = availablePlans.find(plan => plan.id === draft.plan_tier);
+    const res = await fetch(`${API_URL}/proposals`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({
+        ...draft,
+        discount_value: Number(draft.discount_value || 0),
+        discount_duration_months: Number(draft.discount_duration_months || 0),
+        features_included: selectedPlan?.features,
+        created_by: userName
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(res.status === 401 ? 'Sua sessão expirou. Entre novamente para gerar a proposta.' : data.message || data.error || 'Não foi possível gerar a proposta. Seus dados foram mantidos.');
+    void fetchProposals();
+    return data.proposal;
   };
 
   const handleSimulatePayment = async (proposalId: string) => {
@@ -452,7 +383,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       } else {
         alert(data.message || 'Erro na simulação');
       }
-    } catch (e) {
+    } catch {
       alert('Erro ao conectar na API');
     }
   };
@@ -486,7 +417,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         const err = await res.json();
         alert(`Erro ao criar usuário master: ${err.error || err.message}`);
       }
-    } catch (e) {
+    } catch {
       alert('Erro ao conectar no servidor.');
     } finally {
       setSavingUser(false);
@@ -509,8 +440,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       } else {
         alert(`Erro ao reenviar e-mail: ${data.error || data.message || 'Não foi possível concluir o reenvio.'}`);
       }
-    } catch (e: any) {
-      alert(`Erro de conexão ao reenviar convite: ${e.message || 'Verifique sua conexão de rede.'}`);
+    } catch (e: unknown) {
+      alert(`Erro de conexão ao reenviar convite: ${e instanceof Error ? e.message : 'Verifique sua conexão de rede.'}`);
     } finally {
       setActionLoadingEmail(null);
     }
@@ -543,8 +474,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       } else {
         alert(`Erro ao alterar status: ${data.error || data.message || 'Não foi possível alterar o status.'}`);
       }
-    } catch (e: any) {
-      alert(`Erro de conexão ao alterar status: ${e.message || 'Verifique sua conexão de rede.'}`);
+    } catch (e: unknown) {
+      alert(`Erro de conexão ao alterar status: ${e instanceof Error ? e.message : 'Verifique sua conexão de rede.'}`);
     } finally {
       setActionLoadingEmail(null);
     }
@@ -638,7 +569,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id as any); setIsMobileNavOpen(false); }}
+                onClick={() => { setActiveTab(tab.id as MasterTab); setIsMobileNavOpen(false); }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -708,7 +639,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
         
         {/* Top Executive KPI Bar */}
         <header style={{ background: '#ffffff', borderBottom: '1px solid var(--panel-border)', padding: '16px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: activeTab === 'plans' ? 0 : '14px' }}>
             <button 
               type="button" 
               className="hamburger-btn" 
@@ -722,11 +653,12 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               {activeTab === 'orgs' && 'Redes & Igrejas Ativas'}
               {activeTab === 'proposals' && 'Funil de Propostas Comerciais'}
               {activeTab === 'subscriptions' && 'Assinaturas & Faturamento Asaas'}
-              {activeTab === 'plans' && 'Planos & Preços SaaS'}
+              {activeTab === 'plans' && 'Planos e contratação'}
               {activeTab === 'master_users' && 'Equipe Master Global'}
             </h2>
           </div>
 
+          {activeTab !== 'plans' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '14px' }}>
             
             <div style={{ background: '#f8fafc', border: '1px solid var(--panel-border)', borderRadius: '14px', padding: '12px 16px' }}>
@@ -756,10 +688,11 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
             </div>
 
           </div>
+          )}
         </header>
 
         {/* Tab Content */}
-        <main style={{ padding: '32px', flex: 1 }}>
+        <main style={{ padding: activeTab === 'plans' ? 'clamp(16px, 2.2vw, 32px)' : '32px', flex: 1 }}>
           
           {/* TAB 1: REDES & IGREJAS ATIVAS */}
           {activeTab === 'orgs' && (
@@ -1117,7 +1050,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
                 </div>
 
                 <button
-                  onClick={() => setIsProposalModalOpen(true)}
+                  onClick={() => { setProposalPlan(null); setIsProposalModalOpen(true); }}
                   style={{
                     background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
                     color: '#ffffff',
@@ -1145,7 +1078,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '20px' }}>
                   {filteredProposals.map(prop => {
-                    const statusColors: any = {
+                    const statusColors: Record<string, { bg: string; text: string; label: string }> = {
                       SENT: { bg: '#fef3c7', text: '#d97706', label: 'Enviada' },
                       VIEWED: { bg: '#e0f2fe', text: '#0284c7', label: '👀 Visualizada pelo Pastor' },
                       ACCEPTED: { bg: '#fef9c3', text: '#ca8a04', label: '✍️ Aceita (Aguardando Pagto)' },
@@ -1338,7 +1271,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
 
           {/* TAB 4: PLANOS & PREÇOS SAAS */}
           {activeTab === 'plans' && (
-            <SaasPlans />
+            <SaasPlans onPlansChange={setAvailablePlans} onCreateProposal={plan => { setProposalPlan(plan); setIsProposalModalOpen(true); }} />
           )}
 
           {/* TAB 5: EQUIPE MASTER */}
@@ -1639,308 +1572,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ onSe
       {/* ========================================================
           MODAL: NOVA PROPOSTA COMERCIAL (PORTAL)
           ======================================================== */}
-      {isProposalModalOpen && createPortal(
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999999,
-            padding: '20px',
-            margin: 0,
-            boxSizing: 'border-box'
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsProposalModalOpen(false);
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#ffffff',
-              width: '100%',
-              maxWidth: '620px',
-              maxHeight: '90vh',
-              borderRadius: '24px',
-              boxShadow: '0 30px 80px rgba(0, 0, 0, 0.4)',
-              border: '1px solid #e2e8f0',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              position: 'relative',
-              margin: 'auto',
-              color: '#0f172a'
-            }}
-          >
-            <div style={{ padding: '22px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 900 }}>
-                  📄
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>
-                    Nova Proposta Comercial SaaS
-                  </h3>
-                  <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '2px 0 0 0' }}>
-                    Emita a proposta e envie o link de contratação para o pastor.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsProposalModalOpen(false)}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1rem',
-                  fontWeight: 700
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateProposal} style={{ padding: '24px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                  Nome da Igreja / Denominação *
-                </label>
-                <input
-                  type="text"
-                  value={proposalForm.church_name}
-                  onChange={e => setProposalForm({ ...proposalForm, church_name: e.target.value })}
-                  placeholder="Ex: Igreja Batista da Aliança"
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', outline: 'none', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    Nome do Pastor / Responsável *
-                  </label>
-                  <input
-                    type="text"
-                    value={proposalForm.contact_name}
-                    onChange={e => setProposalForm({ ...proposalForm, contact_name: e.target.value })}
-                    placeholder="Ex: Pr. Carlos Eduardo"
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    CNPJ / CPF
-                  </label>
-                  <input
-                    type="text"
-                    value={proposalForm.cnpj_cpf}
-                    onChange={e => setProposalForm({ ...proposalForm, cnpj_cpf: e.target.value })}
-                    placeholder="00.000.000/0001-00"
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    E-mail do Pastor (Login de Acesso) *
-                  </label>
-                  <input
-                    type="email"
-                    value={proposalForm.contact_email}
-                    onChange={e => setProposalForm({ ...proposalForm, contact_email: e.target.value })}
-                    placeholder="pastor@igreja.com.br"
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    WhatsApp de Contato
-                  </label>
-                  <input
-                    type="text"
-                    value={proposalForm.contact_phone}
-                    onChange={e => setProposalForm({ ...proposalForm, contact_phone: e.target.value })}
-                    placeholder="48999999999"
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    Plano Configurado
-                  </label>
-                  <select
-                    value={proposalForm.plan_tier}
-                    onChange={e => handlePlanChangeInProposal(e.target.value)}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                  >
-                    {availablePlans.length > 0 ? (
-                      availablePlans.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.monthly_price === null ? 'Sob proposta' : `R$ ${Number(p.monthly_price).toFixed(0)}/mês`})
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">Carregue o catálogo comercial</option>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    Mensalidade Padrão (R$) *
-                  </label>
-                  <input
-                    type="number"
-                    value={proposalForm.monthly_amount}
-                    onChange={e => setProposalForm({ ...proposalForm, monthly_amount: e.target.value })}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>
-                    Ciclo
-                  </label>
-                  <select
-                    value={proposalForm.billing_cycle}
-                    onChange={e => setProposalForm({ ...proposalForm, billing_cycle: e.target.value })}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                  >
-                    <option value="MONTHLY">Mensal</option>
-                    {availablePlans.find(plan => plan.id === proposalForm.plan_tier)?.yearly_price && <option value="YEARLY">Anual contratado</option>}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <label>Membros ativos no total da organização<input style={{ width: '100%', padding: 10 }} type="number" min="1" step="1" required value={proposalForm.max_members} onChange={event => setProposalForm({ ...proposalForm, max_members: event.target.value })} /></label>
-                <label>Unidades, incluindo a sede<input style={{ width: '100%', padding: 10 }} type="number" min="1" step="1" required value={proposalForm.max_campuses} onChange={event => setProposalForm({ ...proposalForm, max_campuses: event.target.value })} /></label>
-              </div>
-              <p>Os limites são compartilhados na organização. Enterprise exige preço e capacidades definidos. Nenhum plano significa capacidade ilimitada.</p>
-
-              {/* Commercial Conditions & Discounts Section */}
-              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '1rem' }}>🏷️</span>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f172a' }}>Condição Comercial Especial & Desconto</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' ? '1.2fr 1fr 1fr' : (proposalForm.discount_type === 'FIRST_MONTH_DISCOUNT' || proposalForm.discount_type === 'PERMANENT_DISCOUNT') ? '1.2fr 1fr' : '1fr', gap: '10px', marginBottom: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '4px', color: '#64748b' }}>Regra de Desconto</label>
-                    <select
-                      value={proposalForm.discount_type}
-                      onChange={e => setProposalForm({ ...proposalForm, discount_type: e.target.value })}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                    >
-                      <option value="NONE">Sem desconto (Preço Cheio Padrão)</option>
-                      <option value="FIRST_FREE">🎁 1ª Mensalidade Grátis (30 Dias Carência)</option>
-                      <option value="FIRST_MONTH_DISCOUNT">🏷️ Desconto na 1ª Mensalidade</option>
-                      <option value="RECURRING_MONTHS_DISCOUNT">⏳ Desconto Temporário por N Meses</option>
-                      <option value="PERMANENT_DISCOUNT">💎 Desconto Permanente</option>
-                    </select>
-                  </div>
-
-                  {(proposalForm.discount_type === 'FIRST_MONTH_DISCOUNT' || proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' || proposalForm.discount_type === 'PERMANENT_DISCOUNT') && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '4px', color: '#64748b' }}>Valor do Desconto (R$)</label>
-                      <input
-                        type="number"
-                        value={proposalForm.discount_value}
-                        onChange={e => setProposalForm({ ...proposalForm, discount_value: e.target.value })}
-                        placeholder="Ex: 100"
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                      />
-                    </div>
-                  )}
-
-                  {proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '4px', color: '#64748b' }}>Duração em Meses</label>
-                      <select
-                        value={proposalForm.discount_duration_months}
-                        onChange={e => setProposalForm({ ...proposalForm, discount_duration_months: e.target.value })}
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#0f172a', boxSizing: 'border-box' }}
-                      >
-                        <option value="2">2 meses</option>
-                        <option value="3">3 meses</option>
-                        <option value="6">6 meses</option>
-                        <option value="12">12 meses (1 ano)</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                {/* Preview Box */}
-                {proposalForm.discount_type === 'FIRST_FREE' && (
-                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 12px', borderRadius: '10px', fontSize: '0.76rem', color: '#065f46', fontWeight: 700 }}>
-                    🎁 <strong>Oferta Ativa:</strong> 1º Mês <strong>R$ 0,00</strong> (Provisionamento Imediato no Aceite). A partir do 2º mês: <strong>R$ {Number(proposalForm.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>.
-                  </div>
-                )}
-
-                {proposalForm.discount_type === 'RECURRING_MONTHS_DISCOUNT' && (
-                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 12px', borderRadius: '10px', fontSize: '0.76rem', color: '#1e40af', fontWeight: 700 }}>
-                    ⏳ <strong>Oferta Ativa:</strong> Meses 1 a {proposalForm.discount_duration_months}: <strong>R$ {Math.max(0, Number(proposalForm.monthly_amount) - Number(proposalForm.discount_value)).toFixed(2).replace('.', ',')}/mês</strong>. A partir do mês {Number(proposalForm.discount_duration_months) + 1}: <strong>R$ {Number(proposalForm.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>.
-                  </div>
-                )}
-
-                {proposalForm.discount_type === 'FIRST_MONTH_DISCOUNT' && (
-                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 12px', borderRadius: '10px', fontSize: '0.76rem', color: '#1e40af', fontWeight: 700 }}>
-                    🏷️ <strong>Oferta Ativa:</strong> 1º Mês: <strong>R$ {Math.max(0, Number(proposalForm.monthly_amount) - Number(proposalForm.discount_value)).toFixed(2).replace('.', ',')}</strong>. A partir do 2º mês: <strong>R$ {Number(proposalForm.monthly_amount).toFixed(2).replace('.', ',')}/mês</strong>.
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer Actions */}
-              <div style={{ display: 'flex', gap: '12px', marginTop: '10px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsProposalModalOpen(false)}
-                  style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#334155', cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingProposal}
-                  style={{ flex: 2, padding: '12px', borderRadius: '12px', fontWeight: 800, fontSize: '0.90rem', background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', color: '#ffffff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)' }}
-                >
-                  {savingProposal ? 'Gerando Proposta...' : '🚀 Gerar Proposta & Criar Link'}
-                </button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>,
-        document.body
-      )}
+      {isProposalModalOpen && <ProposalComposer
+        plans={availablePlans}
+        initialPlan={proposalPlan}
+        onClose={() => setIsProposalModalOpen(false)}
+        onSubmit={handleCreateProposal}
+        onViewFunnel={() => { setIsProposalModalOpen(false); setActiveTab('proposals'); }}
+      />}
 
       {/* ========================================================
           MODAL: NOVO USUÁRIO MASTER (PORTAL)
