@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './Members.css';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { getAuthHeaders } from '../services/apiClient';
 import { MemberTimeline360Modal } from '../components/MemberTimeline360Modal';
 
@@ -118,11 +119,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const [isImportModalOpen, setImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState<'upload' | 'preview' | 'result'>('upload');
   const [importFileName, setImportFileName] = useState('');
-  const [defaultPassword, setDefaultPassword] = useState('MembroFaith@2026');
+  const { isFeatureEnabled } = useFeatureFlags();
+  const invitationsAvailable = isFeatureEnabled('system.saas_member_import_invitations', false);
+  const [sendInvitations, setSendInvitations] = useState(true);
+  const [resendPending, setResendPending] = useState(false);
+  const [importProgress, setImportProgress] = useState('');
   const [importCampusId, setImportCampusId] = useState(selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede');
   const [parsedMembers, setParsedMembers] = useState<any[]>([]);
   const [isProcessingImport, setIsProcessingImport] = useState(false);
-  const [importResult, setImportResult] = useState<{ total: number; created: number; updated: number; errors: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; created: number; updated: number; errors: any[]; invitation_errors: any[]; invitations_requested: number; invitations_skipped: number } | null>(null);
 
   const handleDownloadTemplate = () => {
     const headers = [
@@ -132,6 +137,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       'Data de Nascimento',
       'Cargo',
       'Célula',
+      'Igreja',
+      'Unidade',
       'CEP',
       'Rua',
       'Número',
@@ -148,7 +155,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         '(11) 98765-4321',
         '15/04/1992',
         'Membro',
-        'Célula Betel',
+        '',
+        selectedOrganization?.name || '',
+        campusesList.find(c => c.id === importCampusId)?.name || campusesList[0]?.name || '',
         '01310-100',
         'Avenida Paulista',
         '1000',
@@ -163,7 +172,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         '(21) 99888-7766',
         '28/09/1988',
         'Líder de Célula',
-        'Célula Ágape',
+        '',
+        selectedOrganization?.name || '',
+        campusesList.find(c => c.id === importCampusId)?.name || campusesList[0]?.name || '',
         '22041-001',
         'Avenida Atlântica',
         '500',
@@ -247,7 +258,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         );
 
         const findIdx = (terms: string[]) => rawHeaders.findIndex(h => terms.some(t => h.includes(t)));
-        const nameIdx = findIdx(['nome', 'name']);
+        const nameIdx = rawHeaders.findIndex(h => ['nome', 'nomecompleto', 'name', 'fullname'].includes(h));
+        const campusIdx = findIdx(['unidade', 'filial', 'campus', 'congregacao']);
+        const orgIdx = rawHeaders.findIndex(h => ['igreja', 'organizacao', 'rede'].includes(h));
         const emailIdx = findIdx(['email', 'mail']);
         const phoneIdx = findIdx(['telefone', 'phone', 'celular', 'whatsapp', 'fone']);
         const birthIdx = findIdx(['nascimento', 'birth', 'aniversario']);
@@ -263,6 +276,8 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
         const existingEmails = new Set(members.map(m => (m.email || '').toLowerCase().trim()));
         const parsed: any[] = [];
+        const csvEmails = new Set<string>();
+        const normalize = (value: string) => value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
         for (let i = 1; i < lines.length; i++) {
           const row = parseCSVLine(lines[i], delimiter);
@@ -272,7 +287,12 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           const email = emailIdx !== -1 && row[emailIdx] ? row[emailIdx].toLowerCase().trim() : '';
           const phone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx] : '';
           const birth_date = birthIdx !== -1 && row[birthIdx] ? row[birthIdx] : '';
-          const role = roleIdx !== -1 && row[roleIdx] ? row[roleIdx] : 'Membro';
+          const role = roleIdx !== -1 && row[roleIdx] ? row[roleIdx] : '';
+          const campus_name = campusIdx !== -1 ? row[campusIdx] || '' : '';
+          const organization_name = orgIdx !== -1 ? row[orgIdx] || '' : '';
+          const campusMatches = campus_name ? campusesList.filter(c => c.id === campus_name || normalize(c.name) === normalize(campus_name)) : [];
+          const scopeError = organization_name && ![selectedOrganization?.id, selectedOrganization?.name, selectedOrganization?.slug].some(value => value && normalize(value) === normalize(organization_name))
+            ? 'Igreja diferente do ambiente aberto' : campus_name && campusMatches.length !== 1 ? 'Unidade inexistente ou ambígua nesta igreja' : '';
           const cell_name = cellIdx !== -1 && row[cellIdx] ? row[cellIdx] : '';
           const address_zip = zipIdx !== -1 && row[zipIdx] ? row[zipIdx] : '';
           const address_street = streetIdx !== -1 && row[streetIdx] ? row[streetIdx] : '';
@@ -286,6 +306,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           const isValidName = name && name.trim().length >= 2;
           const isDuplicate = isValidEmail ? existingEmails.has(email) : false;
 
+          const repeated = csvEmails.has(email); csvEmails.add(email);
           parsed.push({
             id: `row_${i}`,
             name,
@@ -294,6 +315,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             birth_date,
             role,
             cell_name,
+            campus_name, organization_name,
             address_zip,
             address_street,
             address_number,
@@ -301,15 +323,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             address_neighborhood,
             address_city,
             address_state,
-            isValid: isValidEmail && isValidName,
+            isValid: Boolean(isValidEmail && isValidName && !scopeError && !repeated),
             isDuplicate,
-            validationMessage: !isValidName 
+            validationMessage: scopeError || (repeated ? 'E-mail repetido na planilha' : !isValidName
               ? 'Nome inválido ou ausente' 
               : !isValidEmail 
               ? 'E-mail inválido ou ausente' 
               : isDuplicate 
               ? 'Já cadastrado (será atualizado)' 
-              : 'Pronto para cadastro'
+              : 'Pronto para cadastro')
           });
         }
 
@@ -330,35 +352,32 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       return;
     }
 
-    if (!defaultPassword || defaultPassword.length < 6) {
-      alert("Por favor, defina uma senha padrão inicial com pelo menos 6 caracteres.");
-      return;
-    }
-
+    if (!selectedOrganization?.id || !campusesList.some(c => c.id === importCampusId)) { alert('Selecione uma unidade válida desta igreja.'); return; }
     setIsProcessingImport(true);
     try {
       const headers = await getAuthHeaders();
-      const payload = {
-        members: validMembers,
-        defaultPassword,
-        organization_id: selectedOrganization?.id || 'org_default',
-        campus_id: importCampusId
-      };
-
-      const res = await fetch(`${API_URL}/members/batch-import`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setImportResult(data);
-        setImportStep('result');
-        fetchMembers();
-      } else {
-        alert(data.error || "Erro ao processar importação no servidor.");
+      const totals = { total: validMembers.length, created: 0, updated: 0, errors: [] as any[], invitation_errors: [] as any[], invitations_requested: 0, invitations_skipped: 0 };
+      for (let offset = 0; offset < validMembers.length; offset += 10) {
+        const batch = validMembers.slice(offset, offset + 10);
+        setImportProgress(`Processando ${offset + 1}–${offset + batch.length} de ${validMembers.length}`);
+        try {
+          const res = await fetch(`${API_URL}/members/batch-import`, { method: 'POST', headers, body: JSON.stringify({
+            members: batch, organization_id: selectedOrganization?.id, campus_id: importCampusId,
+            send_invitations: invitationsAvailable && sendInvitations,
+            resend_pending_invitations: invitationsAvailable && sendInvitations && resendPending
+          }) });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Não foi possível processar este lote.');
+          for (const key of ['created', 'updated', 'invitations_requested', 'invitations_skipped'] as const) totals[key] += Number(data[key] || 0);
+          totals.errors.push(...(data.errors || [])); totals.invitation_errors.push(...(data.invitation_errors || []));
+        } catch (error) {
+          totals.errors.push(...batch.map(member => ({name:member.name,email:member.email,error:(error as Error).message + ' Confira o cadastro antes de repetir; a confirmação pode ter sido perdida.'})));
+          const remaining = validMembers.slice(offset + batch.length);
+          totals.errors.push(...remaining.map(member => ({name:member.name,email:member.email,error:'Não processado após interrupção do lote anterior.'})));
+          break;
+        }
       }
+      setImportResult(totals); setImportStep('result'); fetchMembers();
     } catch (err: any) {
       console.error(err);
       alert("Erro de conexão ao enviar planilha para o servidor.");
@@ -720,7 +739,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const getStatusBadge = (status: string) => {
     const s = status ? status.toUpperCase() : 'PENDENTE';
     if (s === 'ATIVO' || s === 'ACTIVE') {
-      return (
+        return (
         <span style={{ 
           display: 'inline-flex', 
           alignItems: 'center', 
@@ -806,6 +825,15 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     );
   };
 
+  const importSettings = <div className="member-import-settings">
+    <div><strong>Igreja do ambiente: {selectedOrganization?.name}</strong><p>A coluna Igreja é opcional e serve para conferência. Esta importação não muda de organização nem cria igrejas.</p></div>
+    <label>Unidade padrão<select className="select-modern" disabled={isProcessingImport} value={importCampusId} onChange={event => setImportCampusId(event.target.value)}><option value="" disabled>Selecione uma unidade</option>{campusesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+    <p>Na coluna <strong>Unidade</strong>, informe o nome ou código de uma unidade já cadastrada. Em branco: novos membros usam a unidade padrão e os existentes mantêm o vínculo. Células devem existir nessa unidade; nomes repetidos exigem código.</p>
+    <label className="member-import-option"><input type="checkbox" checked={invitationsAvailable && sendInvitations} disabled={!invitationsAvailable || isProcessingImport} onChange={event => setSendInvitations(event.target.checked)} /><span><strong>Enviar convite de primeiro acesso por e-mail</strong><small>Somente após salvar o cadastro. Cada novo usuário recebe uma senha temporária individual para definir sua senha pessoal.</small></span></label>
+    {!invitationsAvailable && <p>Envio automático de convites indisponível neste ambiente.</p>}
+    {invitationsAvailable && sendInvitations && <label className="member-import-option"><input type="checkbox" checked={resendPending} disabled={isProcessingImport} onChange={event => setResendPending(event.target.checked)} /><span><strong>Reenviar convites pendentes de cadastros existentes</strong><small>Apenas para quem ainda não definiu a primeira senha. Quem já ativou o acesso mantém sua senha.</small></span></label>}
+  </div>;
+
   const filteredMembers = members.filter(m => {
     const matchesSearch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (m.email || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -841,6 +869,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
             type="button"
             className="btn-secondary" 
             onClick={() => {
+              setImportCampusId(campusesList.some(c => c.id === selectedCampusId) ? selectedCampusId : campusesList[0]?.id || '');
+              setResendPending(false);
+              setImportFileName('');
               setImportModalOpen(true);
               setImportStep('upload');
               setParsedMembers([]);
@@ -1890,7 +1921,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
       {isImportModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => !isProcessingImport && setImportModalOpen(false)}>
           <div 
-            className="modal-studio-container animate-scale-up" 
+            className="modal-studio-container member-import-modal animate-scale-up"
             style={{ maxWidth: 1140, maxHeight: '94vh' }} 
             onClick={(e) => e.stopPropagation()}
           >
@@ -1903,7 +1934,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                 <div>
                   <h2 className="modal-studio-title">Importar Membros em Lote via Planilha</h2>
                   <p className="modal-studio-subtitle">
-                    Cadastre múltiplos membros, líderes e endereços de uma só vez com senha temporária configurada.
+                    Confira os vínculos e envie os convites de primeiro acesso na mesma importação.
                   </p>
                 </div>
               </div>
@@ -1949,53 +1980,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     </button>
                   </div>
 
-                  {/* Configurações da Importação */}
-                  <div style={{
-                    background: '#f8fafc',
-                    border: '1px solid var(--panel-border)',
-                    borderRadius: 14,
-                    padding: 20,
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 16
-                  }}>
-                    <div className="form-group-modern">
-                      <label className="form-label-modern">
-                        🔑 Senha Padrão Inicial *
-                      </label>
-                      <input 
-                        type="text"
-                        className="input-modern"
-                        value={defaultPassword}
-                        onChange={(e) => setDefaultPassword(e.target.value)}
-                        placeholder="Ex: MembroFaith@2026"
-                        required
-                      />
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        O membro usará esta senha no primeiro login e será obrigado a criar uma senha pessoal nova.
-                      </span>
-                    </div>
-
-                    <div className="form-group-modern">
-                      <label className="form-label-modern">
-                        📍 Filial / Campus Padrão *
-                      </label>
-                      <select 
-                        className="select-modern"
-                        value={importCampusId}
-                        onChange={(e) => setImportCampusId(e.target.value)}
-                      >
-                        {campusesList.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} {Boolean(c.is_headquarters) ? '(Sede)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        Será atribuído aos membros que não possuírem filial específica na planilha.
-                      </span>
-                    </div>
-                  </div>
+                  {importSettings}
 
                   {/* Template Info Card */}
                   <div style={{
@@ -2061,30 +2046,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     </div>
                   </div>
 
-                  {/* Configuração de Senha Fixa no Topo do Preview */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 16,
-                    padding: '10px 16px',
-                    background: '#f8fafc',
-                    borderRadius: 10,
-                    border: '1px solid var(--panel-border)'
-                  }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                      🔑 Senha Inicial Definida:
-                    </span>
-                    <input 
-                      type="text" 
-                      className="input-modern"
-                      value={defaultPassword}
-                      onChange={(e) => setDefaultPassword(e.target.value)}
-                      style={{ maxWidth: 220, padding: '5px 10px', fontSize: '0.84rem' }}
-                    />
-                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                      Será aplicada a todos os novos usuários criados. Primeiro login forçará nova senha.
-                    </span>
-                  </div>
+                  {importSettings}
 
                   {/* Tabela de Preview */}
                   <div style={{ 
@@ -2103,7 +2065,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                           <th style={{ padding: '10px 14px' }}>Telefone</th>
                           <th style={{ padding: '10px 14px' }}>Nascimento</th>
                           <th style={{ padding: '10px 14px' }}>Cargo</th>
-                          <th style={{ padding: '10px 14px' }}>Célula</th>
+                          <th style={{ padding: '10px 14px' }}>Unidade</th><th style={{ padding: '10px 14px' }}>Célula</th>
                           <th style={{ padding: '10px 14px' }}>Endereço (Cidade/UF)</th>
                         </tr>
                       </thead>
@@ -2112,8 +2074,9 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                           <tr key={m.id} style={{ borderBottom: '1px solid #f1f5f9', background: !m.isValid ? '#fef2f2' : m.isDuplicate ? '#fffbeb' : 'transparent' }}>
                             <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                               {!m.isValid ? (
-                                <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                <span title={m.validationMessage} style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
                                   Inválido
+                                  <small style={{ display: 'block', whiteSpace: 'normal', maxWidth: 180 }}>{m.validationMessage}</small>
                                 </span>
                               ) : m.isDuplicate ? (
                                 <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
@@ -2131,9 +2094,10 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                             <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{m.birth_date || '-'}</td>
                             <td style={{ padding: '10px 14px' }}>
                               <span style={{ fontSize: '0.72rem', background: '#f1f5f9', padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>
-                                {m.role}
+                                {m.role || (m.isDuplicate ? 'Manter cargo' : 'Membro')}
                               </span>
                             </td>
+                            <td style={{ padding: '10px 14px' }}>{m.campus_name || (m.isDuplicate ? 'Manter cadastro' : campusesList.find(c => c.id === importCampusId)?.name)}</td>
                             <td style={{ padding: '10px 14px' }}>{m.cell_name || '-'}</td>
                             <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
                               {m.address_city ? `${m.address_city}/${m.address_state || ''}` : m.address_street || '-'}
@@ -2149,13 +2113,13 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
 
               {/* ETAPA 3: RESULTADO FINAL */}
               {importStep === 'result' && importResult && (
-                <div style={{ textAlign: 'center', padding: '32px 16px', maxWidth: 600, margin: '0 auto' }}>
+                <div className="member-import-result" style={{ textAlign: 'center', padding: '32px 16px', maxWidth: 600, margin: '0 auto' }}>
                   <div style={{ fontSize: '3rem', marginBottom: 16 }}>🎉</div>
                   <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>
                     Processamento Concluído!
                   </h3>
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 24 }}>
-                    Os membros foram registrados na congregação e vinculados ao Cognito com troca obrigatória de senha no primeiro login.
+                    Confira os cadastros processados e a solicitação dos convites abaixo. Contas já ativadas mantêm sua senha.
                   </p>
 
                   <div style={{
@@ -2188,10 +2152,12 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     textAlign: 'left',
                     marginBottom: 20
                   }}>
-                    <strong>🔐 Instrução para os Membros:</strong>
-                    <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>
-                      Informe aos novos membros que o login inicial deve ser feito com o e-mail cadastrado e a senha padrão <code>{defaultPassword}</code>. No primeiro acesso, o sistema exigirá que definam sua própria senha pessoal.
-                    </div>
+                    <strong>{importResult.invitations_requested} convite(s) solicitado(s)</strong>
+                    <p>O e-mail de primeiro acesso permite ao novo usuário entrar com senha temporária individual e definir sua senha pessoal. A confirmação de envio pelo provedor não garante a entrega na caixa de entrada.</p>
+                    <p>{importResult.invitations_skipped} cadastro(s) sem novo convite. Usuários ativados não têm sua senha alterada.</p>
+                    {(!sendInvitations || !invitationsAvailable) && <p>O envio automático estava desativado. Use “Redefinir Senha” para enviar os acessos depois.</p>}
+                    {importResult.invitation_errors.length > 0 && <p>{importResult.invitation_errors.length} cadastro(s) salvo(s) com falha no convite. Reimporte somente essas linhas com “Reenviar convites pendentes” marcado.</p>}
+                    {[...importResult.errors, ...importResult.invitation_errors].map((item, index) => <p key={index} style={{ color: '#b91c1c', marginTop: 8 }}>{item.name} · {item.email}: {item.error}</p>)}
                   </div>
                 </div>
               )}
@@ -2235,7 +2201,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     disabled={isProcessingImport || parsedMembers.filter(m => m.isValid).length === 0}
                     onClick={handleExecuteBatchImport}
                   >
-                    {isProcessingImport ? 'Processando Membros...' : `Confirmar Importação de ${parsedMembers.filter(m => m.isValid).length} Membros`}
+                    {isProcessingImport ? importProgress || 'Processando Membros...' : `Confirmar Importação de ${parsedMembers.filter(m => m.isValid).length} Membros`}
                   </button>
                 </>
               )}

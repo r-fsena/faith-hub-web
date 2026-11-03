@@ -238,3 +238,14 @@
   box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2);
   background: rgba(255,255,255,0.05);
 }
+
+.member-import-settings { display: grid; gap: 14px; padding: 20px; margin-bottom: 20px; background: #f8fafc; border: 1px solid var(--panel-border); border-radius: 12px; font-size: .84rem; line-height: 1.6; }
+.member-import-settings p, .member-import-settings small { color: var(--text-muted); }
+.member-import-settings > label:not(.member-import-option) { display: grid; gap: 6px; font-weight: 700; }
+.member-import-option { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.member-import-option input { flex-shrink: 0; width: 18px; height: 18px; margin-top: 4px; accent-color: #0f766e; }
+.member-import-option strong, .member-import-option small { display: block; }
+
+.member-import-modal { background: #fff; }
+.member-import-result p { line-height: 1.65; margin-top: 8px; }
+@media (max-width: 600px) { .member-import-modal > .modal-studio-body { padding: 20px !important; } .member-import-settings { padding: 14px; } }
