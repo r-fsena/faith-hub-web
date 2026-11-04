@@ -71,6 +71,8 @@ export default function PwaExperienceEditor({
     [saved, setSaved] = useState<ExperiencePatch>({}),
     [published, setPublished] = useState<ExperiencePatch>({}),
     [inherited, setInherited] = useState<ExperienceConfig>(defaultExperience());
+  const [loadedScope, setLoadedScope] = useState("");
+  const [recovery, setRecovery] = useState<ExperiencePatch | null>(null);
   const [revision, setRevision] = useState(0),
     [publishedRevision, setPublishedRevision] = useState(0),
     [history, setHistory] = useState<any[]>([]);
@@ -147,6 +149,15 @@ export default function PwaExperienceEditor({
       setSaved(data.draft);
       setHistory(data.history);
       let next = data.draft;
+      let recovered: ExperiencePatch | null = null;
+      try {
+        recovered = JSON.parse(
+          sessionStorage.getItem(`pwa-editor-recovery:${thisScope}`) || "null",
+        );
+        if (recovered) validatePatch(recovered);
+      } catch {
+        recovered = null;
+      }
       try {
         const local = JSON.parse(
           sessionStorage.getItem(`pwa-editor:${thisScope}`) || "null",
@@ -154,9 +165,22 @@ export default function PwaExperienceEditor({
         if (local?.revision === data.revision) {
           validatePatch(local.config);
           next = local.config;
+        } else if (
+          local &&
+          JSON.stringify(local.config) !== JSON.stringify(data.draft)
+        ) {
+          validatePatch(local.config);
+          recovered = local.config;
         }
       } catch {}
+      setRecovery(recovered);
+      if (recovered)
+        sessionStorage.setItem(
+          `pwa-editor-recovery:${thisScope}`,
+          JSON.stringify(recovered),
+        );
       setDraft(next);
+      setLoadedScope(thisScope);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -188,14 +212,15 @@ export default function PwaExperienceEditor({
     };
   }, [organizationId]);
   useEffect(() => {
-    if (!loading)
+    if (!loading && loadedScope === scope)
       sessionStorage.setItem(
         `pwa-editor:${scope}`,
         JSON.stringify({ revision, config: draft }),
       );
-  }, [scope, revision, draft, loading]);
+  }, [scope, revision, draft, loading, loadedScope]);
   const send = useCallback(() => {
-    if (!frame.current?.contentWindow) return;
+    if (!frame.current?.contentWindow || loadedScope !== scope || loading)
+      return;
     frame.current.contentWindow.postMessage(
       {
         type: "PWA_PREVIEW_CONFIG",
@@ -223,6 +248,9 @@ export default function PwaExperienceEditor({
     flags,
     selected,
     previewUrl,
+    loadedScope,
+    scope,
+    loading,
   ]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
@@ -465,14 +493,14 @@ export default function PwaExperienceEditor({
         <div>
           <button
             className="pe-button"
-            disabled={busy || loading}
+            disabled={busy || loading || loadedScope !== scope}
             onClick={discard}
           >
             Recarregar
           </button>
           <button
             className="pe-button"
-            disabled={busy || loading}
+            disabled={busy || loading || loadedScope !== scope}
             onClick={() => void save()}
           >
             {busy ? "Aguarde…" : "Salvar rascunho"}
@@ -480,7 +508,12 @@ export default function PwaExperienceEditor({
           <button
             className="pe-button pe-primary"
             disabled={
-              busy || loading || dirty || revision === 0 || issues.length > 0
+              busy ||
+              loading ||
+              loadedScope !== scope ||
+              dirty ||
+              revision === 0 ||
+              issues.length > 0
             }
             title={
               dirty
@@ -501,6 +534,35 @@ export default function PwaExperienceEditor({
           </button>
         </div>
       </div>
+      {recovery && (
+        <div role="status" className="pe-alert">
+          Existe uma edição local baseada em uma revisão anterior. A
+          configuração atual já foi carregada para comparação.{" "}
+          <button
+            className="pe-text-button"
+            onClick={() => {
+              setDraft(recovery);
+              setRecovery(null);
+              sessionStorage.removeItem(`pwa-editor-recovery:${scope}`);
+              setCompare(false);
+              setNotice(
+                "Edição local recuperada para revisão. Confira antes de salvar e publicar.",
+              );
+            }}
+          >
+            Recuperar edição local
+          </button>
+          <button
+            className="pe-text-button"
+            onClick={() => {
+              setRecovery(null);
+              sessionStorage.removeItem(`pwa-editor-recovery:${scope}`);
+            }}
+          >
+            Descartar cópia local
+          </button>
+        </div>
+      )}
       {error && (
         <div role="alert" className="pe-alert">
           {error}{" "}
@@ -535,7 +597,7 @@ export default function PwaExperienceEditor({
               </button>
             ))}
           </nav>
-          {loading ? (
+          {loading || loadedScope !== scope ? (
             <p role="status">Carregando a configuração…</p>
           ) : (
             <>
@@ -1123,6 +1185,9 @@ export default function PwaExperienceEditor({
           <div className="pe-phone">
             <iframe
               ref={frame}
+              style={
+                loadedScope !== scope ? { visibility: "hidden" } : undefined
+              }
               title="Prévia ao vivo do PWA"
               src={previewUrl}
               onLoad={() => send()}

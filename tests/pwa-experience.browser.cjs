@@ -165,6 +165,18 @@ const config = contract.defaultExperience({
         body = { revision, published_revision: history.at(-1)?.revision || 0 };
       }
     }
+    if (
+      u.pathname.endsWith("/editor") &&
+      u.searchParams.get("campus_id") === "campus-a"
+    )
+      body = {
+        revision: 0,
+        published_revision: 0,
+        draft: {},
+        published: {},
+        inherited: config,
+        history: [],
+      };
     void r.respond({
       status,
       contentType: "application/json",
@@ -199,8 +211,19 @@ const config = contract.defaultExperience({
     throw Error("Preview did not initialize");
   };
   let iframe = await getFrame();
-  assert.equal(await iframe.evaluate(()=>localStorage.getItem('private-sentinel')),null);
-  assert.equal(await iframe.evaluate(()=>fetch('https://experience-api.example.test/financial/pay',{method:'POST',body:'{}'}).then(r=>r.status)),405);
+  assert.equal(
+    await iframe.evaluate(() => localStorage.getItem("private-sentinel")),
+    null,
+  );
+  assert.equal(
+    await iframe.evaluate(() =>
+      fetch("https://experience-api.example.test/financial/pay", {
+        method: "POST",
+        body: "{}",
+      }).then((r) => r.status),
+    ),
+    405,
+  );
 
   await iframe.waitForSelector("[data-experience-block=shortcuts]");
   await page.$eval('input[aria-label="Fundo da tela"]', (el) => {
@@ -257,6 +280,15 @@ const config = contract.defaultExperience({
     document.body.innerText.includes("Nossa comunidade"),
   );
   assert.equal(writes, 0);
+  await click('Início');
+  await page.select('.pe-section select','2');
+  await iframe.waitForFunction(()=>getComputedStyle(document.querySelector('.experience-shortcuts-grid')).gridTemplateColumns.split(/\s+/).length===2);
+  await page.click('button[aria-label="Subir Agenda em destaque"]');
+  await iframe.waitForFunction(()=>getComputedStyle(document.querySelector('[data-experience-block=events]')).order==='4');
+  await click('Aparência');
+  await page.$eval('input[aria-label="Cartão"]',el=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,'#fff7ed');el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
+  await iframe.waitForFunction(()=>getComputedStyle(document.querySelector('[data-experience-block=devotional]>div')).backgroundColor==='rgb(255, 247, 237)');
+  assert.equal(writes,0,'layout and card colors must remain local until saving');
   await click("Salvar rascunho");
   await page.waitForFunction(() =>
     document
@@ -316,6 +348,30 @@ const config = contract.defaultExperience({
   assert.equal(
     await page.$eval('input[aria-label="Fundo da tela"]', (e) => e.value),
     "#101827",
+  );
+  revision++;
+  fail = false;
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForFunction(() =>
+    document.body.innerText.includes("Existe uma edição local baseada"),
+  );
+  await click("Recuperar edição local");
+  await page.select('select[aria-label="Modo da prévia"]', "dark");
+  assert.equal(
+    await page.$eval('input[aria-label="Fundo da tela"]', (e) => e.value),
+    "#101827",
+  );
+  await page.select(".pe-heading select", "campus-a");
+  await page.waitForFunction(() => {
+    const value = sessionStorage.getItem("pwa-editor:org-a:campus-a");
+    return value && JSON.parse(value).revision === 0;
+  });
+  assert.deepEqual(
+    await page.evaluate(
+      () =>
+        JSON.parse(sessionStorage.getItem("pwa-editor:org-a:campus-a")).config,
+    ),
+    {},
   );
   assert.deepEqual(errors, []);
   console.log(
