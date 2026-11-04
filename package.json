@@ -11,7 +11,8 @@
     "typecheck": "tsc -b --pretty false",
     "test:commercial": "node tests/commercial-flow.browser.cjs",
     "test:sign-out": "node tests/studio-sign-out.browser.cjs",
-    "test:member-import": "node tests/member-import.browser.cjs"
+    "test:member-import": "node tests/member-import.browser.cjs",
+    "test:pwa-experience": "node tests/pwa-experience.browser.cjs"
   },
   "dependencies": {
     "aws-amplify": "^6.22.2",

@@ -239,19 +239,12 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
     setSaveSuccess(false);
 
     try {
-      const cacheKey = `faithhub_church_branding_${orgId}`;
-      localStorage.setItem(cacheKey, JSON.stringify(settings));
-      applyDynamicTheme(settings.primary_color);
-
-      // Dispara evento global para que o App.tsx atualize na hora o cabeçalho/sidebar
-      window.dispatchEvent(new CustomEvent('church-branding-updated', { detail: settings }));
-
       // Tenta persistir no backend se o endpoint estiver disponível
       try {
         const session = await fetchAuthSession();
         const token = session.tokens?.idToken?.toString();
         const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-        await fetch(`${API_URL}/church-settings`, {
+        const response = await fetch(`${API_URL}/church-settings`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -267,15 +260,22 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
             id: `settings_${orgSlug.replace(/-/g, '_')}`
           })
         });
-      } catch (backendErr) {
-        console.log("Salvo localmente com sucesso.");
-      }
+        if (!response.ok) {const data=await response.json().catch(()=>({}));throw Error(data.message||data.error||'Não foi possível salvar no servidor.');}
+      } catch (backendErr) { throw backendErr; }
+      const cacheKey = `faithhub_church_branding_${orgId}`;
+      localStorage.setItem(cacheKey, JSON.stringify(settings));
+      applyDynamicTheme(settings.primary_color);
+
+      // Dispara evento global para que o App.tsx atualize na hora o cabeçalho/sidebar
+      window.dispatchEvent(new CustomEvent('church-branding-updated', { detail: settings }));
+
+
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3500);
     } catch (err) {
       console.error(err);
-      alert("Erro ao salvar configurações da igreja.");
+      alert((err as Error).message || "Erro ao salvar configurações da igreja.");
     } finally {
       setSaving(false);
     }

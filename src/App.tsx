@@ -1,3 +1,4 @@
+import PwaCustomization from './modules/pwa-experience/PwaCustomization';
 import { PlanModuleBoundary } from './components/PlanModuleBoundary';
 import { lazy, Suspense, useCallback, useState, useEffect, useMemo } from 'react';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
@@ -1660,7 +1661,7 @@ function App() {
               {activeTab === 'pdv_estoque' && <PdvEstoque selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
               {activeTab === 'pdv_pedidos' && <PdvPedidos selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} currentUserRole={isSuperAdmin ? 'SUPERADMIN' : userProfile?.role} />}
               {activeTab === 'pagarme_financeiro' && <PagarmeSettings key={selectedOrganization?.id} />}
-              {activeTab === 'church_branding' && <ChurchBranding selectedOrganization={selectedOrganization} />}
+              {activeTab === 'church_branding' && <PwaCustomization selectedOrganization={selectedOrganization} selectedCampusId={selectedCampusId} />}
               {activeTab === 'feature_flags' && (
                 <FeatureFlagsManagement
                   selectedOrganization={selectedOrganization}
