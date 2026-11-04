@@ -17,7 +17,7 @@ import {
   merge,
   validatePatch,
   resolveExperience,
-  contrastIssues,
+  contrastDetails,
   preset,
   onColor,
 } from "../../config/pwaExperience";
@@ -25,6 +25,7 @@ import type {
   ExperiencePatch,
   ExperienceConfig,
   ScreenId,
+  ContrastIssue,
 } from "../../config/pwaExperience";
 import "./editor.css";
 const API =
@@ -51,6 +52,10 @@ function setPath(value: any, path: string[], next: any) {
   else cursor[path.at(-1)!] = next;
   return copy;
 }
+const contrastLabel = (issue: ContrastIssue) =>
+  `${issue.mode === "light" ? "Claro" : "Escuro"} · ${issue.screen === "global" ? "Aplicativo inteiro" : SCREEN_LABELS[issue.screen]} · ${PALETTE_LABELS[issue.foreground]} / ${PALETTE_LABELS[issue.background]}`;
+const contrastKey = (issue: ContrastIssue) =>
+  `${issue.mode}:${issue.screen}:${issue.foreground}:${issue.background}`;
 export default function PwaExperienceEditor({
   organizationId,
   initialCampus = "all",
@@ -73,6 +78,10 @@ export default function PwaExperienceEditor({
     [inherited, setInherited] = useState<ExperienceConfig>(defaultExperience());
   const [loadedScope, setLoadedScope] = useState("");
   const [recovery, setRecovery] = useState<ExperiencePatch | null>(null);
+  const [contrastTarget, setContrastTarget] = useState<ContrastIssue | null>(null);
+  const [contrastListRequested, setContrastListRequested] = useState(false);
+  const contrastList = useRef<HTMLDetailsElement>(null);
+  const colorPanel = useRef<HTMLElement>(null);
   const [revision, setRevision] = useState(0),
     [publishedRevision, setPublishedRevision] = useState(0),
     [history, setHistory] = useState<any[]>([]);
@@ -99,11 +108,60 @@ export default function PwaExperienceEditor({
   );
   const issues = useMemo(() => {
     try {
-      return contrastIssues(resolved);
+      return contrastDetails(resolved);
     } catch {
-      return ["Confira os campos de aparência."];
+      return [{
+        mode: "light",
+        screen: "global",
+        foreground: "text",
+        background: "background",
+        message: "Confira os campos de aparência.",
+      } satisfies ContrastIssue];
     }
   }, [resolved]);
+  const reviewingContrast =
+    contrastTarget &&
+    mode === contrastTarget.mode &&
+    (contrastTarget.screen === "global"
+      ? section === "appearance"
+      : section === "screens" && screen === contrastTarget.screen);
+  const contrastPending =
+    contrastTarget && issues.some(
+      (issue) => contrastKey(issue) === contrastKey(contrastTarget),
+    );
+  useEffect(() => {
+    if (!reviewingContrast || !contrastTarget || loading || mobilePreview) return;
+    const row = colorPanel.current?.querySelector<HTMLElement>(
+      `[data-color-key="${contrastTarget.foreground}"]`,
+    );
+    row?.scrollIntoView({ block: "center", behavior: "instant" });
+    row?.querySelector<HTMLInputElement>("input")?.focus({
+      preventScroll: true,
+    });
+  }, [contrastTarget, reviewingContrast, loading, mobilePreview]);
+  useEffect(() => setContrastTarget(null), [scope]);
+  useEffect(() => {
+    if (!contrastListRequested || mobilePreview || !contrastList.current) return;
+    contrastList.current.open = true;
+    contrastList.current.scrollIntoView({ block: "center", behavior: "instant" });
+    contrastList.current.querySelector<HTMLButtonElement>("button")?.focus({
+      preventScroll: true,
+    });
+    setContrastListRequested(false);
+  }, [contrastListRequested, mobilePreview]);
+  function reviewContrast(issue: ContrastIssue) {
+    setSection(issue.screen === "global" ? "appearance" : "screens");
+    setScreen(issue.screen === "global" ? "home" : issue.screen);
+    setMode(issue.mode);
+    setSelected(issue.foreground);
+    setCompare(false);
+    setMobilePreview(false);
+    setContrastTarget({ ...issue });
+  }
+  function showContrastList() {
+    setMobilePreview(false);
+    setContrastListRequested(true);
+  }
   const previewUrl = useMemo(() => {
     const u = new URL("/__pwa-preview", PWA);
     u.searchParams.set("parent_origin", location.origin);
@@ -534,6 +592,14 @@ export default function PwaExperienceEditor({
           </button>
         </div>
       </div>
+      {!loading && loadedScope === scope && issues.length > 0 && (
+        <p className="pe-contrast-status">
+          A publicação depende da revisão do contraste.{" "}
+          <button className="pe-text-button" onClick={showContrastList}>
+            Revisar {issues.length} pendência(s) de contraste
+          </button>
+        </p>
+      )}
       {recovery && (
         <div role="status" className="pe-alert">
           Existe uma edição local baseada em uma revisão anterior. A
@@ -650,7 +716,7 @@ export default function PwaExperienceEditor({
                 </section>
               )}
               {["appearance", "screens"].includes(section) && (
-                <section className="pe-section">
+                <section className="pe-section" ref={colorPanel}>
                   <h2>
                     {section === "screens"
                       ? "Ajustes desta tela"
@@ -693,10 +759,34 @@ export default function PwaExperienceEditor({
                       </button>
                     ))}
                   </div>
+                  {reviewingContrast && contrastTarget && (
+                    <div className="pe-contrast-guide" role="status">
+                      <strong>
+                        {contrastPending
+                          ? "Revise as cores destacadas"
+                          : "Contraste desta combinação corrigido"}
+                      </strong>
+                      <p>{contrastLabel(contrastTarget)}</p>
+                      <button
+                        className="pe-text-button"
+                        onClick={showContrastList}
+                      >
+                        Ver pendências de contraste
+                      </button>
+                    </div>
+                  )}
                   <div className="pe-colors">
                     {Object.entries(PALETTE_LABELS).map(([key, label]) => (
                       <div
                         key={key}
+                        data-color-key={key}
+                        data-contrast-target={
+                          reviewingContrast && contrastPending && contrastTarget &&
+                          (key === contrastTarget.foreground ||
+                            key === contrastTarget.background)
+                            ? "true"
+                            : undefined
+                        }
                         className={`pe-color-row ${selected === key ? "selected" : ""}`}
                       >
                         <label>
@@ -1101,14 +1191,27 @@ export default function PwaExperienceEditor({
                 </section>
               )}
               {issues.length > 0 && (
-                <details className="pe-contrast">
+                <details className="pe-contrast" ref={contrastList}>
                   <summary>
                     Revise {issues.length} combinação(ões) de contraste antes de
                     publicar
                   </summary>
+                  <p>
+                    Selecione uma pendência para abrir a tela, o modo e as cores
+                    que precisam de ajuste.
+                  </p>
                   <ul>
                     {issues.map((issue) => (
-                      <li key={issue}>{issue}</li>
+                      <li key={contrastKey(issue)}>
+                        <button
+                          className="pe-contrast-link"
+                          data-contrast-issue={contrastKey(issue)}
+                          onClick={() => reviewContrast(issue)}
+                        >
+                          <span>{contrastLabel(issue)}</span>
+                          <strong>Revisar cores →</strong>
+                        </button>
+                      </li>
                     ))}
                   </ul>
                 </details>

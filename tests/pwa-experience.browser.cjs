@@ -373,9 +373,52 @@ const config = contract.defaultExperience({
     ),
     {},
   );
+  // Review must navigate without changing the draft or making API writes.
+  const reviewWrites = writes;
+  config.theme.light.muted = "#ffffff";
+  draft = {
+    copy: { "home.title": "Rascunho preservado na revisão" },
+    screens: { events: { palette: { navigationText: "#ffffff", navigation: "#ffffff" } } },
+  };
+  revision++;
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload({ waitUntil: "networkidle0" });
+  iframe = await getFrame();
+  await click("Textos");
+  await click("Comparar publicado");
+  await click("Visualizar PWA");
+  await page.click(".pe-contrast-status button");
+  await page.waitForSelector(".pe-contrast[open]");
+  assert.ok(!(await page.$eval(".pe-editor", el => el.classList.contains("pe-show-preview"))));
+  const globalIssue = '[data-contrast-issue="light:global:muted:surface"]';
+  await page.focus(globalIssue);
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Texto secundário");
+  assert.equal(await page.$eval('select[aria-label="Modo da prévia"]', el => el.value), "light");
+  assert.equal(await page.$eval('select[aria-label="Tela da prévia"]', el => el.value), "home");
+  assert.deepEqual(await page.$$eval('[data-contrast-target="true"]', rows => rows.map(row => row.dataset.colorKey).sort()), ["muted", "surface"]);
+  assert.ok(await page.$eval('.pe-preview-heading small', el => el.textContent.includes("Minhas alterações")));
+  await page.screenshot({ path: out + "/contrast-review-mobile.png", fullPage: false });
+  await page.$eval('input[aria-label="Texto secundário"]', el => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "#475569");
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForFunction(() => document.querySelector(".pe-contrast-guide")?.textContent.includes("Contraste desta combinação corrigido"));
+  await click("Ver pendências de contraste");
+  await page.click('[data-contrast-issue="dark:events:navigationText:navigation"]');
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Texto da navegação");
+  assert.equal(await page.$eval('select[aria-label="Modo da prévia"]', el => el.value), "dark");
+  assert.equal(await page.$eval('select[aria-label="Tela da prévia"]', el => el.value), "events");
+  assert.ok(await page.$eval(".pe-section h2", el => el.textContent.includes("Ajustes desta tela")));
+  assert.deepEqual(await page.$$eval('[data-contrast-target="true"]', rows => rows.map(row => row.dataset.colorKey).sort()), ["navigation", "navigationText"]);
+  await iframe.waitForSelector('[data-experience-screen="events"]');
+  await iframe.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+  assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem("pwa-editor:org-a:all")).config.copy["home.title"]), "Rascunho preservado na revisão");
+  assert.equal(writes, reviewWrites, "review navigation and corrections must remain local");
   assert.deepEqual(errors, []);
   console.log(
-    "PASS live colors without requests, comparison, real v1/v2 screens, texts, draft/publish, mobile preservation, conflict recovery and safe iframe",
+    "PASS live colors, draft/publish, real v1/v2 screens, scope isolation and actionable contrast review with keyboard, mobile, preview and draft preservation",
   );
 })()
   .catch(async (e) => {
