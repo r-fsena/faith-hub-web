@@ -15,6 +15,7 @@ const EMPTY_PREFERENCES: StudioPreferences = {
 };
 
 const WORKSPACE_TABS = new Set([
+  'intelligence',
   'dashboard', 'people_workspace', 'ministries_workspace', 'kids_workspace', 'secretariat_workspace',
   'content_workspace', 'operations_workspace', 'finance_workspace', 'administration_workspace'
 ]);

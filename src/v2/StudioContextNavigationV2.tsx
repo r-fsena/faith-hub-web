@@ -13,6 +13,7 @@ interface NavigationGroupV2 {
 }
 
 const NAVIGATION_GROUPS: NavigationGroupV2[] = [
+  { rootTab: 'intelligence', rootLabel: 'Inteligência', tabs: ['intelligence'] },
   {
     rootTab: 'people_workspace', rootLabel: 'Pessoas',
     tabs: ['people_workspace', 'membros', 'visitantes', 'pastoral_radar', 'celulas', 'oracoes']
@@ -49,6 +50,7 @@ const NAVIGATION_GROUPS: NavigationGroupV2[] = [
 ];
 
 const ROOT_LABELS: Record<string, string> = {
+  intelligence: 'Resumo executivo',
   people_workspace: 'Visão geral',
   ministries_workspace: 'Visão geral',
   kids_workspace: 'Visão geral',

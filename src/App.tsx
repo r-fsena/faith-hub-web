@@ -1,4 +1,5 @@
 import PwaCustomization from './modules/pwa-experience/PwaCustomization';
+import Intelligence from './modules/intelligence/Intelligence';
 import { PlanModuleBoundary } from './components/PlanModuleBoundary';
 import { lazy, Suspense, useCallback, useState, useEffect, useMemo } from 'react';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
@@ -66,6 +67,7 @@ const GridIcon = () => (
 const CreditCardIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
 );
+const IntelligenceIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 6-8"/><path d="M17 5h4v4"/></svg>;
 const DashboardIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
 );
@@ -139,6 +141,7 @@ const navigationGroups: NavigationCategory[] = [
     category: 'Geral',
     items: [
       { id: 'dashboard', label: 'Início', icon: DashboardIcon },
+      { id: 'intelligence', label: 'Inteligência', icon: IntelligenceIcon, featureFlagKey: 'intelligence.overview', allowedRoles: ['SUPERADMIN','PASTOR','ADMIN','LEADER'] },
     ]
   },
   {
@@ -205,6 +208,7 @@ const navigationGroups: NavigationCategory[] = [
 
 const navigationContext: Record<string, { area: string; title: string }> = {
   dashboard: { area: 'Início', title: 'Visão geral' },
+  intelligence: { area: 'Inteligência', title: 'Resumo executivo' },
   people_workspace: { area: 'Pessoas', title: 'Visão geral' },
   membros: { area: 'Pessoas', title: 'Membros' },
   visitantes: { area: 'Pessoas', title: 'Visitantes & acolhimento' },
@@ -1567,6 +1571,7 @@ function App() {
                 ACTIVE MODULE RENDERERS (Multi-Campus Enabled)
                 ========================================== */}
             <PlanModuleBoundary tab={activeTab}>
+            {activeTab === 'intelligence' && <Intelligence organizationId={selectedOrganization?.id || 'org_default'} organizationName={selectedOrganization?.name || 'Sua igreja'} campusId={selectedCampusId} role={isSuperAdmin ? 'SUPERADMIN' : String(userProfile?.role || 'MEMBER').toUpperCase()} onNavigate={navigateToTab} />}
             {workspaceKindsByTab[activeTab] && (
               <StudioWorkspace
                 kind={workspaceKindsByTab[activeTab]}

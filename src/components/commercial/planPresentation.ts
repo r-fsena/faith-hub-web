@@ -9,6 +9,7 @@ export const currency = (value: number) => value.toLocaleString('pt-BR', { style
 export const quantity = (value: number) => value.toLocaleString('pt-BR');
 export interface ModuleGroup { key: string; name: string; description: string; primary: string; prefixes: string[]; }
 export const MODULE_GROUPS: ModuleGroup[] = [
+  { key: 'intelligence', name: 'Inteligência', description: 'Indicadores, comparações e adoção digital com coleta opcional.', primary: 'intelligence.overview', prefixes: ['intelligence.'] },
   { key: 'members', name: 'Membros e comunidade', description: 'Cadastros, acesso e identificação dos membros.', primary: 'members.module_enabled', prefixes: ['members.'] },
   { key: 'cells', name: 'Células e redes', description: 'Grupos, encontros, presenças e comunhão.', primary: 'cell_groups.module_enabled', prefixes: ['cell_groups.'] },
   { key: 'content', name: 'Ensino e conteúdo', description: 'Estudos, devocionais e leitura bíblica.', primary: 'studies.module_enabled', prefixes: ['studies.', 'devotionals.', 'bible.'] },
@@ -25,6 +26,8 @@ export const MODULE_GROUPS: ModuleGroup[] = [
   { key: 'experience', name: 'Gestão e personalização', description: 'Identidade, navegação e indicadores.', primary: 'system.custom_theme_colors', prefixes: ['system.', 'studio.', 'content.', 'pwa.'] }
 ];
 export const LABELS: Record<string, string> = {
+  'intelligence.overview': 'Resumo executivo e comparação de períodos',
+  'intelligence.usage_collection': 'Medição opcional de uso do PWA',
   'members.module_enabled': 'Gestão de membros', 'members.self_registration': 'Cadastro pelo membro', 'members.approval_workflow': 'Aprovação de novos cadastros', 'members.digital_card': 'Carteirinha digital', 'members.lgpd_export_consent': 'Consentimento e dados pessoais', 'members.spiritual_timeline': 'Histórico eclesiástico', 'members.custom_fields': 'Campos personalizados',
   'cell_groups.module_enabled': 'Gestão de células', 'cell_groups.attendance_reports': 'Encontros, presenças e relatórios', 'cell_groups.board_posts': 'Mural e publicações', 'cell_groups.join_request_flow': 'Solicitações de participação', 'cell_groups.public_map_locator': 'Localização no mapa', 'cell_groups.snack_partilhas': 'Partilha de lanche',
   'studies.module_enabled': 'Estudos e discipulado', 'studies.cell_targeted_content': 'Conteúdo direcionado a grupos', 'devotionals.module_enabled': 'Devocionais', 'devotionals.member_private_notes': 'Anotações pessoais', 'devotionals.worship_song_embed': 'Louvor nos devocionais',
@@ -47,7 +50,7 @@ export function includedGroups(plan: Pick<SaasPlan, 'entitlements'>) {
   return MODULE_GROUPS.filter(group => groupKeys(group, plan.entitlements || {}).some(key => plan.entitlements?.[key]));
 }
 export function planHighlights(plan: SaasPlan) {
-  const priority = ['secretariat', 'finance', 'events', 'store', 'visitors', 'pastoral', 'teams', 'kids', 'members', 'cells', 'content', 'communication', 'giving', 'experience'];
+  const priority = ['secretariat', 'finance', 'events', 'store', 'visitors', 'pastoral', 'teams', 'kids', 'members', 'cells', 'content', 'communication', 'giving', 'experience', 'intelligence'];
   return includedGroups(plan).sort((a, b) => priority.indexOf(a.key) - priority.indexOf(b.key)).slice(0, 4);
 }
 export function toggleEntitlement(current: Record<string, boolean>, key: string, enabled: boolean) {
