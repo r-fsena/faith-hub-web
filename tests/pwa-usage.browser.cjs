@@ -10,7 +10,12 @@ let server,browser,page,log='';const errors=[];
  fs.writeFileSync(files[3],`import{defineConfig}from'vite';import react from'@vitejs/plugin-react';export default defineConfig({plugins:[react()],server:{hmr:false,watch:null},resolve:{alias:{'aws-amplify/auth':${JSON.stringify(files[2])}}}});`);
  server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port',String(port),'--strictPort','--config',files[3]],{cwd:root,stdio:'pipe',env:{...process.env,VITE_API_URL:'https://usage-api.example.test'}});
  server.stdout.on('data',d=>log+=d);server.stderr.on('data',d=>log+=d);
- for(let i=0;i<90;i++){try{if((await fetch(origin)).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,150));}
+ for(let i=0;i<90;i++){
+  if(server.exitCode!==null)throw Error('Test server did not start: '+log);
+  if(log.includes('ready in')){try{if((await fetch(origin)).ok)break;}catch{}}
+  if(i===89)throw Error('Test server readiness timed out');
+  await new Promise(resolve=>setTimeout(resolve,150));
+ }
  browser=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
  for(const version of ['v1','v2']){
   const context=await browser.createBrowserContext();page=await context.newPage();page.setDefaultTimeout(45000);page.on('pageerror',error=>errors.push(error.message));await page.setViewport({width:390,height:844});
