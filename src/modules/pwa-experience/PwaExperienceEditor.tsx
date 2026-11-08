@@ -9,6 +9,7 @@ import { getAuthHeaders } from "../../services/apiClient";
 import { useFeatureFlags } from "../../context/FeatureFlagContext";
 import {
   EXPERIENCE_FLAG,
+  monochromePalettes,
   SCREEN_LABELS,
   PALETTE_LABELS,
   BLOCK_LABELS,
@@ -745,6 +746,7 @@ export default function PwaExperienceEditor({
                       </p>
                     </>
                   )}
+                  {section === "appearance" && <button className="pe-text-button" onClick={() => { setDraft(d => ({ ...d, theme: { ...d.theme, ...monochromePalettes() } })); setCompare(false); }}>Aplicar preto e branco nos dois modos</button>}
                   <div className="pe-segments">
                     {[
                       ["light", "Claro"],

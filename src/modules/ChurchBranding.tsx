@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { DEFAULT_ADDITIONAL_WELCOME_SLIDES } from '../config/welcomeScreen';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
+import { EXPERIENCE_FLAG } from '../config/pwaExperience';
 
 const PaletteIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
@@ -30,6 +33,7 @@ const PrinterIcon = () => (
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
 export interface ChurchBrandingSettings {
+  id?: string;
   church_name: string;
   tagline: string;
   cnpj: string;
@@ -131,6 +135,7 @@ interface ChurchBrandingProps {
 }
 
 export default function ChurchBranding({ selectedOrganization }: ChurchBrandingProps = {}) {
+  const { isFeatureEnabled } = useFeatureFlags();
   const orgId = selectedOrganization?.id || 'org_default';
   const orgSlug = selectedOrganization?.slug || 'faithhub';
   const orgName = selectedOrganization?.name || 'Minha Igreja';
@@ -145,6 +150,8 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
   const [activeTab, setActiveTab] = useState<'profile' | 'visual' | 'pwa' | 'welcome'>('profile');
   const [emulatorView, setEmulatorView] = useState<'home' | 'devotionals' | 'welcome' | 'splash' | 'qr'>('home');
   const [saving, setSaving] = useState(false);
+  const [loadedOrg, setLoadedOrg] = useState<string | null>(null);
+  const serverSettings = useRef<Record<string, any>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -155,10 +162,14 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadSettings();
+    const controller = new AbortController();
+    setLoadedOrg(null);
+    serverSettings.current = {};
+    void loadSettings(controller.signal);
+    return () => controller.abort();
   }, [orgId, orgSlug]);
 
-  const loadSettings = async () => {
+  const loadSettings = async (signal: AbortSignal) => {
     // 1. Carrega do cache local específico da organização
     const cacheKey = `faithhub_church_branding_${orgId}`;
     const saved = localStorage.getItem(cacheKey);
@@ -174,12 +185,15 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
 
     // 2. Busca as informações persistidas diretamente no banco de dados na nuvem para esta organização
     try {
-      const res = await fetch(`${API_URL}/church-settings?organization_id=${encodeURIComponent(orgId)}&slug=${encodeURIComponent(orgSlug)}`);
+      const res = await fetch(`${API_URL}/church-settings?organization_id=${encodeURIComponent(orgId)}&slug=${encodeURIComponent(orgSlug)}`, { signal, cache: 'no-store' });
       if (res.ok) {
         const backendData = await res.json();
         if (backendData && backendData.church_name) {
+          if (signal.aborted) return;
+          serverSettings.current = backendData;
           const merged: ChurchBrandingSettings = {
             ...DEFAULT_SETTINGS,
+            id: backendData.id,
             church_name: backendData.church_name || orgName,
             tagline: backendData.slogan || '',
             cnpj: backendData.cnpj || '',
@@ -203,6 +217,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
             pwa_description: backendData.pwa_description || DEFAULT_SETTINGS.pwa_description,
             theme_mode: backendData.theme_mode || 'LIGHT',
             custom_domain: backendData.custom_domain || '',
+            welcome_screen_config: backendData.welcome_screen_config || structuredClone(DEFAULT_SETTINGS.welcome_screen_config),
             store_title: backendData.store_config?.store_title || backendData.store_title || DEFAULT_SETTINGS.store_title,
             store_subtitle: backendData.store_config?.store_subtitle || backendData.store_subtitle || DEFAULT_SETTINGS.store_subtitle,
             store_tab_title: backendData.store_config?.store_tab_title || backendData.store_tab_title || DEFAULT_SETTINGS.store_tab_title,
@@ -211,6 +226,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
           setSettings(merged);
           localStorage.setItem(cacheKey, JSON.stringify(merged));
           applyDynamicTheme(merged.primary_color);
+          setLoadedOrg(orgId);
         }
       }
     } catch (err) {
@@ -235,6 +251,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
   };
 
   const handleSave = async () => {
+    if (loadedOrg !== orgId || saving) return;
     setSaving(true);
     setSaveSuccess(false);
 
@@ -248,7 +265,12 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
           method: 'POST',
           headers,
           body: JSON.stringify({
+            ...serverSettings.current,
             ...settings,
+            address_street: settings.address === `${serverSettings.current.address_street || ''} ${serverSettings.current.address_number || ''}`.trim() ? serverSettings.current.address_street : settings.address,
+            address_number: settings.address === `${serverSettings.current.address_street || ''} ${serverSettings.current.address_number || ''}`.trim() ? serverSettings.current.address_number : '',
+            address_city: settings.city,
+            address_state: settings.state,
             store_config: {
               store_title: settings.store_title || 'Loja Oficial',
               store_subtitle: settings.store_subtitle || 'Livros, vestuário, devocionais e itens com retirada expressa',
@@ -257,10 +279,18 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
             },
             organization_id: orgId,
             pwa_slug: settings.pwa_slug || orgSlug,
-            id: `settings_${orgSlug.replace(/-/g, '_')}`
+            id: serverSettings.current.id || settings.id
           })
         });
         if (!response.ok) {const data=await response.json().catch(()=>({}));throw Error(data.message||data.error||'Não foi possível salvar no servidor.');}
+        const saved = await response.json();
+        const verification = await fetch(`${API_URL}/church-settings?organization_id=${encodeURIComponent(orgId)}`, { cache: 'no-store' });
+        if (!verification.ok) throw Error('Não foi possível confirmar a gravação. Sua edição continua na tela; tente novamente.');
+        const persisted = await verification.json();
+        if (persisted.id !== saved.settings?.id || JSON.stringify(persisted.welcome_screen_config) !== JSON.stringify(settings.welcome_screen_config)) {
+          throw Error('A gravação das boas-vindas não foi confirmada. Sua edição continua na tela; tente novamente.');
+        }
+        serverSettings.current = persisted;
       } catch (backendErr) { throw backendErr; }
       const cacheKey = `faithhub_church_branding_${orgId}`;
       localStorage.setItem(cacheKey, JSON.stringify(settings));
@@ -1196,6 +1226,25 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                 />
               </div>
 
+              {isFeatureEnabled(EXPERIENCE_FLAG, false) && <fieldset style={{ border: '1px solid var(--panel-border)', borderRadius: 16, padding: 16 }}>
+                <legend>Outras telas das boas-vindas</legend>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>A primeira tela usa a imagem e os textos acima. Configure aqui as telas seguintes; todas são salvas juntas.</p>
+                {(settings.welcome_screen_config?.slides ?? DEFAULT_ADDITIONAL_WELCOME_SLIDES).map((slide, index) => (
+                  <details key={index} style={{ padding: '12px 0', borderBottom: '1px solid var(--panel-border)' }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Tela {index + 2} · {slide.title || 'Sem título'}</summary>
+                    <div style={{ display: 'grid', gap: 12, paddingTop: 12 }}>
+                      {([['badge', 'Chamada'], ['title', 'Título'], ['description', 'Descrição'], ['image_url', 'Imagem (URL HTTPS)']] as const).map(([field, label]) => (
+                        <label className="form-label" key={field}>{label}
+                          <input className="form-input" aria-label={label + ' da tela ' + (index + 2)} value={slide[field] || ''} maxLength={field === 'image_url' ? 2000 : field === 'description' ? 600 : 180}
+                            onChange={e => { const value = e.target.value; setSettings(prev => { const slides = structuredClone(prev.welcome_screen_config?.slides ?? DEFAULT_ADDITIONAL_WELCOME_SLIDES); slides[index] = { ...slides[index], [field]: value }; return { ...prev, welcome_screen_config: { ...prev.welcome_screen_config!, slides } }; }); }} />
+                        </label>
+                      ))}
+                      {slide.image_url && <img src={slide.image_url} alt={'Prévia da tela ' + (index + 2)} style={{ maxWidth: 160, maxHeight: 110, objectFit: 'cover', borderRadius: 8 }} />}
+                    </div>
+                  </details>
+                ))}
+              </fieldset>}
+
               {/* Permitir Navegação como Visitante */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card-subtle, #f8fafc)', borderRadius: '16px', border: '1px solid var(--panel-border)' }}>
                 <div>
@@ -1249,7 +1298,7 @@ export default function ChurchBranding({ selectedOrganization }: ChurchBrandingP
                 type="button" 
                 className="btn-primary" 
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || loadedOrg !== orgId || !!uploadingField}
                 style={{ padding: '12px 28px', fontSize: '0.95rem' }}
               >
                 {saving ? 'Salvando Alterações...' : 'Salvar Identidade da Igreja'}

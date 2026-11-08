@@ -416,6 +416,35 @@ const config = contract.defaultExperience({
   await iframe.waitForFunction(() => document.documentElement.dataset.theme === "dark");
   assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem("pwa-editor:org-a:all")).config.copy["home.title"]), "Rascunho preservado na revisão");
   assert.equal(writes, reviewWrites, "review navigation and corrections must remain local");
+  // The full monochrome theme must reach actual v1/v2 screens and logo rendering.
+  await page.setViewport({ width: 1440, height: 1000 });
+  Object.assign(config.theme, contract.monochromePalettes());
+  draft = { theme: contract.monochromePalettes() };
+  revision++;
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload({ waitUntil: "networkidle0" });
+  iframe = await getFrame();
+  await page.select('select[aria-label="Pessoa da prévia"]', "guest");
+  for (const version of ["v1", "v2"]) {
+    await page.select('select[aria-label="Versão da prévia"]', version);
+    for (const mode of ["light", "dark"]) {
+      await page.select('select[aria-label="Modo da prévia"]', mode);
+      for (const screen of ["home", "welcome", "auth", "bible", "events", "store", "giving", "profile"]) {
+        await page.select('select[aria-label="Tela da prévia"]', screen);
+        await iframe.waitForFunction(({mode,screen}) => document.documentElement.dataset.theme === mode && document.documentElement.dataset.pwaColorMode === 'monochrome' && !!document.querySelector('[data-experience-screen="'+screen+'"]'), {}, {mode,screen});
+        const expected = mode === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+        assert.equal(await iframe.evaluate(() => getComputedStyle(document.body).backgroundColor), expected, version + ' ' + mode + ' ' + screen);
+        assert.equal(await iframe.evaluate(() => getComputedStyle(document.documentElement).filter), 'grayscale(1)');
+        if (screen === 'welcome') {
+          await iframe.waitForSelector('.experience-welcome');
+          const box = await iframe.$eval('.experience-welcome', el => ({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height}));
+          assert(box.width > 300 && box.height > 500, 'fixed welcome fills the preview viewport');
+          assert.equal(await iframe.$eval('.experience-welcome h1', el => getComputedStyle(el).color), mode === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)');
+          await page.screenshot({path:out+'/monochrome-'+version+'-'+mode+'.png',fullPage:false});
+        }
+      }
+    }
+  }
   assert.deepEqual(errors, []);
   console.log(
     "PASS live colors, draft/publish, real v1/v2 screens, scope isolation and actionable contrast review with keyboard, mobile, preview and draft preservation",
