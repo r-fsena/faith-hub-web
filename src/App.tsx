@@ -1,5 +1,6 @@
 import PwaCustomization from './modules/pwa-experience/PwaCustomization';
 import Intelligence from './modules/intelligence/Intelligence';
+import {normalizeStudioRole} from './services/studioRoles';
 import { PlanModuleBoundary } from './components/PlanModuleBoundary';
 import { lazy, Suspense, useCallback, useState, useEffect, useMemo } from 'react';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
@@ -283,7 +284,7 @@ const SidebarNav: React.FC<SidebarNavProps> = ({
   isSuperAdmin
 }) => {
   const { isFeatureEnabled } = useFeatureFlags();
-  const normalizedRole = isSuperAdmin ? 'SUPERADMIN' : String(userRole || 'MEMBER').toUpperCase();
+  const normalizedRole = isSuperAdmin ? 'SUPERADMIN' : normalizeStudioRole(userRole);
 
   const filteredGroups = navigationGroups
     .map(group => {
@@ -692,6 +693,7 @@ function App() {
         if (res.ok) {
           const json = await res.json();
           const profile = json.data;
+          if(profile)profile.role=normalizeStudioRole(profile.role);
 
           const role = (profile?.role || '').toUpperCase();
           const isSuper = checkIsMasterUser(userEmail, role);

@@ -17,14 +17,14 @@ const period={start:'2026-11-01',end:'2026-11-07',previousStart:'2026-10-01',pre
  for(const version of ['v1','v2']){
   const context=await browser.createBrowserContext();page=await context.newPage();page.setDefaultTimeout(45000);page.on('pageerror',e=>errors.push(e.message));await page.setViewport({width:1440,height:1000});
   const visitor={id:'visitor-test',name:'Visitante de Homologação',first_visit_date:'2026-11-01',stage:'NEW',campus_id:'campus-test',assigned_cell_id:'cell-test',journey_version:3,baseline_known:0};
-  const actions=[],goals=[],writes=[];let failGoals=false;
+  const actions=[],goals=[],writes=[];let failGoals=false,profileRole='ADMIN';
   const flags={'intelligence.overview':true,'intelligence.activation':true,'intelligence.member_journey':true,'intelligence.actions':true,'intelligence.goals':true,'members.module_enabled':true,'visitors.module_enabled':true,'cell_groups.module_enabled':true,'studio.context_navigation_v2':true,'studio.guided_onboarding':false,'studio.global_search':false,'studio.personalized_navigation':false};
   await page.setRequestInterception(true);page.on('request',request=>{
    try{const url=new URL(request.url());if(url.origin===origin||url.protocol==='data:')return void request.continue();if(url.hostname!=='journey-api.example.test')return void request.abort();
    const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type,authorization,x-organization-id','Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,OPTIONS'};
    if(request.method()==='OPTIONS')return void request.respond({status:204,headers});
    let data={data:[]},status=200;
-   if(url.pathname==='/members/me')data={data:{id:'test-user',name:'Responsável de Teste',email:'pessoa@example.test',role:'ADMIN',organization_id:'org_test',campus_id:'campus-test',campus_ids:['all']}};
+   if(url.pathname==='/members/me')data={data:{id:'test-user',name:'Responsável de Teste',email:'pessoa@example.test',role:profileRole,organization_id:'org_test',campus_id:'campus-test',campus_ids:['all']}};
    else if(url.pathname==='/organizations/org_test')data={id:'org_test',name:'Comunidade Horizonte',slug:'teste',status:'ACTIVE',plan:'GESTAO',primary_color:'#0f766e'};
    else if(url.pathname==='/feature-flags')data={flags,configs:{'studio.context_navigation_v2':{default_version:version}}};
    else if(url.pathname==='/campuses')data=[{id:'campus-test',name:'Sede de Teste',status:'ACTIVE',organization_id:'org_test'}];
@@ -61,7 +61,7 @@ const period={start:'2026-11-01',end:'2026-11-07',previousStart:'2026-10-01',pre
   assert.ok(await page.$eval('dialog',e=>e.contains(document.activeElement)));await click('dialog footer button:last-child');await page.waitForFunction(()=>!document.querySelector('dialog[open]'));assert.equal(visitor.stage,'CONTACTED_24H');
   await page.screenshot({path:`${output}/community-${version}.png`});
   await tab('Ações');await page.waitForSelector('.intelligence-journeys .intelligence-section-heading button');await click('.intelligence-journeys .intelligence-section-heading button');await page.waitForSelector('dialog input[maxlength="140"]');
-  await page.type('dialog input[maxlength="140"]','Revisar a rotina de acolhimento');await select('Unidade','campus-test');await click('dialog footer button:last-child');await page.waitForSelector('.intelligence-action-grid li');assert.equal(actions.length,1);
+  await page.type('dialog input[maxlength="140"]','Revisar a rotina de acolhimento');await select('Unidade','campus-test');await click('dialog footer button:last-child');await page.waitForSelector('.intelligence-action-grid li');assert.equal(actions.length,1);assert.ok(await page.$eval('.intelligence-record-scope',e=>e.textContent.includes('Sede de Teste')));
   await click('.intelligence-action-grid .intelligence-button');await page.waitForSelector('dialog[open]');await select('Situação','IN_REVIEW');await click('dialog footer button:last-child');await page.waitForFunction(()=>!document.querySelector('dialog[open]'));assert.equal(actions[0].status,'IN_REVIEW');
   await page.setViewport({width:390,height:844});await page.screenshot({path:`${output}/actions-${version}-mobile.png`});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await tab('Metas');await page.waitForSelector('.intelligence-journeys .intelligence-section-heading button');await click('.intelligence-journeys .intelligence-section-heading button');await page.waitForSelector('dialog input[maxlength="140"]');
@@ -72,6 +72,9 @@ const period={start:'2026-11-01',end:'2026-11-07',previousStart:'2026-10-01',pre
   failGoals=true;await click('.intelligence-filters>button');await page.waitForSelector('.intelligence-journeys .intelligence-error');assert.equal(await page.$('.intelligence-action-grid progress'),null);
   failGoals=false;await click('.intelligence-journeys .intelligence-error button');await page.waitForSelector('.intelligence-action-grid progress');
   assert.ok(writes.some(w=>w.path==='welcome/visitors/visitor-test'));assert.ok(writes.some(w=>w.path==='actions'));assert.ok(writes.some(w=>w.path==='goals'));
+  profileRole='Líder de Célula';await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('.intelligence-toolbar');
+  await tab('Comunidade');await page.waitForSelector('.intelligence-record-list');
+  assert.equal(await page.$$eval('.intelligence-journeys button',buttons=>buttons.some(b=>b.textContent==='Cadastrar visitante')),false,'Legacy leader aliases must retain the restricted leader interface');
   await context.close();page=null;
  }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,versions:['Studio v1','Studio v2'],checks:['activation sample states','welcome evidence dialog and version','action creation and review','source-backed goal creation','error without false zero','keyboard modal focus','responsive layout','tenant headers and scoped mutations']}));
