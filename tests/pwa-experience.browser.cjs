@@ -434,7 +434,7 @@ const config = contract.defaultExperience({
         await iframe.waitForFunction(({mode,screen}) => document.documentElement.dataset.theme === mode && document.documentElement.dataset.pwaColorMode === 'monochrome' && !!document.querySelector('[data-experience-screen="'+screen+'"]'), {}, {mode,screen});
         const expected = mode === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
         assert.equal(await iframe.evaluate(() => getComputedStyle(document.body).backgroundColor), expected, version + ' ' + mode + ' ' + screen);
-        assert.equal(await iframe.evaluate(() => getComputedStyle(document.documentElement).filter), 'grayscale(1)');
+        assert.equal(await iframe.evaluate(() => getComputedStyle(document.documentElement).filter), 'none');
         if (screen === 'welcome') {
           await iframe.waitForSelector('.experience-welcome');
           const box = await iframe.$eval('.experience-welcome', el => ({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height}));
