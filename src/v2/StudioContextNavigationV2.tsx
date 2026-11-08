@@ -50,7 +50,7 @@ const NAVIGATION_GROUPS: NavigationGroupV2[] = [
 ];
 
 const ROOT_LABELS: Record<string, string> = {
-  intelligence: 'Resumo executivo',
+  intelligence: 'Visões e acompanhamento',
   people_workspace: 'Visão geral',
   ministries_workspace: 'Visão geral',
   kids_workspace: 'Visão geral',

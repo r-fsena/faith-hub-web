@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process'),assert=require('node:assert/strict'),puppeteer=require('puppeteer-core');
-const root=path.resolve(__dirname,'../../faith-hub-pwa'),port=5195,origin=`http://127.0.0.1:${port}`,prefix='.usage-app-test';
+const root=path.resolve(__dirname,'../../faith-hub-pwa'),port=Number(process.env.PWA_USAGE_TEST_PORT||5195),origin=`http://127.0.0.1:${port}`,prefix='.usage-app-test';
 const files=['html','tsx','auth.ts','config.mjs'].map(extension=>path.join(root,`${prefix}.${extension}`));
 let server,browser,page,log='';const errors=[];
 (async()=>{
@@ -74,7 +74,12 @@ let server,browser,page,log='';const errors=[];
   failWithdrawal=false;await page.click('.usage-privacy-secondary');await page.waitForFunction(()=>document.querySelector('.usage-privacy')?.textContent.includes('Compartilhamento desativado'));
   assert.equal(allowed,false);assert.equal(choices.at(-1).allowed,false);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  // Even with a stored granted preference, demo navigation must never create production usage.
+  allowed=true;revision++;const demoBefore=batches.length;
+  await page.goto(`${origin}/${prefix}.html?demo=true&v=${version==='v1'?'1':'2'}`,{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>[...document.querySelectorAll('nav button')].some(button=>button.textContent.trim()==='Perfil'));
+  await openTab('Perfil');await new Promise(resolve=>setTimeout(resolve,3300));assert.equal(batches.length,demoBefore,'Demonstration traffic must stay out of real measurement');
   await context.close();page=null;
  }
- assert.deepEqual(errors,[]);console.log('PASS actual PWA v1/v2: no capture before consent, explicit opt-in, shared privacy UI, real screen events, offline queue/retry, local stop on failed withdrawal, persistence across reload and server confirmation.');
+ assert.deepEqual(errors,[]);console.log('PASS actual PWA v1/v2: no capture before consent, explicit opt-in, shared privacy UI, real screen events, offline queue/retry, local stop on failed withdrawal, persistence across reload server confirmation, and exclusion of demo traffic.');
 })().catch(async error=>{console.error(error);console.error(log.slice(-1800));if(page){console.error((await page.evaluate(()=>document.body.innerText)).slice(-2200));await page.screenshot({path:'/tmp/faith-intelligence/screens/pwa-failure.png'});}process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(server)server.kill();for(const file of files)fs.rmSync(file,{force:true});});

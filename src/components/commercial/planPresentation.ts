@@ -28,6 +28,10 @@ export const MODULE_GROUPS: ModuleGroup[] = [
 export const LABELS: Record<string, string> = {
   'intelligence.overview': 'Resumo executivo e comparação de períodos',
   'intelligence.usage_collection': 'Medição opcional de uso do PWA',
+  'intelligence.activation': 'Funil de convites e ativação medida do PWA',
+  'intelligence.member_journey': 'Jornada e coortes de acolhimento',
+  'intelligence.actions': 'Ações com responsável, prazo e acompanhamento',
+  'intelligence.goals': 'Metas com progresso consultado nas fontes',
   'members.module_enabled': 'Gestão de membros', 'members.self_registration': 'Cadastro pelo membro', 'members.approval_workflow': 'Aprovação de novos cadastros', 'members.digital_card': 'Carteirinha digital', 'members.lgpd_export_consent': 'Consentimento e dados pessoais', 'members.spiritual_timeline': 'Histórico eclesiástico', 'members.custom_fields': 'Campos personalizados',
   'cell_groups.module_enabled': 'Gestão de células', 'cell_groups.attendance_reports': 'Encontros, presenças e relatórios', 'cell_groups.board_posts': 'Mural e publicações', 'cell_groups.join_request_flow': 'Solicitações de participação', 'cell_groups.public_map_locator': 'Localização no mapa', 'cell_groups.snack_partilhas': 'Partilha de lanche',
   'studies.module_enabled': 'Estudos e discipulado', 'studies.cell_targeted_content': 'Conteúdo direcionado a grupos', 'devotionals.module_enabled': 'Devocionais', 'devotionals.member_private_notes': 'Anotações pessoais', 'devotionals.worship_song_embed': 'Louvor nos devocionais',

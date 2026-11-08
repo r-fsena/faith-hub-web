@@ -45,7 +45,7 @@ export const PublicWelcomeView: React.FC<{ orgIdentifier: string }> = ({ orgIden
         if (settings && (settings.church_name || settings.name)) {
           setChurch({
             id: settings.organization_id || orgIdentifier || 'org_default',
-            campus_id: settings.campus_id || 'campus_sede',
+            campus_id: new URLSearchParams(window.location.search).get('campus_id') || settings.campus_id || 'campus_sede',
             name: settings.church_name || settings.name || 'Nossa Igreja',
             slogan: settings.slogan || 'Um lugar de fé, comunhão e acolhimento',
             logo_url: settings.logo_url || settings.pwa_icon_url || '',
@@ -133,7 +133,7 @@ export const PublicWelcomeView: React.FC<{ orgIdentifier: string }> = ({ orgIden
         notes: fullNotes,
         organization_id: church?.id || orgIdentifier || 'org_default',
         campus_id: church?.campus_id || 'campus_sede',
-        first_visit_date: new Date().toISOString().split('T')[0]
+        first_visit_date: new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'})
       };
 
       const res = await fetch(`${API_URL}/pastoral/visitors`, {

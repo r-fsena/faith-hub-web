@@ -14,7 +14,8 @@
     "test:member-import": "node tests/member-import.browser.cjs",
     "test:pwa-experience": "node tests/pwa-experience.browser.cjs",
     "test:intelligence": "node tests/intelligence.browser.cjs",
-    "test:pwa-usage": "node tests/pwa-usage.browser.cjs"
+    "test:pwa-usage": "node tests/pwa-usage.browser.cjs",
+    "test:intelligence:journeys": "node tests/intelligence-journeys.browser.cjs"
   },
   "dependencies": {
     "aws-amplify": "^6.22.2",

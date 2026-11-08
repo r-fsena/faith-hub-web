@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useRef } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import {useFeatureFlags} from '../context/FeatureFlagContext';
+import WelcomeJourneyDialog from './intelligence/WelcomeJourneyDialog';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -26,6 +28,7 @@ export interface ChurchVisitor {
   cell_neighborhood?: string;
   leader_name?: string;
   leader_phone?: string;
+  journey_version?:number;
 }
 
 interface CellGroupOption {
@@ -64,6 +67,7 @@ interface ExecutiveReportData {
 }
 
 interface VisitorsFunnelProps {
+  campuses?:Array<{id:string;name:string;organization_id?:string}>;
   selectedCampusId?: string;
   selectedOrganization?: {
     id: string;
@@ -74,15 +78,15 @@ interface VisitorsFunnelProps {
 
 const STAGES = [
   { key: 'NEW', title: 'Novos Visitantes', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe', desc: 'Aguardando 1º contato' },
-  { key: 'CONTACTED_24H', title: 'Contatados (24h)', color: '#d97706', bg: '#fffbeb', border: '#fde68a', desc: 'Boas-vindas enviada' },
+  { key: 'CONTACTED_24H', title: 'Contato registrado', color: '#d97706', bg: '#fffbeb', border: '#fde68a', desc: 'Contato informado pela equipe' },
   { key: 'REFERRED_TO_CELL', title: 'Encaminhados p/ Célula', color: '#8b5cf6', bg: '#f5f3ff', border: '#ddd6fe', desc: 'Líder conectado' },
-  { key: 'ATTENDING_CELL', title: 'Frequentando Célula', color: '#0284c7', bg: '#f0f9ff', border: '#bae6fd', desc: 'Participando ativamente' },
+  { key: 'ATTENDING_CELL', title: 'Presença na célula', color: '#0284c7', bg: '#f0f9ff', border: '#bae6fd', desc: 'Conferir registros de participação' },
   { key: 'INTEGRATED_MEMBER', title: 'Membro Integrado', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0', desc: 'Pronto p/ integração' },
 ] as const;
 
 export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   selectedCampusId = 'all',
-  selectedOrganization
+  selectedOrganization,campuses=[]
 }) => {
   const [visitors, setVisitors] = useState<ChurchVisitor[]>([]);
   const [cellGroups, setCellGroups] = useState<CellGroupOption[]>([]);
@@ -104,6 +108,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   const [newNeighborhood, setNewNeighborhood] = useState('');
   const [newOrigin, setNewOrigin] = useState('SUNDAY_SERVICE');
   const [newNotes, setNewNotes] = useState('');
+  const [newCampusId,setNewCampusId]=useState('');
   const [savingVisitor, setSavingVisitor] = useState(false);
 
   // Encaminhamento de Célula
@@ -116,6 +121,13 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   const [loadingReport, setLoadingReport] = useState(false);
 
   const orgId = selectedOrganization?.id || 'org_default';
+  const allowedCampuses=campuses.filter(c=>c.organization_id===orgId);
+  useEffect(()=>{setNewCampusId(previous=>selectedCampusId!=='all'?selectedCampusId:allowedCampuses.some(c=>c.id===previous)?previous:allowedCampuses.length===1?allowedCampuses[0].id:'');},[orgId,selectedCampusId,campuses]);
+  const {isFeatureEnabled}=useFeatureFlags();
+  const measuredJourney=isFeatureEnabled('intelligence.member_journey',false);
+  const [journeyDialog,setJourneyDialog]=useState<{id:string;operation:string}|null>(null);
+  const visitorRequest=useRef<AbortController|null>(null);
+  const [loadError,setLoadError]=useState('');
 
   const getAuthHeaders = async () => {
     try {
@@ -123,6 +135,8 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
       const token = session.tokens?.idToken?.toString();
       return {
         'Content-Type': 'application/json',
+        'x-organization-id':orgId,
+        ...(selectedCampusId!=='all'?{'x-campus-id':selectedCampusId}:{}),
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       };
     } catch {
@@ -131,6 +145,8 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   };
 
   const fetchVisitors = async () => {
+    visitorRequest.current?.abort();const controller=new AbortController();visitorRequest.current=controller;
+    setVisitors([]);setLoadError('');
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
@@ -147,22 +163,23 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
         params.append('search', searchTerm.trim());
       }
 
-      const res = await fetch(`${API_URL}/pastoral/visitors?${params.toString()}`, { headers });
+      if(controller.signal.aborted)return;
+      const res = await fetch(`${API_URL}/pastoral/visitors?${params.toString()}`, { headers,signal:controller.signal });
       if (res.ok) {
         const data = await res.json();
-        setVisitors(Array.isArray(data) ? data : []);
-      }
+        if(!controller.signal.aborted)setVisitors(Array.isArray(data) ? data : []);
+      }else throw Error('Não foi possível consultar os visitantes deste escopo.');
     } catch (err) {
-      console.error('Erro ao buscar visitantes:', err);
+      if(!controller.signal.aborted)setLoadError((err as Error).message);
     } finally {
-      setLoading(false);
+      if(!controller.signal.aborted)setLoading(false);
     }
   };
 
   const fetchCellGroups = async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/cell-groups?organization_id=${orgId}`, { headers });
+      const res = await fetch(`${API_URL}/cell-groups?${new URLSearchParams({organization_id:orgId,campus_id:selectedCampusId})}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.cell_groups || []);
@@ -185,7 +202,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
     setLoadingReport(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/pastoral/executive-report?organization_id=${orgId}`, { headers });
+      const res = await fetch(`${API_URL}/pastoral/executive-report?${new URLSearchParams({organization_id:orgId,campus_id:selectedCampusId})}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setReportData(data);
@@ -198,12 +215,15 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   };
 
   useEffect(() => {
+    setCellGroups([]);setSelectedVisitor(null);setShowReferModal(false);setShowAddModal(false);setJourneyDialog(null);
     fetchVisitors();
     fetchCellGroups();
+    return()=>visitorRequest.current?.abort();
   }, [orgId, selectedCampusId, stageFilter]);
 
   const handleCreateVisitor = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(!newCampusId){setLoadError('Selecione a unidade do visitante antes de cadastrar.');return;}
     if (!newName.trim() || !newPhone.trim()) {
       alert('Por favor informe pelo menos o nome e o WhatsApp do visitante.');
       return;
@@ -213,7 +233,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
       const headers = await getAuthHeaders();
       const payload = {
         organization_id: orgId,
-        campus_id: selectedCampusId === 'all' ? 'campus_sede' : selectedCampusId,
+        campus_id:newCampusId,
         name: newName.trim(),
         phone: newPhone.trim(),
         email: newEmail.trim() || undefined,
@@ -248,16 +268,20 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   };
 
   const handleUpdateStage = async (visitorId: string, newStage: string) => {
+    if(['REFERRED_TO_CELL','ATTENDING_CELL','INTEGRATED_MEMBER'].includes(newStage)&&!isFeatureEnabled('cell_groups.module_enabled',false)){setLoadError('O módulo de células não está disponível neste plano ou escopo.');return;}
+    if(measuredJourney&&['REFERRED_TO_CELL','ATTENDING_CELL','INTEGRATED_MEMBER'].includes(newStage)){
+      setJourneyDialog({id:visitorId,operation:newStage==='REFERRED_TO_CELL'?'refer':newStage});return;
+    }
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/pastoral/visitors/${visitorId}/stage`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ stage: newStage })
+        body: JSON.stringify({ stage: newStage,expected_version:visitors.find(v=>v.id===visitorId)?.journey_version??0 })
       });
       if (res.ok) {
-        setVisitors(prev => prev.map(v => v.id === visitorId ? { ...v, stage: newStage as any } : v));
-      }
+        await fetchVisitors();
+      }else{const data=await res.json();setLoadError(data.error||data.message||'Não foi possível atualizar a etapa.');}
     } catch (err) {
       console.error('Erro ao atualizar etapa:', err);
     }
@@ -274,7 +298,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
       const res = await fetch(`${API_URL}/pastoral/visitors/${selectedVisitor.id}/refer`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ cell_group_id: selectedCellId })
+        body: JSON.stringify({ cell_group_id: selectedCellId,expected_version:selectedVisitor.journey_version??0 })
       });
       if (res.ok) {
         const data = await res.json();
@@ -292,16 +316,17 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   };
 
   const handleDeleteVisitor = async (id: string, name: string) => {
-    if (!window.confirm(`Tem certeza que deseja remover o visitante "${name}" do funil?`)) return;
+    if (!window.confirm(`Arquivar a jornada de "${name}"? O histórico será preservado.`)) return;
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/pastoral/visitors/${id}`, {
         method: 'DELETE',
-        headers
+        headers,
+        body:JSON.stringify({expected_version:visitors.find(v=>v.id===id)?.journey_version??0})
       });
       if (res.ok) {
         setVisitors(prev => prev.filter(v => v.id !== id));
-      }
+      }else{const data=await res.json();setLoadError(data.error||data.message||'Não foi possível arquivar a jornada.');}
     } catch (err) {
       console.error('Erro ao remover visitante:', err);
     }
@@ -336,10 +361,12 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   const attendingCount = visitors.filter(v => v.stage === 'ATTENDING_CELL').length;
   const integratedCount = visitors.filter(v => v.stage === 'INTEGRATED_MEMBER').length;
 
-  const publicWelcomeUrl = `${window.location.origin}/welcome?org=${selectedOrganization?.id || selectedOrganization?.slug || 'org_default'}`;
+  const publicWelcomeUrl = `${window.location.origin}/welcome?${new URLSearchParams({org:selectedOrganization?.id||selectedOrganization?.slug||'org_default',...(selectedCampusId!=='all'?{campus_id:selectedCampusId}:{})})}`;
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {loadError&&<div role="alert" className="intelligence-error">{loadError}<button type="button" className="intelligence-button" onClick={()=>void fetchVisitors()}>Atualizar dados</button></div>}
+      {journeyDialog&&<WelcomeJourneyDialog key={`${orgId}:${selectedCampusId}:${journeyDialog.id}`} organizationId={orgId} campusId={selectedCampusId} visitorId={journeyDialog.id} initialOperation={journeyDialog.operation} onClose={()=>setJourneyDialog(null)} onSaved={()=>void fetchVisitors()}/>}
       
       {/* HEADER PRINCIPAL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -423,9 +450,9 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
       {/* CARDS DE RESUMO DO FUNIL */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '24px' }}>
         <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Total Ativos no Funil</div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Registros exibidos</div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{totalVisitors}</div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Visitantes cadastrados</div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Até 100 por busca. Jornadas completas em Inteligência.</div>
         </div>
 
         <div style={{ background: '#eff6ff', padding: '16px 20px', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
@@ -727,7 +754,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
                             </select>
                             <button
                               onClick={() => handleDeleteVisitor(visitor.id, visitor.name)}
-                              title="Remover visitante"
+                              title="Arquivar jornada do visitante"
                               style={{
                                 background: 'transparent',
                                 border: 'none',
@@ -785,6 +812,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
             </div>
 
             <form onSubmit={handleCreateVisitor} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {selectedCampusId==='all'&&<label style={{display:'flex',flexDirection:'column',gap:6,fontSize:13,fontWeight:700}}>Unidade do visitante *<select required value={newCampusId} onChange={e=>setNewCampusId(e.target.value)} style={{minHeight:44,padding:10,border:'1px solid #cbd5e1',borderRadius:8}}><option value="">Selecione a unidade</option>{allowedCampuses.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
               <div>
                 <label style={{ display: 'block', fontSize: '0.80rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Nome Completo *</label>
                 <input
@@ -1175,7 +1203,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
                         <div style={{ fontSize: '0.70rem', color: '#3b82f6' }}>100% entrada</div>
                       </div>
                       <div style={{ background: '#fffbeb', padding: '14px', borderRadius: '10px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.72rem', color: '#92400e', fontWeight: 700 }}>Contatados 24h</div>
+                        <div style={{ fontSize: '0.72rem', color: '#92400e', fontWeight: 700 }}>Contato registrado</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#b45309' }}>{reportData.visitor_funnel.stage_contacted || 0}</div>
                         <div style={{ fontSize: '0.70rem', color: '#d97706' }}>
                           {reportData.visitor_funnel.total_visitors ? `${Math.round(((reportData.visitor_funnel.stage_contacted || 0) / reportData.visitor_funnel.total_visitors) * 100)}%` : '0%'}

@@ -127,7 +127,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
   const [importCampusId, setImportCampusId] = useState(selectedCampusId !== 'all' ? selectedCampusId : 'campus_sede');
   const [parsedMembers, setParsedMembers] = useState<any[]>([]);
   const [isProcessingImport, setIsProcessingImport] = useState(false);
-  const [importResult, setImportResult] = useState<{ total: number; created: number; updated: number; errors: any[]; invitation_errors: any[]; invitations_requested: number; invitations_skipped: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; created: number; updated: number; errors: any[]; invitation_errors: any[]; invitations_requested: number; invitations_skipped: number;tracking_pending:number } | null>(null);
 
   const handleDownloadTemplate = () => {
     const headers = [
@@ -356,7 +356,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
     setIsProcessingImport(true);
     try {
       const headers = await getAuthHeaders();
-      const totals = { total: validMembers.length, created: 0, updated: 0, errors: [] as any[], invitation_errors: [] as any[], invitations_requested: 0, invitations_skipped: 0 };
+      const totals = { total: validMembers.length, created: 0, updated: 0, errors: [] as any[], invitation_errors: [] as any[], invitations_requested: 0, invitations_skipped: 0,tracking_pending:0 };
       for (let offset = 0; offset < validMembers.length; offset += 10) {
         const batch = validMembers.slice(offset, offset + 10);
         setImportProgress(`Processando ${offset + 1}–${offset + batch.length} de ${validMembers.length}`);
@@ -368,7 +368,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           }) });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Não foi possível processar este lote.');
-          for (const key of ['created', 'updated', 'invitations_requested', 'invitations_skipped'] as const) totals[key] += Number(data[key] || 0);
+          for (const key of ['created', 'updated', 'invitations_requested', 'invitations_skipped','tracking_pending'] as const) totals[key] += Number(data[key] || 0);
           totals.errors.push(...(data.errors || [])); totals.invitation_errors.push(...(data.invitation_errors || []));
         } catch (error) {
           totals.errors.push(...batch.map(member => ({name:member.name,email:member.email,error:(error as Error).message + ' Confira o cadastro antes de repetir; a confirmação pode ter sido perdida.'})));
@@ -647,6 +647,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
         body: JSON.stringify(payload)
       });
       if (resp.ok) {
+        const result=await resp.json();
         setInviteModalOpen(false);
         setInviteForm({ 
           name: '', 
@@ -665,7 +666,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
           address_state: '',
           operational_permissions: []
         });
-        alert("Convite enviado com sucesso! O membro foi cadastrado no sistema.");
+        alert("Convite solicitado! O membro foi cadastrado no sistema."+(result.activation_tracking_pending?' Parte do histórico de ativação ficou pendente; revise a medição antes de repetir o envio.':''));
         fetchMembers();
       } else {
         const err = await resp.json().catch(() => ({ error: 'Erro desconhecido ao processar convite' }));
@@ -2153,6 +2154,7 @@ export default function Members({ selectedCampusId = 'all', selectedOrganization
                     marginBottom: 20
                   }}>
                     <strong>{importResult.invitations_requested} convite(s) solicitado(s)</strong>
+                    {importResult.tracking_pending>0&&<p role="status">Parte do histórico de ativação não foi registrada. Os cadastros e pedidos de convite foram processados; revise a medição antes de repetir a importação.</p>}
                     <p>O e-mail de primeiro acesso permite ao novo usuário entrar com senha temporária individual e definir sua senha pessoal. A confirmação de envio pelo provedor não garante a entrega na caixa de entrada.</p>
                     <p>{importResult.invitations_skipped} cadastro(s) sem novo convite. Usuários ativados não têm sua senha alterada.</p>
                     {(!sendInvitations || !invitationsAvailable) && <p>O envio automático estava desativado. Use “Redefinir Senha” para enviar os acessos depois.</p>}

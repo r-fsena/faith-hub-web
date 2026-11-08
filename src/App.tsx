@@ -208,7 +208,7 @@ const navigationGroups: NavigationCategory[] = [
 
 const navigationContext: Record<string, { area: string; title: string }> = {
   dashboard: { area: 'Início', title: 'Visão geral' },
-  intelligence: { area: 'Inteligência', title: 'Resumo executivo' },
+  intelligence: { area: 'Inteligência', title: 'Visões e acompanhamento' },
   people_workspace: { area: 'Pessoas', title: 'Visão geral' },
   membros: { area: 'Pessoas', title: 'Membros' },
   visitantes: { area: 'Pessoas', title: 'Visitantes & acolhimento' },
@@ -1633,6 +1633,7 @@ function App() {
                 <VisitorsFunnel 
                   selectedCampusId={selectedCampusId} 
                   selectedOrganization={selectedOrganization} 
+                  campuses={campuses}
                 />
               )}
               {activeTab === 'estudos' && <Studies selectedCampusId={selectedCampusId} selectedOrganization={selectedOrganization} />}
