@@ -16,7 +16,7 @@ export interface StudioDestination {
 }
 
 export const STUDIO_DESTINATIONS: StudioDestination[] = [
-  { tab: 'intelligence', label: 'Inteligência', area: 'Inteligência', description: 'Indicadores, comparação de períodos, uso do PWA e qualidade dos dados.', icon: '↗', keywords: 'inteligencia mom analytics uso dados métricas indicadores', featureFlag: 'intelligence.overview', roles: ['SUPERADMIN','PASTOR','ADMIN','LEADER'] },
+  { tab: 'intelligence', label: 'Inteligência', area: 'Inteligência', description: 'Indicadores, comparação de períodos, uso do PWA e qualidade dos dados.', icon: '↗', keywords: 'inteligencia mom analytics uso dados métricas indicadores', featureFlag: 'intelligence.overview', roles: ['SUPERADMIN','PASTOR','ADMIN','TREASURER','LEADER'] },
   { tab: 'dashboard', label: 'Início', area: 'Geral', description: 'Indicadores e visão geral da igreja.', icon: '⌂', keywords: 'dashboard inicio resumo' },
   { tab: 'people_workspace', label: 'Pessoas', area: 'Pessoas', description: 'Área de trabalho de pessoas e comunidade.', icon: '👥', keywords: 'pessoas membros comunidade' },
   { tab: 'membros', label: 'Membros', area: 'Pessoas', description: 'Cadastros, perfis, convites e permissões.', icon: '👤', keywords: 'membro pessoa cadastrar importar convidar', featureFlag: 'members.module_enabled' },

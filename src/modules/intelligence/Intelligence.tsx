@@ -4,10 +4,11 @@ import {useFeatureFlags} from '../../context/FeatureFlagContext';
 import {destinationFor} from '../../components/StudioCommandPalette';
 import './intelligence.css';
 import IntelligenceJourneys from './IntelligenceJourneys';
+import IntelligenceOperations from './IntelligenceOperations';
 
 const API=import.meta.env.VITE_API_URL||'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 const MODULE_LABELS:Record<string,string>={home:'Início',profile:'Perfil',welcome:'Boas-vindas',auth:'Entrada',devotionals:'Palavra e estudos',cells:'Células',bible:'Bíblia',prayers:'Orações',events:'Eventos',store:'Loja',giving:'Contribuições',volunteers:'Escalas'};
-type View='overview'|'usage'|'quality'|'activation'|'community'|'actions'|'goals';
+type View='overview'|'usage'|'quality'|'activation'|'community'|'actions'|'goals'|'finance'|'operations'|'units';
 interface Metric{key:string;title:string;definition:string;tab:string|null;status:string;value:number|null;previous:number|null;reference:string;coverage:string;sample_suppressed?:boolean;change:{delta:number|null;percent:number|null;reason:string|null};}
 interface Overview{
   period:{start:string;end:string;previousStart:string;previousEnd:string;comparison:string;timezone:string};updated_at:string;
@@ -24,13 +25,13 @@ const statusLabel=(metric:Metric)=>metric.status==='error'?'Fonte temporariament
 
 export default function Intelligence({organizationId,organizationName,campusId,role,onNavigate}:{organizationId:string;organizationName:string;campusId:string;role:string;onNavigate:(tab:string)=>void}){
   const {isFeatureEnabled,isLoading:flagsLoading}=useFeatureFlags();
-  const enabled=isFeatureEnabled('intelligence.overview',false),canView=['SUPERADMIN','PASTOR','ADMIN','LEADER'].includes(role);
-  const [view,setView]=useState<View>('overview'),[period,setPeriod]=useState('month'),[refresh,setRefresh]=useState(0);
+  const enabled=isFeatureEnabled('intelligence.overview',false),canView=['SUPERADMIN','PASTOR','ADMIN','TREASURER','LEADER'].includes(role);
+  const [view,setView]=useState<View>(role==='TREASURER'?'finance':'overview'),[period,setPeriod]=useState('month'),[refresh,setRefresh]=useState(0);
   const [data,setData]=useState<Overview|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const request=useRef(0),scope=`${organizationId}:${campusId}:${role}:${period}`,[loadedScope,setLoadedScope]=useState('');
   const heading=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{
-    if(flagsLoading||!enabled||!canView){setData(null);setLoading(false);return;}
+    if(flagsLoading||!enabled||!canView||role==='TREASURER'){setData(null);setLoading(false);return;}
     const controller=new AbortController(),id=++request.current;
     setData(null);setLoadedScope('');setLoading(true);setError('');
     void(async()=>{
@@ -50,13 +51,16 @@ export default function Intelligence({organizationId,organizationName,campusId,r
   },[scope,refresh,enabled,flagsLoading,canView]);
   const current=data&&loadedScope===scope?data:null;
   const journeyView=['activation','community','actions','goals'].includes(view);
+  const managementView=['finance','operations','units'].includes(view),externalView=journeyView||managementView;
+  const managementViews=([['finance','Finanças','intelligence.finance','financial.cashflow_ledger'],['operations','Operação','intelligence.operations',null],['units','Unidades','intelligence.multicampus','system.multicampus_enabled']] as const).filter(([key,,flag,parent])=>['SUPERADMIN','PASTOR','ADMIN','TREASURER'].includes(role)&&(key!=='operations'||role!=='TREASURER')&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false))&&(key!=='finance'||isFeatureEnabled('financial.module_enabled',false)));
   const extraViews=([
     ['activation','Ativação','intelligence.activation','members.module_enabled'],
     ['community','Comunidade','intelligence.member_journey','visitors.module_enabled'],
     ['actions','Ações','intelligence.actions',null],
     ['goals','Metas','intelligence.goals',null],
-  ] as const).filter(([, ,flag,parent])=>isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false)));
+  ] as const).filter(([, ,flag,parent])=>role!=='TREASURER'&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false)));
   useEffect(()=>{if(journeyView&&!extraViews.some(([key])=>key===view))setView('overview');},[view,extraViews.map(([key])=>key).join(':')]);
+  useEffect(()=>{if(managementView&&!managementViews.some(([key])=>key===view))setView(role==='TREASURER'?'finance':'overview');},[view,managementViews.map(([key])=>key).join(':'),role]);
   const maxDaily=useMemo(()=>Math.max(1,...(current?.usage.daily||[]).map(day=>day.people||0)),[current]);
   function permitted(tab:string|null){
     if(!tab)return false;if(tab==='intelligence')return true;
@@ -74,16 +78,18 @@ export default function Intelligence({organizationId,organizationName,campusId,r
     </header>
     <div className="intelligence-toolbar">
       <nav aria-label="Visões de inteligência">
-        {([...([['overview','Resumo executivo'],['usage','Uso do PWA']] as const),...extraViews.map(([key,label])=>[key,label] as const),['quality','Qualidade e definições'] as const]).map(([key,label])=><button type="button" key={key} aria-pressed={view===key} className={view===key?'is-active':''} onClick={()=>setView(key)}>{label}</button>)}
+        {([...(role==='TREASURER'?[]:([['overview','Resumo executivo'],['usage','Uso do PWA']] as const)),...extraViews.map(([key,label])=>[key,label] as const),...managementViews.map(([key,label])=>[key,label] as const),...(role==='TREASURER'?[]:[['quality','Qualidade e definições'] as const])]).map(([key,label])=><button type="button" key={key} aria-pressed={view===key} className={view===key?'is-active':''} onClick={()=>setView(key)}>{label}</button>)}
       </nav>
       <div className="intelligence-filters">{!['actions','goals'].includes(view)&&<label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>
         <option value="month">Mês atual · dias completos</option><option value="last_month">Último mês encerrado</option><option value="7d">Últimos 7 dias completos</option><option value="30d">Últimos 30 dias completos</option>
-      </select></label>}<button type="button" className="intelligence-button" disabled={loading&&!journeyView} onClick={()=>setRefresh(value=>value+1)}>{loading&&!journeyView?'Atualizando…':'Atualizar'}</button></div>
+      </select></label>}<button type="button" className="intelligence-button" disabled={loading&&!externalView} onClick={()=>setRefresh(value=>value+1)}>{loading&&!externalView?'Atualizando…':'Atualizar'}</button></div>
     </div>
-    {!journeyView&&error&&<div className="intelligence-error" role="alert"><strong>Não foi possível atualizar os indicadores</strong><p>{error}</p><button type="button" className="intelligence-button" onClick={()=>setRefresh(value=>value+1)}>Tentar novamente</button></div>}
-    {!journeyView&&loading&&<div className="intelligence-loading" role="status"><span className="intelligence-spinner"/>Conferindo os dados do escopo selecionado…</div>}
+    {!externalView&&error&&<div className="intelligence-error" role="alert"><strong>Não foi possível atualizar os indicadores</strong><p>{error}</p><button type="button" className="intelligence-button" onClick={()=>setRefresh(value=>value+1)}>Tentar novamente</button></div>}
+    {!externalView&&loading&&<div className="intelligence-loading" role="status"><span className="intelligence-spinner"/>Conferindo os dados do escopo selecionado…</div>}
+    {managementView&&managementViews.some(([key])=>key===view)&&<IntelligenceOperations key={`${organizationId}:${campusId}:${role}:${view}:${refresh}`} view={view as 'finance'|'operations'|'units'} organizationId={organizationId} campusId={campusId} period={period} onNavigate={onNavigate} canNavigate={permitted}/>}
+    {role==='TREASURER'&&!managementViews.length&&<div className="intelligence-empty">A inteligência financeira não está habilitada neste plano ou unidade.</div>}
     {journeyView&&<IntelligenceJourneys key={`${organizationId}:${campusId}:${role}:${view}:${refresh}`} view={view as 'activation'|'community'|'actions'|'goals'} organizationId={organizationId} campusId={campusId} role={role} period={period} onNavigate={onNavigate} onSelectView={target=>{setView(target);heading.current?.focus();}}/>}
-    {!journeyView&&current&&<>
+    {!externalView&&current&&<>
       <div className="intelligence-period" role="status"><div><strong>{date(current.period.start)} a {date(lastDay(current.period.end))}</strong><span>Comparado com {date(current.period.previousStart)} a {date(lastDay(current.period.previousEnd))} · {current.period.comparison}</span></div><small>Atualizado em {time(current.updated_at)} · Brasília</small></div>
       {view==='overview'&&<>
         <div className="intelligence-section-heading"><div><span className="intelligence-eyebrow">Visão executiva</span><h2>Os números e seu contexto</h2></div><button type="button" className="intelligence-text-button" onClick={()=>setView('quality')}>Como os indicadores são medidos</button></div>

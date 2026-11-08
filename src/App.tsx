@@ -142,7 +142,7 @@ const navigationGroups: NavigationCategory[] = [
     category: 'Geral',
     items: [
       { id: 'dashboard', label: 'Início', icon: DashboardIcon },
-      { id: 'intelligence', label: 'Inteligência', icon: IntelligenceIcon, featureFlagKey: 'intelligence.overview', allowedRoles: ['SUPERADMIN','PASTOR','ADMIN','LEADER'] },
+      { id: 'intelligence', label: 'Inteligência', icon: IntelligenceIcon, featureFlagKey: 'intelligence.overview', allowedRoles: ['SUPERADMIN','PASTOR','ADMIN','TREASURER','LEADER'] },
     ]
   },
   {
