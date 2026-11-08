@@ -1,3 +1,4 @@
+const { PNG } = require('pngjs');
 const fs = require("fs"),
   path = require("path"),
   { spawn } = require("child_process"),
@@ -440,6 +441,21 @@ const config = contract.defaultExperience({
           const box = await iframe.$eval('.experience-welcome', el => ({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height}));
           assert(box.width > 300 && box.height > 500, 'fixed welcome fills the preview viewport');
           assert.equal(await iframe.$eval('.experience-welcome h1', el => getComputedStyle(el).color), mode === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)');
+          const panel = await iframe.$('.experience-welcome-content');
+          assert.equal(await panel.evaluate(el => getComputedStyle(el).backgroundColor), expected);
+          assert.equal(await iframe.$eval('.experience-welcome-photo', el => getComputedStyle(el).filter), 'none');
+          await iframe.$$eval('.experience-welcome-photo', photos => photos.forEach(el => el.style.setProperty('background-image', 'linear-gradient(#ff0000,#ff0000)', 'important')));
+          const welcome = await iframe.$('.experience-welcome');
+          const pixels = PNG.sync.read(Buffer.from(await welcome.screenshot()));
+          const pixel = (80 * pixels.width + Math.floor(pixels.width / 2)) * 4;
+          const rgb = [...pixels.data.subarray(pixel, pixel + 3)];
+          assert(rgb[0] >= 245 && rgb[1] <= 10 && rgb[2] <= 10, `${version} ${mode}: welcome photo is washed out: ${rgb}`);
+          // Long content stays readable through panel scrolling, preserving space for the photo.
+          await panel.evaluate(el => { const p = document.createElement('p'); p.dataset.overflowTest = 'true'; p.textContent = 'Comunidade e acolhimento. '.repeat(250); el.prepend(p); });
+          const bounds = await panel.evaluate(el => ({ height: el.getBoundingClientRect().height, viewport: innerHeight, content: el.scrollHeight, visible: el.clientHeight }));
+          assert(bounds.height <= bounds.viewport - 99);
+          assert(bounds.content > bounds.visible);
+          await panel.evaluate(el => { el.querySelector('[data-overflow-test]').remove(); el.scrollTop = 0; });
           await page.screenshot({path:out+'/monochrome-'+version+'-'+mode+'.png',fullPage:false});
         }
       }
