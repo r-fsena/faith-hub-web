@@ -443,7 +443,7 @@ export const ProposalPublicView: React.FC<{ token: string }> = ({ token }) => {
               <div>
                 <span style={{ fontSize: '0.70rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>E-mail do Administrador (Login)</span>
                 <div style={{ fontSize: '0.90rem', fontWeight: 800, color: '#38bdf8' }}>{proposal.contact_email}</div>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Um e-mail de boas-vindas com a senha provisória foi enviado para esta caixa postal.</span>
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>O acesso utiliza o e-mail cadastrado. Se você ainda não recebeu uma senha ou convite, solicite as instruções à administração da plataforma.</span>
               </div>
 
               <div>
