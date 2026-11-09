@@ -14,6 +14,7 @@ interface Ministry {
   leader_id?: string;
   leader_name?: string;
   status: 'ACTIVE' | 'INACTIVE';
+  campus_id?: string;
   roles_count?: number;
   volunteers_count?: number;
   upcoming_schedules_count?: number;
@@ -85,7 +86,10 @@ interface MinistriesManagementProps {
   initialSubTab?: 'schedules' | 'volunteers' | 'roles';
 }
 
-export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
+export const MinistriesManagement: React.FC<MinistriesManagementProps> = (props) => (
+  <MinistriesManagementContent key={`${props.selectedOrganization?.id || 'org_default'}:${props.selectedCampusId || 'all'}:${props.currentUserProfile?.id || ''}`} {...props} />
+);
+const MinistriesManagementContent: React.FC<MinistriesManagementProps> = ({
   selectedCampusId = 'all',
   selectedOrganization,
   currentUserProfile,
@@ -214,16 +218,16 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const [resolvingSwap, setResolvingSwap] = useState(false);
 
   const getAuthHeaders = async () => {
+    const scopeHeaders = {
+      'Content-Type': 'application/json',
+      'x-organization-id': selectedOrganization?.id || 'org_default',
+      ...(selectedCampusId !== 'all' ? { 'x-campus-id': selectedCampusId } : {})
+    };
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
-      return {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-    } catch {
-      return { 'Content-Type': 'application/json' };
-    }
+      return { ...scopeHeaders, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    } catch { return scopeHeaders; }
   };
 
   const fetchMinistries = async () => {
@@ -378,7 +382,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
           leader_name: min.leader_name,
           status: nextStatus,
           organization_id: selectedOrganization?.id || 'org_default',
-          campus_id: selectedCampusId === 'all' ? 'campus_sede' : selectedCampusId
+          campus_id: min.campus_id || selectedCampusId
         })
       });
 
@@ -400,6 +404,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
   const handleSaveMinistry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!minName.trim()) return;
+    if (!isEditingMinistry && selectedCampusId === 'all') { alert('Selecione a unidade à qual este ministério pertence antes de criá-lo.'); return; }
 
     try {
       const headers = await getAuthHeaders();
@@ -412,7 +417,7 @@ export const MinistriesManagement: React.FC<MinistriesManagementProps> = ({
         leader_name: minLeaderName || null,
         status: minStatus,
         organization_id: selectedOrganization?.id || 'org_default',
-        campus_id: selectedCampusId === 'all' ? 'campus_sede' : selectedCampusId
+        campus_id: isEditingMinistry ? ministries.find(min => min.id === editingMinistryId)?.campus_id || selectedCampusId : selectedCampusId
       };
 
       if (isEditingMinistry && editingMinistryId) {
