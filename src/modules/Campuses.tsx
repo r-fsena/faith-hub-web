@@ -18,6 +18,8 @@ export interface Campus {
   city: string;
   state: string;
   status: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   total_members?: number;
   total_cells?: number;
   created_at?: string;
@@ -78,6 +80,8 @@ export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
     neighborhood: '',
     city: '',
     state: '',
+    latitude: '',
+    longitude: '',
     status: 'ACTIVE'
   });
 
@@ -119,6 +123,8 @@ export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
       neighborhood: '',
       city: '',
       state: '',
+      latitude: '',
+      longitude: '',
       status: 'ACTIVE'
     });
     setIsModalOpen(true);
@@ -138,6 +144,8 @@ export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
       neighborhood: c.neighborhood || '',
       city: c.city || '',
       state: c.state || '',
+      latitude: c.latitude == null ? '' : String(c.latitude),
+      longitude: c.longitude == null ? '' : String(c.longitude),
       status: c.status || 'ACTIVE'
     });
     setIsModalOpen(true);
@@ -157,6 +165,10 @@ export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
       return alert('Preencha o nome e o identificador (slug) da unidade.');
     }
 
+    const lat = formData.latitude.trim(), lng = formData.longitude.trim();
+    if ((lat || lng) && (!lat || !lng || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng)) || Math.abs(Number(lat)) > 90 || Math.abs(Number(lng)) > 180)) {
+      return alert('Informe latitude e longitude válidas, ou deixe ambas vazias.');
+    }
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
@@ -531,7 +543,7 @@ export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
                   type="text"
                   placeholder="Av. das Nações, 1000 - Centro"
                   value={formData.address}
-                  onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  onChange={e => setFormData(prev => ({ ...prev, address: e.target.value, latitude: '', longitude: '' }))}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--panel-border)' }}
                 />
               </div>
@@ -559,6 +571,16 @@ export const Campuses: React.FC<CampusesProps> = ({ selectedOrganization }) => {
                   />
                 </div>
               </div>
+
+              <fieldset style={{ border: '1px solid var(--panel-border)', borderRadius: 10, padding: 14 }}>
+                <legend style={{ fontWeight: 700 }}>Localização para o PWA</legend>
+                <p style={{ fontSize: '.8rem', color: 'var(--text-secondary)', margin: '0 0 12px' }}>Copie as coordenadas do ponto exato da unidade no mapa. Elas permitem ordenar por proximidade. Ao alterar o endereço, revise o ponto novamente.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <label>Latitude<input type="number" step="any" min={-90} max={90} placeholder="-27.600626" value={formData.latitude} onChange={e => setFormData(prev => ({ ...prev, latitude: e.target.value }))} style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--panel-border)' }} /></label>
+                  <label>Longitude<input type="number" step="any" min={-180} max={180} placeholder="-48.5946863" value={formData.longitude} onChange={e => setFormData(prev => ({ ...prev, longitude: e.target.value }))} style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--panel-border)' }} /></label>
+                </div>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([formData.address, formData.city, formData.state].filter(Boolean).join(', '))}`} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 10 }}>Conferir endereço no mapa ↗</a>
+              </fieldset>
 
               {/* Checkbox Sede Principal */}
               <div style={{
