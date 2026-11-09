@@ -839,19 +839,11 @@ export default function PwaExperienceEditor({
                   {section === "appearance" && (
                     <>
                       <h3>Estilo e leitura</h3>
-                      <label>
-                        Modo inicial
-                        <select
-                          value={resolved.theme.default_mode}
-                          onChange={(e) =>
-                            change(["theme", "default_mode"], e.target.value)
-                          }
-                        >
-                          <option value="LIGHT">Claro</option>
-                          <option value="DARK">Escuro</option>
-                          <option value="AUTO">Acompanhar o sistema</option>
-                        </select>
-                      </label>
+                      <p className="pe-help">
+                        O PWA inicia no modo escuro no primeiro acesso. Depois,
+                        mantém a escolha de aparência de cada pessoa neste dispositivo
+                        e nesta igreja. Use a prévia para revisar os dois temas.
+                      </p>
                       <label>
                         Fonte
                         <select
