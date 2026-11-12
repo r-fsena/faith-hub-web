@@ -39,7 +39,7 @@ import { StudioWorkspace, type StudioWorkspaceKind } from './components/StudioWo
 import { StudioExperienceProvider } from './context/StudioExperienceContext';
 import { StudioCommandPalette, StudioFavoritesNav, StudioSearchTrigger } from './components/StudioCommandPalette';
 import { StudioHelpButton, StudioOnboardingCard, StudioOnboardingModal } from './components/StudioOnboarding';
-import { StudioVersionResolver, type StudioVersion, type StudioVersionOverride } from './v2/StudioVersionResolver';
+import { canonicalStudioUrl, STUDIO_VERSION } from './services/studioNavigation';
 import { getAuthHeaders } from './services/apiClient';
 import { SignOutIcon, StudioAccountMenu } from './components/StudioAccountMenu';
 import { PublicJourneyOnboarding } from './components/PublicJourney';
@@ -47,12 +47,6 @@ import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 const StudioContextNavigationV2 = lazy(() => import('./v2/StudioContextNavigationV2'));
-
-function requestedStudioVersion(): StudioVersionOverride {
-  if (typeof window === 'undefined') return null;
-  const requested = new URLSearchParams(window.location.search).get('studio');
-  return requested === 'v1' || requested === 'v2' ? requested : null;
-}
 
 const ShieldIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -339,11 +333,8 @@ function App() {
   const initialTab = typeof window !== 'undefined'
     ? (new URLSearchParams(window.location.search).get('tab') || localStorage.getItem('faithhub_studio_last_tab') || 'dashboard')
     : 'dashboard';
-  const initialVersionOverride = requestedStudioVersion();
 
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [studioVersionOverride, setStudioVersionOverride] = useState<StudioVersionOverride>(initialVersionOverride);
-  const [studioVersion, setStudioVersion] = useState<StudioVersion>(initialVersionOverride || 'v1');
   const [isAuthenticated, setIsAuthenticated] = useState(isDemo);
   const [isLoadingAuth, setIsLoadingAuth] = useState(!isDemo);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -399,23 +390,12 @@ function App() {
 
   const navigateToTab = useCallback((tab: string) => {
     if (!tab || tab === activeTab) return;
-    if (studioVersion === 'v2' && typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
+    if (typeof window !== 'undefined') {
+      const url = canonicalStudioUrl(window.location.href);
       url.searchParams.set('tab', tab);
-      window.history.pushState({ studioTab: tab, studioVersion: 'v2' }, '', url);
+      window.history.pushState({ studioTab: tab, studioVersion: STUDIO_VERSION }, '', url);
     }
     setActiveTab(tab);
-  }, [activeTab, studioVersion]);
-
-  const exitStudioV2 = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('studio', 'v1');
-      url.searchParams.set('tab', activeTab);
-      window.history.replaceState({ studioTab: activeTab, studioVersion: 'v1' }, '', url);
-    }
-    setStudioVersionOverride('v1');
-    setStudioVersion('v1');
   }, [activeTab]);
 
   // Dashboard Live Stats State (Zero Mock)
@@ -463,15 +443,21 @@ function App() {
     localStorage.setItem('faithhub_studio_last_tab', activeTab);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', activeTab);
-    window.history.replaceState({}, '', url);
+    window.history.replaceState({ ...window.history.state, studioTab: activeTab, studioVersion: STUDIO_VERSION }, '', canonicalStudioUrl(url.href));
   }, [activeTab]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const normalizeLocation = () => {
+      const url = canonicalStudioUrl(window.location.href);
+      if (url.href !== window.location.href) {
+        window.history.replaceState({ ...window.history.state, studioVersion: STUDIO_VERSION }, '', url);
+      }
+      return url;
+    };
+    normalizeLocation();
     const handleHistoryNavigation = () => {
-      const params = new URLSearchParams(window.location.search);
-      setStudioVersionOverride(requestedStudioVersion());
-      setActiveTab(params.get('tab') || 'dashboard');
+      const url = normalizeLocation();
+      setActiveTab(url.searchParams.get('tab') || 'dashboard');
     };
     window.addEventListener('popstate', handleHistoryNavigation);
     return () => window.removeEventListener('popstate', handleHistoryNavigation);
@@ -919,7 +905,6 @@ function App() {
 
   return (
     <FeatureFlagProvider organizationId={selectedOrganization?.id || 'org_default'} campusId={selectedCampusId}>
-      <StudioVersionResolver requestedVersion={studioVersionOverride} onResolve={setStudioVersion} />
       <StudioExperienceProvider
         organizationId={selectedOrganization.id}
         campusId={selectedCampusId}
@@ -932,7 +917,7 @@ function App() {
         membersCount={dashboardStats.membersCount}
         brandingConfigured={Boolean(churchSettings.logo_icon_url || (churchSettings.church_name && churchSettings.church_name !== 'Minha Igreja'))}
       >
-      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div className="app-container" data-studio-version={STUDIO_VERSION} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
       {/* ========================================================
           MASTER ADMIN IMPERSONATION BANNER (TOP BAR)
@@ -1252,17 +1237,14 @@ function App() {
           {/* Page Container */}
           <div className="page-container">
             <PublicJourneyOnboarding organizationId={selectedOrganization.id} onNavigate={navigateToTab} />
-            {studioVersion === 'v2' && (
-              <Suspense fallback={null}>
+            <Suspense fallback={null}>
                 <StudioContextNavigationV2
                   activeTab={activeTab}
                   role={isSuperAdmin ? 'SUPERADMIN' : String(userProfile?.role || 'MEMBER').toUpperCase()}
                   isDemo={isDemo}
                   onNavigate={navigateToTab}
-                  onExitV2={exitStudioV2}
                 />
-              </Suspense>
-            )}
+            </Suspense>
             {activeTab === 'dashboard' && (
               <div className="animate-fade-in dashboard-grid-layout">
                 {/* ==========================================

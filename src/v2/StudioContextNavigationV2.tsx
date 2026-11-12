@@ -3,8 +3,6 @@ import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { destinationFor, type StudioDestination } from '../components/StudioCommandPalette';
 import './studio-v2.css';
 
-const STUDIO_V2_FLAG = 'studio.context_navigation_v2';
-
 interface NavigationGroupV2 {
   rootTab: string;
   rootLabel: string;
@@ -66,7 +64,6 @@ interface StudioContextNavigationV2Props {
   role: string;
   isDemo?: boolean;
   onNavigate: (tab: string) => void;
-  onExitV2: () => void;
 }
 
 function canDisplay(destination: StudioDestination | undefined, role: string, isFeatureEnabled: (key: string) => boolean, isDemo: boolean): boolean {
@@ -83,11 +80,10 @@ function resolveGroup(activeTab: string): NavigationGroupV2 | undefined {
 }
 
 export default function StudioContextNavigationV2({
-  activeTab, role, isDemo = false, onNavigate, onExitV2
+  activeTab, role, isDemo = false, onNavigate
 }: StudioContextNavigationV2Props) {
   const { isFeatureEnabled, isLoading } = useFeatureFlags();
   const normalizedRole = String(role || 'MEMBER').toUpperCase();
-  const enabled = isDemo || isFeatureEnabled(STUDIO_V2_FLAG, false);
   const group = resolveGroup(activeTab);
 
   const destinations = useMemo(() => {
@@ -97,16 +93,8 @@ export default function StudioContextNavigationV2({
       .filter((destination): destination is StudioDestination => canDisplay(destination, normalizedRole, isFeatureEnabled, isDemo));
   }, [group, isDemo, isFeatureEnabled, normalizedRole]);
 
-  if (isLoading || !enabled) return null;
-
-  if (!group) {
-    return (
-      <div className="studio-v2-status" aria-label="Studio V2 em avaliação">
-        <span><strong>STUDIO V2</strong> Navegação em avaliação</span>
-        <button type="button" onClick={onExitV2}>Usar versão atual</button>
-      </div>
-    );
-  }
+  // Only destinations depend on module flags. The standard Studio navigation has no v1 fallback.
+  if (isLoading || !group) return null;
 
   const current = destinationFor(activeTab);
   const isGroupRoot = activeTab === group.rootTab;
@@ -141,11 +129,6 @@ export default function StudioContextNavigationV2({
               </>
             )}
           </nav>
-        </div>
-
-        <div className="studio-v2-pilot">
-          <span><strong>STUDIO V2</strong> Em avaliação</span>
-          <button type="button" onClick={onExitV2}>Usar versão atual</button>
         </div>
       </div>
 

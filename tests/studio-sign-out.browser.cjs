@@ -1,4 +1,4 @@
-// Exercise the actual App shell in v1/v2. Auth and external API calls are isolated mocks.
+// Legacy v1 and v2 links must use the standard Studio shell. Auth and APIs are isolated mocks.
 const { readFileSync, writeFileSync, rmSync, mkdirSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
@@ -37,7 +37,7 @@ const errors = [];
   server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host','127.0.0.1','--port',String(port),'--strictPort','--config',files[3]], {cwd:root,stdio:'pipe',env:{...process.env,VITE_API_URL:'https://session-api.example.test'}});
   server.stderr.on('data', data => {serverLog += data;}); server.stdout.on('data', data=>{serverLog+=data;});
   for(let at=0;at<60;at++){try {if((await fetch(origin)).ok)break;}catch{} if(server.exitCode!==null)throw Error(serverLog);await new Promise(resolve=>setTimeout(resolve,200));}
-  browser = await puppeteer.launch({executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+  browser = await puppeteer.launch({executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,pipe:true,timeout:60000});
   for(const test of [
     {version:'v1',role:'PASTOR',action:'avatar'},
     {version:'v1',role:'LEADER',action:'footer',mobile:true},
@@ -67,8 +67,8 @@ const errors = [];
     });
     await page.goto(`${origin}/${prefix}.html?studio=${test.version}`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('.studio-account-trigger');
-    if(test.version==='v2')await page.waitForSelector('.studio-v2-status');
-    else assert.equal(await page.$('.studio-v2-status'),null);
+    await page.waitForSelector('[data-studio-version="v2"]');
+    assert.equal(await page.$('.studio-v2-status,.studio-v2-pilot'),null);
     assert.ok(await page.$('aside .studio-sign-out'), 'Every non-master role must have the footer action');
     assert.equal(await page.evaluate(()=>localStorage.getItem('faithhub_active_org')!==null),true);
     await page.click('.studio-account-trigger');await page.waitForSelector('.studio-account-panel');
@@ -101,5 +101,5 @@ const errors = [];
     await context.close(); page=null;
     console.log(`PASS ${test.version} ${test.role} ${test.mobile?'mobile':'desktop'} ${test.action}${test.failure?' failure + retry':''}`);
   }
-  assert.deepEqual(errors,[]);console.log('PASS: both versions, all non-master roles, both entry points, keyboard, pending guard, failure recovery, tenant cleanup and login after reload.');
+  assert.deepEqual(errors,[]);console.log('PASS: legacy/current links on standard v2, all non-master roles, both entry points, keyboard, pending guard, failure recovery, tenant cleanup and login after reload.');
 })().catch(async error=>{console.error(error);console.error(serverLog.slice(-6000));if(page){console.log(await page.evaluate(()=>({scrollX,rect:document.querySelector('aside')?.getBoundingClientRect().toJSON(),transform:document.querySelector('aside')&&getComputedStyle(document.querySelector('aside')).transform})));console.log((await page.evaluate(()=>document.body.innerText)).slice(-2000));await page.screenshot({path:path.join(output,'failure.png')});}process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(server)server.kill();for(const file of files)rmSync(file,{force:true});});
