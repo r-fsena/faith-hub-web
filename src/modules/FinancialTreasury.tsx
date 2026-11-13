@@ -1,3 +1,4 @@
+import FinancialLedger from './financial/FinancialLedger';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -64,6 +65,8 @@ const CheckIcon = () => (
 // --- INTERFACES ---
 export interface FinancialTransaction {
   id: string;
+  ledger_version?: number;
+  original_transaction_id?: string;
   organization_id: string;
   campus_id?: string;
   campus_name?: string;
@@ -160,7 +163,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   selectedOrganization,
   initialSubTab = 'dre'
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'tithes' | 'expenses' | 'projects' | 'statement' | 'report'>(initialSubTab);
+  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'tithes' | 'expenses' | 'projects' | 'statement' | 'report' | 'ledger'>(initialSubTab);
 
   useEffect(() => {
     if (initialSubTab) {
@@ -168,6 +171,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     }
   }, [initialSubTab]);
   const { isFeatureEnabled } = useFeatureFlags();
+  const ledgerEnabled = isFeatureEnabled('financial.accounts_ledger', false);
   const treasuryEnabled = isFeatureEnabled('financial.cashflow_ledger');
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
@@ -235,7 +239,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
-      return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+      return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'x-organization-id': orgId } : { 'Content-Type': 'application/json' };
     } catch {
       return { 'Content-Type': 'application/json' };
     }
@@ -252,6 +256,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     try {
       const params = new URLSearchParams();
       params.append('organization_id', orgId);
+      params.append('reporting','1');
       if (selectedCampusId && selectedCampusId !== 'all') {
         params.append('campus_id', selectedCampusId);
       }
@@ -344,6 +349,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
 
   const handleSaveTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(ledgerEnabled){setIsTransactionModalOpen(false);setActiveSubTab('ledger');return;}
     if (!formData.description || !formData.amount) {
       alert('Preencha a descrição e o valor da movimentação.');
       return;
@@ -511,6 +517,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
   };
 
   const handleDeleteTransaction = async (id: string) => {
+    const current=transactions.find(t=>t.id===id);if(current?.ledger_version||ledgerEnabled&&current?.status==='PAID'){setActiveSubTab('ledger');return;}
     if (!confirm('Deseja realmente remover este lançamento financeiro?')) return;
     try {
       const headers = await getAuthHeaders();
@@ -520,7 +527,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       });
       if (res.ok) {
         loadAllFinancialData();
-      }
+      } else {const payload=await res.json();alert(payload.message||payload.error||'Não foi possível alterar o lançamento.');}
     } catch (e) {
       console.error(e);
     }
@@ -553,7 +560,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
     ? transactions.filter(t => {
         const matchesName = t.member_name && t.member_name.toLowerCase().includes(selectedMemberForReport.toLowerCase());
         const matchesYear = !reportYear || t.payment_date.startsWith(reportYear);
-        return matchesName && matchesYear && t.type === 'INCOME';
+        return matchesName && matchesYear && t.type === 'INCOME' && t.status === 'PAID';
       })
     : [];
   const totalMemberContributed = memberReportTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -623,6 +630,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
               type="button"
               className="btn-primary"
               onClick={() => {
+                if(ledgerEnabled){setActiveSubTab('ledger');return;}
                 setModalTransactionType('INCOME');
                 setFormData({ ...formData, category: 'Dízimo', description: '' });
                 setIsTransactionModalOpen(true);
@@ -759,6 +767,7 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
       {/* NAVEGAÇÃO DE SUB-ABAS (Ocultadas se estiver no modo exclusivo de campanhas) */}
       {!isProjectsOnlyMode && (
         <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '14px', marginBottom: '22px', overflowX: 'auto' }}>
+          {ledgerEnabled&&<button type="button" className={`filter-pill ${activeSubTab==='ledger'?'active':''}`} onClick={()=>setActiveSubTab('ledger')}>Contas e liquidações</button>}
           <button
             type="button"
             className={`filter-pill ${activeSubTab === 'dre' ? 'active' : ''}`}
@@ -807,8 +816,9 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
         </div>
       )}
 
+      {ledgerEnabled&&!isProjectsOnlyMode&&activeSubTab!=='ledger'&&<p className="intelligence-guidance">As listas separam cada liquidação efetiva do saldo ainda pendente. Uma previsão pode gerar várias linhas. Consulte os valores completos em Contas e liquidações; registros liquidados são preservados.</p>}
       {/* CONTEÚDO DAS SUB-ABAS */}
-      {loading ? (
+      {activeSubTab==='ledger'&&ledgerEnabled ? <FinancialLedger key={`${orgId}:${selectedCampusId}`} organizationId={orgId} campusId={selectedCampusId} onChanged={loadAllFinancialData}/> : loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--accent-primary)', fontWeight: 700 }}>
           Carregando informações financeiras da tesouraria...
         </div>
@@ -1223,9 +1233,10 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                           <td style={{ padding: '12px', textAlign: 'center' }}>
                             <button
                               type="button"
+                              disabled={!!t.ledger_version||ledgerEnabled&&t.status==='PAID'}
+                              title={t.ledger_version||ledgerEnabled&&t.status==='PAID'?'Registro preservado. Consulte Contas e liquidações.':'Remover pendência'}
                               onClick={() => handleDeleteTransaction(t.id)}
                               style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                              title="Remover lançamento"
                             >
                               <TrashIcon />
                             </button>
@@ -1426,9 +1437,10 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                           <td style={{ padding: '12px', textAlign: 'center' }}>
                             <button
                               type="button"
+                              disabled={!!t.ledger_version||ledgerEnabled&&t.status==='PAID'}
+                              title={t.ledger_version||ledgerEnabled&&t.status==='PAID'?'Registro preservado. Consulte Contas e liquidações.':'Remover pendência'}
                               onClick={() => handleDeleteTransaction(t.id)}
                               style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                              title="Remover lançamento"
                             >
                               <TrashIcon />
                             </button>
@@ -1509,9 +1521,10 @@ export const FinancialTreasury: React.FC<FinancialTreasuryProps> = ({
                           <td style={{ padding: '12px', textAlign: 'center' }}>
                             <button
                               type="button"
+                              disabled={!!t.ledger_version||ledgerEnabled&&t.status==='PAID'}
+                              title={t.ledger_version||ledgerEnabled&&t.status==='PAID'?'Registro preservado. Consulte Contas e liquidações.':'Remover pendência'}
                               onClick={() => handleDeleteTransaction(t.id)}
                               style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                              title="Remover lançamento"
                             >
                               <TrashIcon />
                             </button>
