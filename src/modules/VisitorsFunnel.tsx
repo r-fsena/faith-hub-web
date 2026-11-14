@@ -1,3 +1,4 @@
+import {useIntelligenceOrigin,IntelligenceOriginBanner} from '../components/IntelligenceOrigin';
 import React, { useState, useEffect,useRef } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import {useFeatureFlags} from '../context/FeatureFlagContext';
@@ -120,6 +121,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
   const [reportData, setReportData] = useState<ExecutiveReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
 
+  const originContext=useIntelligenceOrigin(selectedOrganization?.id||'org_default',selectedCampusId,'visitantes');
   const orgId = selectedOrganization?.id || 'org_default';
   const allowedCampuses=campuses.filter(c=>c.organization_id===orgId);
   useEffect(()=>{setNewCampusId(previous=>selectedCampusId!=='all'?selectedCampusId:allowedCampuses.some(c=>c.id===previous)?previous:allowedCampuses.length===1?allowedCampuses[0].id:'');},[orgId,selectedCampusId,campuses]);
@@ -365,6 +367,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <IntelligenceOriginBanner {...originContext}/>
       {loadError&&<div role="alert" className="intelligence-error">{loadError}<button type="button" className="intelligence-button" onClick={()=>void fetchVisitors()}>Atualizar dados</button></div>}
       {journeyDialog&&<WelcomeJourneyDialog key={`${orgId}:${selectedCampusId}:${journeyDialog.id}`} organizationId={orgId} campusId={selectedCampusId} visitorId={journeyDialog.id} initialOperation={journeyDialog.operation} onClose={()=>setJourneyDialog(null)} onSaved={()=>void fetchVisitors()}/>}
       
@@ -545,7 +548,7 @@ export const VisitorsFunnel: React.FC<VisitorsFunnelProps> = ({
           paddingBottom: '24px'
         }}>
           {STAGES.map(stage => {
-            const stageVisitors = visitors.filter(v => v.stage === stage.key);
+            const stageVisitors = visitors.filter(v => v.stage === stage.key&&(!originContext.origin||v.id===originContext.origin.sourceId&&v.campus_id===originContext.origin.campusId));
             return (
               <div
                 key={stage.key}

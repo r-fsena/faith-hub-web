@@ -1,3 +1,7 @@
+import IntelligenceAlerts from './IntelligenceAlerts';
+import IntelligenceCapacities from './IntelligenceCapacities';
+import IntelligenceCalendar from './IntelligenceCalendar';
+import IntelligenceReports from './IntelligenceReports';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {getAuthHeaders} from '../../services/apiClient';
 import {useFeatureFlags} from '../../context/FeatureFlagContext';
@@ -10,7 +14,7 @@ import '../financial/foundations.css';
 
 const API=import.meta.env.VITE_API_URL||'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 const MODULE_LABELS:Record<string,string>={home:'Início',profile:'Perfil',welcome:'Boas-vindas',auth:'Entrada',devotionals:'Palavra e estudos',cells:'Células',bible:'Bíblia',prayers:'Orações',events:'Eventos',store:'Loja',giving:'Contribuições',volunteers:'Escalas'};
-type View='overview'|'usage'|'quality'|'activation'|'community'|'actions'|'goals'|'finance'|'operations'|'units'|'history';
+type View='overview'|'usage'|'quality'|'activation'|'community'|'actions'|'goals'|'finance'|'operations'|'units'|'history'|'reports'|'calendar'|'capacities'|'alerts';
 interface Metric{key:string;title:string;definition:string;tab:string|null;status:string;value:number|null;previous:number|null;reference:string;coverage:string;sample_suppressed?:boolean;change:{delta:number|null;percent:number|null;reason:string|null};}
 interface Overview{
   period:{start:string;end:string;previousStart:string;previousEnd:string;comparison:string;timezone:string};updated_at:string;
@@ -53,16 +57,20 @@ export default function Intelligence({organizationId,organizationName,campusId,r
   },[scope,refresh,enabled,flagsLoading,canView]);
   const current=data&&loadedScope===scope?data:null;
   const journeyView=['activation','community','actions','goals'].includes(view);
-  const managementView=['finance','operations','units'].includes(view),externalView=journeyView||managementView||view==='history';
+  const managementView=['finance','operations','units'].includes(view),externalView=journeyView||managementView||['history','reports','calendar','capacities','alerts'].includes(view);
   const managementViews=([['finance','Finanças','intelligence.finance','financial.cashflow_ledger'],['operations','Operação','intelligence.operations',null],['units','Unidades','intelligence.multicampus','system.multicampus_enabled']] as const).filter(([key,,flag,parent])=>['SUPERADMIN','PASTOR','ADMIN','TREASURER'].includes(role)&&(key!=='operations'||role!=='TREASURER')&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false))&&(key!=='finance'||isFeatureEnabled('financial.module_enabled',false)));
   const extraViews=([
+    ['alerts','Alertas','intelligence.alerts','intelligence.actions'],
+    ['capacities','Capacidades históricas','intelligence.capacities','intelligence.operations'],
+    ['calendar','Agenda e participação','intelligence.calendar','cell_groups.module_enabled'],
+    ['reports','Relatórios','intelligence.reports',null],
     ['history','Histórico','intelligence.history','members.module_enabled'],
     ['activation','Ativação','intelligence.activation','members.module_enabled'],
     ['community','Comunidade','intelligence.member_journey','visitors.module_enabled'],
     ['actions','Ações','intelligence.actions',null],
     ['goals','Metas','intelligence.goals',null],
-  ] as const).filter(([, ,flag,parent])=>role!=='TREASURER'&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false)));
-  useEffect(()=>{if((journeyView||view==='history')&&!extraViews.some(([key])=>key===view))setView('overview');},[view,extraViews.map(([key])=>key).join(':')]);
+  ] as const).filter(([key, ,flag,parent])=>(role!=='TREASURER'||key==='reports')&&(key!=='capacities'||['SUPERADMIN','PASTOR','ADMIN'].includes(role))&&(key!=='calendar'||isFeatureEnabled('intelligence.history',false)&&isFeatureEnabled('members.module_enabled',false))&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false)));
+  useEffect(()=>{if((journeyView||['history','reports','calendar','capacities','alerts'].includes(view))&&!extraViews.some(([key])=>key===view))setView('overview');},[view,extraViews.map(([key])=>key).join(':')]);
   useEffect(()=>{if(managementView&&!managementViews.some(([key])=>key===view))setView(role==='TREASURER'?'finance':'overview');},[view,managementViews.map(([key])=>key).join(':'),role]);
   const maxDaily=useMemo(()=>Math.max(1,...(current?.usage.daily||[]).map(day=>day.people||0)),[current]);
   function permitted(tab:string|null){
@@ -83,7 +91,7 @@ export default function Intelligence({organizationId,organizationName,campusId,r
       <nav aria-label="Visões de inteligência">
         {([...(role==='TREASURER'?[]:([['overview','Resumo executivo'],['usage','Uso do PWA']] as const)),...extraViews.map(([key,label])=>[key,label] as const),...managementViews.map(([key,label])=>[key,label] as const),...(role==='TREASURER'?[]:[['quality','Qualidade e definições'] as const])]).map(([key,label])=><button type="button" key={key} aria-pressed={view===key} className={view===key?'is-active':''} onClick={()=>setView(key)}>{label}</button>)}
       </nav>
-      <div className="intelligence-filters">{!['actions','goals'].includes(view)&&<label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>
+      <div className="intelligence-filters">{!['actions','goals','calendar','alerts'].includes(view)&&<label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>
         <option value="month">Mês atual · dias completos</option><option value="last_month">Último mês encerrado</option><option value="7d">Últimos 7 dias completos</option><option value="30d">Últimos 30 dias completos</option>
       </select></label>}<button type="button" className="intelligence-button" disabled={loading&&!externalView} onClick={()=>setRefresh(value=>value+1)}>{loading&&!externalView?'Atualizando…':'Atualizar'}</button></div>
     </div>
@@ -91,6 +99,10 @@ export default function Intelligence({organizationId,organizationName,campusId,r
     {!externalView&&loading&&<div className="intelligence-loading" role="status"><span className="intelligence-spinner"/>Conferindo os dados do escopo selecionado…</div>}
     {managementView&&managementViews.some(([key])=>key===view)&&<IntelligenceOperations key={`${organizationId}:${campusId}:${role}:${view}:${refresh}`} view={view as 'finance'|'operations'|'units'} organizationId={organizationId} campusId={campusId} period={period} onNavigate={onNavigate} canNavigate={permitted}/>}
     {role==='TREASURER'&&!managementViews.length&&<div className="intelligence-empty">A inteligência financeira não está habilitada neste plano ou unidade.</div>}
+    {view==='alerts'&&extraViews.some(([key])=>key==='alerts')&&<IntelligenceAlerts key={`${organizationId}:${campusId}:${role}:${refresh}`} organizationId={organizationId} campusId={campusId} role={role} onNavigate={navigate} canNavigate={permitted} onActions={()=>setView('actions')}/>}
+    {view==='capacities'&&extraViews.some(([key])=>key==='capacities')&&<IntelligenceCapacities key={`${organizationId}:${campusId}:${role}:${refresh}`} organizationId={organizationId} campusId={campusId} onNavigate={navigate} canNavigate={permitted}/>}
+    {view==='calendar'&&extraViews.some(([key])=>key==='calendar')&&<IntelligenceCalendar key={`${organizationId}:${campusId}:${role}:${refresh}`} organizationId={organizationId} campusId={campusId} onNavigate={navigate}/>}
+    {view==='reports'&&extraViews.some(([key])=>key==='reports')&&<IntelligenceReports key={`${organizationId}:${campusId}:${role}:${refresh}`} organizationId={organizationId} campusId={campusId} period={period}/>}
     {view==='history'&&extraViews.some(([key])=>key==='history')&&<IntelligenceHistory key={`${organizationId}:${campusId}:${role}:${period}:${refresh}`} organizationId={organizationId} campusId={campusId} period={period}/>}
     {journeyView&&<IntelligenceJourneys key={`${organizationId}:${campusId}:${role}:${view}:${refresh}`} view={view as 'activation'|'community'|'actions'|'goals'} organizationId={organizationId} campusId={campusId} role={role} period={period} onNavigate={onNavigate} onSelectView={target=>{setView(target);heading.current?.focus();}}/>}
     {!externalView&&current&&<>

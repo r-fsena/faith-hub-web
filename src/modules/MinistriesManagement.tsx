@@ -1,3 +1,4 @@
+import {useIntelligenceOrigin,IntelligenceOriginBanner} from '../components/IntelligenceOrigin';
 import React, { useState, useEffect } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
@@ -97,6 +98,7 @@ const MinistriesManagementContent: React.FC<MinistriesManagementProps> = ({
   isSuperAdmin = false,
   initialSubTab = 'volunteers'
 }) => {
+  const originContext=useIntelligenceOrigin(selectedOrganization?.id||'org_default',selectedCampusId||'all','escalas');
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'schedules' | 'volunteers' | 'roles'>(initialSubTab);
@@ -240,7 +242,7 @@ const MinistriesManagementContent: React.FC<MinistriesManagementProps> = ({
         const data = await res.json();
         setMinistries(data);
         if (data.length > 0 && !selectedMinistry) {
-          setSelectedMinistry(data[0]);
+          setSelectedMinistry(data.find((m:Ministry)=>m.id===originContext.origin?.ministryId)||data[0]);
         }
       }
     } catch (e) {
@@ -1243,6 +1245,7 @@ const MinistriesManagementContent: React.FC<MinistriesManagementProps> = ({
   const pastSchedules = schedules.filter(s => s.service_date < todayStr || s.status === 'COMPLETED');
 
   const displayedSchedules = schedules.filter(s => {
+    if(originContext.origin)return s.id===originContext.origin.sourceId;
     const isPast = s.service_date < todayStr || s.status === 'COMPLETED';
     if (schedulesTimeframe === 'UPCOMING' && isPast) return false;
     if (schedulesTimeframe === 'HISTORY' && !isPast) return false;
@@ -1269,6 +1272,7 @@ const MinistriesManagementContent: React.FC<MinistriesManagementProps> = ({
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <IntelligenceOriginBanner {...originContext}/>
       
       {/* CABEÇALHO */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>

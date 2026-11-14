@@ -1,3 +1,4 @@
+import {useIntelligenceOrigin,IntelligenceOriginBanner} from '../components/IntelligenceOrigin';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -94,6 +95,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
   const organizationId = selectedOrganization?.id || 'org_default';
+  const originContext=useIntelligenceOrigin(selectedOrganization?.id||'org_default',selectedCampusId||'all','pdv_estoque');
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -146,11 +148,12 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
   }, [loadInventory, loadMovements]);
 
   const filtered = useMemo(() => inventory.filter(item => {
+    if(originContext.origin&&(item.product_id!==originContext.origin.sourceId||item.campus_id!==originContext.origin.campusId))return false;
     if (statusFilter !== 'ALL' && item.stock_status !== statusFilter) return false;
     const term = search.trim().toLowerCase();
     if (!term) return true;
     return [item.name, item.category, item.sku, item.barcode, item.campus_name].some(value => String(value || '').toLowerCase().includes(term));
-  }), [inventory, search, statusFilter]);
+  }), [inventory, search, statusFilter,originContext.origin]);
 
   const openMovement = (item: InventoryItem, type: MovementType) => {
     setSelectedItem(item);
@@ -219,6 +222,7 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
 
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
+      <IntelligenceOriginBanner {...originContext}/>
       <div className="card-header-row" style={{ paddingBottom: 20, borderBottom: '1px solid var(--panel-border)', marginBottom: 20 }}>
         <div>
           <h1 className="card-title" style={{ fontSize: '1.4rem' }}>Controle de Estoque</h1>

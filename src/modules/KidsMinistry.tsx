@@ -1,3 +1,5 @@
+import {KidsSessions} from '../components/KidsSessions';
+import {useFeatureFlags} from '../context/FeatureFlagContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -520,9 +522,11 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
     }
   };
 
+  const [roomSaveError,setRoomSaveError]=useState('');
   // Handler: Salvar Sala
   const handleSaveRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault();setRoomSaveError('');
+    if(selectedCampusId==='all'&&!roomForm.campus_id){setRoomSaveError('Selecione a unidade no topo antes de cadastrar uma sala.');return;}
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/kids/rooms`, {
@@ -531,7 +535,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         body: JSON.stringify({
           ...roomForm,
           organization_id: orgId,
-          campus_id: selectedCampusId !== 'all' ? selectedCampusId : null
+          campus_id: selectedCampusId !== 'all' ? selectedCampusId : roomForm.campus_id
         })
       });
 
@@ -539,7 +543,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
         setIsRoomModalOpen(false);
         loadRooms();
       } else {
-        alert("Erro ao salvar sala.");
+        const failure=await res.json().catch(()=>({}));setRoomSaveError(failure.message||'Não foi possível salvar a sala. Confira os dados e tente novamente.');
       }
     } catch (err) {
       console.error(err);
@@ -572,6 +576,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
     return found ? found.id : rooms[0]?.id || '';
   };
 
+  const {isFeatureEnabled}=useFeatureFlags();
   return (
     <div className="members-container animate-fade-in" style={{ width: '100%' }}>
       {/* Top Header */}
@@ -644,6 +649,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       {/* ========================================================
           TAB 1: PAINEL AO VIVO DAS SALAS & CRIANÇAS ATIVAS
           ======================================================== */}
+      {['salas','checkin_rapido','config_salas'].includes(activeTab)&&isFeatureEnabled('intelligence.capacities',false)&&<KidsSessions key={`${orgId}:${selectedCampusId}`} organizationId={orgId} campusId={selectedCampusId} rooms={rooms}/>}
       {activeTab === 'salas' && (
         <div>
           {/* Top Room Cards Summary */}
@@ -1770,7 +1776,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
               type="button" 
               className="btn-primary"
               onClick={() => {
-                setRoomForm({
+                setRoomSaveError('');setRoomForm({
                   name: '',
                   min_age: 0,
                   max_age: 12,
@@ -1807,7 +1813,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
                     type="button" 
                     className="link-btn"
                     onClick={() => {
-                      setRoomForm(r);
+                      setRoomSaveError('');setRoomForm(r);
                       setIsRoomModalOpen(true);
                     }}
                   >
@@ -2145,6 +2151,7 @@ export const KidsMinistry: React.FC<KidsMinistryProps> = ({
       {isRoomModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setIsRoomModalOpen(false)}>
           <form className="modal-studio-container" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()} onSubmit={handleSaveRoom}>
+            {roomSaveError&&<p role="alert" className="intelligence-error">{roomSaveError}</p>}
             <div className="modal-studio-header">
               <div className="modal-studio-header-left">
                 <div className="modal-studio-header-icon" style={{ background: 'var(--accent-primary-light)', color: 'var(--accent-primary)' }}>
