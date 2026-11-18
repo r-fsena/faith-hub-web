@@ -1,5 +1,16 @@
 .intelligence-module{--int-brand:var(--primary,#0f766e);--int-border:var(--panel-border,#e2e8f0);color:var(--text-primary,#1e293b);padding:clamp(16px,2.5vw,32px);max-width:1540px;margin:auto;}
 .intelligence-module *{box-sizing:border-box;}
+.report-schedules fieldset{border:0;border-top:1px solid var(--panel-border,#e2e8f0);padding:18px 0 0;margin:24px 0 16px;min-width:0;}
+.report-schedules legend{font-size:14px;font-weight:700;padding:0 12px 0 0;}
+.report-schedules label{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:600;margin:14px 0;}
+.report-schedules input:not([type=checkbox]){box-sizing:border-box;width:100%;min-height:44px;border:1px solid var(--panel-border,#cbd5e1);border-radius:10px;padding:10px 12px;background:var(--panel-bg,#fff);color:inherit;font:inherit;}
+.report-schedules input:focus-visible{outline:3px solid #2563eb;outline-offset:2px;}
+.report-schedules .evolution-check{flex-direction:row;align-items:center;gap:10px;min-height:44px;padding:10px 12px;border:1px solid var(--panel-border,#e2e8f0);border-radius:10px;}
+.report-schedules .evolution-check input{width:18px;height:18px;accent-color:var(--int-brand,#0f766e);}
+.report-schedules .intelligence-guidance{margin:12px 0;}
+.report-schedules .intelligence-guidance .intelligence-button{margin:8px 8px 0 0;max-width:100%;}
+.report-schedules .intelligence-section-heading:first-child{margin-top:0;}
+.report-schedules button:disabled{opacity:.55;cursor:not-allowed;}
 .intelligence-hero{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:24px;}
 .intelligence-eyebrow{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--int-brand);}
 .intelligence-hero h1{font-size:clamp(26px,3vw,36px);letter-spacing:-.04em;margin:8px 0;}

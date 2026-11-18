@@ -14,6 +14,12 @@
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
+.inventory-cost-note {
+  font-size: .78rem;
+  line-height: 1.65;
+  color: var(--text-secondary, #64748b);
+}
+
 .inventory-minimum-button:hover,
 .inventory-minimum-button:focus-visible {
   transform: translateY(-1px);

@@ -1,3 +1,5 @@
+import {useFeatureFlags} from '../context/FeatureFlagContext';
+import {inputCents} from '../services/intelligenceApi';
 import {useIntelligenceOrigin,IntelligenceOriginBanner} from '../components/IntelligenceOrigin';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -93,6 +95,8 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 }
 
+function stockCostCents(value:string){return /^0([.,]0{1,2})?$/.test(value.trim())?0:inputCents(value);}
+
 export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all', selectedOrganization }) => {
   const organizationId = selectedOrganization?.id || 'org_default';
   const originContext=useIntelligenceOrigin(selectedOrganization?.id||'org_default',selectedCampusId||'all','pdv_estoque');
@@ -107,10 +111,14 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
   const [showHistory, setShowHistory] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [movementType, setMovementType] = useState<MovementType>('ENTRY');
+  const {isFeatureEnabled}=useFeatureFlags();
+  const costsEnabled=isFeatureEnabled('pdv.historical_costs',false);
+  const [requestId,setRequestId]=useState(()=>crypto.randomUUID()),[cost,setCost]=useState(''),[extraCost,setExtraCost]=useState(''),[sourceReference,setSourceReference]=useState('');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
 
+  useEffect(()=>{setSelectedItem(null);setCost('');setExtraCost('');setSourceReference('');},[organizationId,selectedCampusId]);
   const campusQuery = selectedCampusId && selectedCampusId !== 'all' ? `&campus_id=${encodeURIComponent(selectedCampusId)}` : '&campus_id=all';
 
   const loadInventory = useCallback(async () => {
@@ -156,6 +164,7 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
   }), [inventory, search, statusFilter,originContext.origin]);
 
   const openMovement = (item: InventoryItem, type: MovementType) => {
+    setRequestId(crypto.randomUUID());setCost('');setExtraCost('');setSourceReference('');
     setSelectedItem(item);
     setMovementType(type);
     setQuantity(type === 'ADJUSTMENT' || type === 'OPENING_BALANCE' ? String(item.on_hand_quantity) : '');
@@ -177,7 +186,8 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
           type: movementType,
           quantity: Number(quantity),
           reason: reason.trim(),
-          notes: notes.trim() || null
+          notes: notes.trim() || null,request_id:requestId,
+          ...(costsEnabled&&['ENTRY','OPENING_BALANCE'].includes(movementType)?{total_cost_cents:cost===''?null:stockCostCents(cost),additional_cost_cents:extraCost===''?0:stockCostCents(extraCost),source_reference:sourceReference.trim()}:{}),
         })
       });
       const data = await response.json();
@@ -328,6 +338,12 @@ export const PdvEstoque: React.FC<PdvEstoqueProps> = ({ selectedCampusId = 'all'
             </div>
             <div className="modal-studio-body" style={{ display: 'grid', gap: 16 }}>
               <div className="form-group-modern"><label className="form-label-modern">{movementType === 'ADJUSTMENT' || movementType === 'OPENING_BALANCE' ? 'Novo saldo físico' : 'Quantidade'}</label><input type="number" min="0" step="0.001" className="input-modern" value={quantity} onChange={event => setQuantity(event.target.value)} /></div>
+              {costsEnabled&&['ENTRY','OPENING_BALANCE'].includes(movementType)&&<>
+                <div className="form-group-modern"><label className="form-label-modern" htmlFor="inventory-entry-cost">Custo total dos itens desta entrada (R$)</label><input id="inventory-entry-cost" className="input-modern" inputMode="decimal" value={cost} onChange={e=>setCost(e.target.value)} placeholder="Vazio: custo desconhecido"/></div>
+                <div className="form-group-modern"><label className="form-label-modern" htmlFor="inventory-extra-cost">Custos adicionais atribuídos à entrada (R$)</label><input id="inventory-extra-cost" className="input-modern" inputMode="decimal" value={extraCost} onChange={e=>setExtraCost(e.target.value)}/></div>
+                <div className="form-group-modern"><label className="form-label-modern" htmlFor="inventory-cost-source">Referência de origem do custo</label><input id="inventory-cost-source" className="input-modern" value={sourceReference} maxLength={200} onChange={e=>setSourceReference(e.target.value)} placeholder="Nota, recibo ou referência de conferência"/></div>
+                <p className="inventory-cost-note">Custo médio por produto e unidade. Entradas sem custo e estoque legado sem comprovação deixam a margem indisponível. Informe zero apenas quando comprovado.</p>
+              </>}
               <div className="form-group-modern"><label className="form-label-modern">Motivo *</label><input className="input-modern" value={reason} onChange={event => setReason(event.target.value)} placeholder="Ex.: recebimento de fornecedor, contagem física, avaria" maxLength={255} /></div>
               <div className="form-group-modern"><label className="form-label-modern">Observações</label><textarea className="input-modern" value={notes} onChange={event => setNotes(event.target.value)} rows={3} /></div>
               <div style={{ padding: 12, borderRadius: 10, background: '#f8fafc', color: 'var(--text-secondary)', fontSize: '.78rem' }}>Saldo atual: <strong>{selectedItem.on_hand_quantity}</strong> · Reservado: <strong>{selectedItem.reserved_quantity}</strong></div>
