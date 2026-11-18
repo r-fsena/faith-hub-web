@@ -1,3 +1,4 @@
+import {useFeatureFlags} from '../context/FeatureFlagContext';
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthHeaders } from '../services/apiClient';
 import './OperationsOverview.css';
@@ -51,6 +52,7 @@ interface AttentionProduct {
 interface OperationsAnalytics {
   period: { start_date: string; end_date: string };
   inventory_enabled: boolean;
+  cost_margin?:{gross_margin_cents:number|null;covered_revenue_cents:number;cost_cents:number|null;total_revenue_cents:number;coverage_percent:number|null;definition:string}|null;
   summary: { gross_sales: number; paid_orders: number; units_sold: number; average_ticket: number };
   sales_by_day: SalesPoint[];
   sales_by_weekday: WeekdayPoint[];
@@ -102,6 +104,7 @@ function stockStatus(product: ProductInsight): { label: string; tone: string } {
 }
 
 export function OperationsOverview({ organizationId, campusId, onNavigate }: OperationsOverviewProps) {
+  const {isFeatureEnabled}=useFeatureFlags();
   const initialRange = useMemo(() => presetRange('current_month'), []);
   const [preset, setPreset] = useState<PeriodPreset>('current_month');
   const [startDate, setStartDate] = useState(initialRange.start);
@@ -203,6 +206,7 @@ export function OperationsOverview({ organizationId, campusId, onNavigate }: Ope
         </div>
       ) : data && (
         <>
+          {isFeatureEnabled('pdv.historical_costs',false)&&data.cost_margin&&<section className="intelligence-panel"><h3>Custo histórico e margem bruta</h3><strong>{data.cost_margin.gross_margin_cents===null?'Margem indisponível':money(data.cost_margin.gross_margin_cents/100)}</strong><p>Vendas cobertas: {money(data.cost_margin.covered_revenue_cents/100)} · custo preservado: {data.cost_margin.cost_cents===null?'Indisponível':money(data.cost_margin.cost_cents/100)} · vendas elegíveis: {money(data.cost_margin.total_revenue_cents/100)}</p><p>Cobertura: {data.cost_margin.coverage_percent===null?'indisponível':data.cost_margin.coverage_percent+'%'}.</p><p>{data.cost_margin.definition}</p></section>}
           <div className="operations-kpi-grid">
             <button type="button" className="operations-kpi tone-brand" onClick={() => onNavigate('pdv_pedidos')}>
               <span>Vendas no período</span><strong>{money(data.summary.gross_sales)}</strong><small>{data.summary.paid_orders} pedidos pagos</small>
