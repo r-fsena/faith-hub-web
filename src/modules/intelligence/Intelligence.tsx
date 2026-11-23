@@ -69,7 +69,7 @@ export default function Intelligence({organizationId,organizationName,campusId,r
     ['community','Comunidade','intelligence.member_journey','visitors.module_enabled'],
     ['actions','Ações','intelligence.actions',null],
     ['goals','Metas','intelligence.goals',null],
-  ] as const).filter(([key, ,flag,parent])=>(role!=='TREASURER'||key==='reports')&&(key!=='capacities'||['SUPERADMIN','PASTOR','ADMIN'].includes(role))&&(key!=='calendar'||isFeatureEnabled('intelligence.history',false)&&isFeatureEnabled('members.module_enabled',false))&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false)));
+  ] as const).filter(([key, ,flag,parent])=>(role!=='TREASURER'||key==='reports'||['alerts','actions'].includes(key)&&['intelligence.alerts_advanced','intelligence.alerts','intelligence.actions','intelligence.finance','financial.module_enabled','financial.accounts_ledger'].every(k=>isFeatureEnabled(k,false)))&&(key!=='capacities'||['SUPERADMIN','PASTOR','ADMIN'].includes(role))&&(key!=='calendar'||isFeatureEnabled('intelligence.history',false)&&isFeatureEnabled('members.module_enabled',false))&&isFeatureEnabled(flag,false)&&(!parent||isFeatureEnabled(parent,false)));
   useEffect(()=>{if((journeyView||['history','reports','calendar','capacities','alerts'].includes(view))&&!extraViews.some(([key])=>key===view))setView('overview');},[view,extraViews.map(([key])=>key).join(':')]);
   useEffect(()=>{if(managementView&&!managementViews.some(([key])=>key===view))setView(role==='TREASURER'?'finance':'overview');},[view,managementViews.map(([key])=>key).join(':'),role]);
   const maxDaily=useMemo(()=>Math.max(1,...(current?.usage.daily||[]).map(day=>day.people||0)),[current]);
