@@ -520,6 +520,12 @@ export const FeatureFlagsManagement: React.FC<FeatureFlagsManagementProps> = ({
                 >
                   {item.description}
                 </p>
+                {item.key === 'cell_groups.offerings' && (
+                  <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 0 }}>
+                    Para liberar em todos os pequenos grupos da igreja, selecione Todas as Unidades e o ambiente desejado.
+                    Ao desativar, os valores registrados são preservados e ficam ocultos.
+                  </p>
+                )}
               </div>
 
               <div
