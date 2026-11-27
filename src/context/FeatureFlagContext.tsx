@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { authFetch } from '../services/apiClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://usl72lj2m5.execute-api.us-east-2.amazonaws.com';
 
@@ -57,7 +58,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
       if (campusId && campusId !== 'all') params.append('campus_id', campusId);
       if (selectedEnv) params.append('environment', selectedEnv);
 
-      const res = await fetch(`${API_URL}/feature-flags?${params.toString()}`);
+      const res = await authFetch(`${API_URL}/feature-flags?${params.toString()}`);
       if (!res.ok) throw new Error(`FEATURE_FLAGS_HTTP_${res.status}`);
       const data = await res.json();
       setFlags(data.flags || {});
@@ -120,7 +121,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
         prev.map(item => (item.key === featureKey ? { ...item, enabled: isEnabled, hasOverride: true } : item))
       );
 
-      const res = await fetch(`${API_URL}/feature-flags/toggle`, {
+      const res = await authFetch(`${API_URL}/feature-flags/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -150,7 +151,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
   ): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_URL}/feature-flags/batch`, {
+      const res = await authFetch(`${API_URL}/feature-flags/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -183,7 +184,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({
   const resetTenantFlags = async (): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_URL}/feature-flags/tenant/${organizationId}`, {
+      const res = await authFetch(`${API_URL}/feature-flags/tenant/${organizationId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
